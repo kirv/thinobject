@@ -759,6 +759,10 @@ test "$method" == "mkdir" && {
 
 test "$method" == "delete" && { ## CAUTION!!
     if [ -z "$*" ]; then # no args, so delete object
+        test -L $tob_object && { ## delete symlink to object, not the object
+            rm $tob_object
+            exit
+            }
         for f in $tob/*; do
             /bin/rm $f
         done
