@@ -777,8 +777,13 @@ test -n "$property" && {
         test -z "$keys" && exec /bin/cat $property
         keys=${keys// /|}
         exec /usr/bin/awk -v IGNORECASE=1 -v keys="$keys" '
-            NR==1{while(++i<=NF)sub($i,"^" i+1 "$",keys)}
-            NR ~ keys ' $property
+            NR==1{
+                while(++i<=NF){
+                    sub($i,"^" i+1 "$",keys)
+                    k[i+1] = $i
+                    }
+                }
+            NR ~ keys {print k[NR]" = "$0}' $property
         exec STUB echo $property dict-list accessor with keys $keys ${keys// /|}
         }
     }
