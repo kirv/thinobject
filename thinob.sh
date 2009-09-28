@@ -7,6 +7,10 @@ CONTINUE_METHOD_SEARCH=100
 LIB=( ~/lib /usr/local/lib /home/.usr-local/lib /usr/lib )
 ROOT=( thinob tob ThinObject )
 
+function manpage() { # print manpage at end of this script...
+    exec awk '/^NAME$/{ok=1}ok' $0
+    }
+
 function check_class () {
     local class="$1"
     for lib in ${LIB[@]}; do
@@ -47,7 +51,10 @@ function class_as_object () {
     return 1
     }
 
-function bail () { echo $* >&2; exit 1; }
+function bail () {
+    test -z "$QUIET" && echo $* >&2
+    exit 1
+    }
 
 ob=$1
 shift
@@ -88,6 +95,10 @@ while [ -n "$ob" -a ${ob#-} != $ob ]; do # option detected by leading "-" ...
         ## with new or clone methods, create hidden ob, don't 'touch' nominal
         NO_TOUCH=1
         opt="$opt --no-touch"
+
+    elif [ "$ob" == "-q" -o "$ob" == "--quiet" ]; then
+        QUIET=1
+        opt="$opt --quiet"
 
     elif [ "$ob" == "-h" -o "$ob" == "--help" ]; then
         manpage
@@ -145,7 +156,7 @@ function resolve_ob_to_tob () { # return object path in global var tob:
         return
         }
 
-    bail "$1 ($ob) is not a thinobject"
+    bail "$1 ($ob) is not a thinobject or was not found"
     }
 
 ####################
@@ -199,7 +210,9 @@ test -z $ob && bail "no object parsed, method $method"
 
 test -z $method && bail "no method parsed, object $ob"
 
+####################
 ## ASSERT: ob and method have been parsed, but not checked
+####################
 
 # echo "    DEBUG: ob: $ob"
 # echo "    DEBUG: method: $method"
@@ -260,8 +273,29 @@ if [ $method == 'new' -o $method == 'clone' ]; then
         test ! $NO_TOUCH && touch $ob
         mkdir $tob
         ln -s $class $tob/^
-        test -x $tob/^/new || exit 0 # no new method
-        $tob/^/new $tob "$@" && exit 0 # all done!
+        ## ASERT: class link is set; search for new method, else done
+        isa=$tob/^
+
+        while [ -e $isa ]; do ## look for new method
+            if [ -d $isa ]; then # parent class methods directory
+                test -e $isa/new && { # new method found!
+                    $isa/new $tob $@ && exit 0 # all done!
+                    }
+            else ## monolithic parent class handler
+                if [ -x $isa ]; then ## handler is executable
+                    # invoke handler, grab exitcode
+                    $isa new $ob $args "$@"
+                    exitcode=$?
+                else
+                    ## as noted above, not sure if this bail-out is right to do...
+                    bail "ERROR: $isa handler not executable"
+                fi
+            fi
+            isa=$isa/^
+        done
+                
+     #  test -x $tob/^/new || exit 0 # no new method
+     #  $tob/^/new $tob "$@" && exit 0 # all done!
         ## ASSERT: the ob.new method failed, so clean up
         exec thinob $ob.delete
         }
@@ -354,7 +388,9 @@ test "$method" == "isa" && {
     exit 0
     }
 
+####################
 ## ASSERT a method was passed
+####################
 
 test -e $tob/^ && { # object ^ file/directory/link exists...
 
@@ -377,6 +413,7 @@ test -e $tob/^ && { # object ^ file/directory/link exists...
       # echo $super $method
     done
     
+    ## search in class, parent class, parent of parent class, etc., 
     isa=$tob/^
     while [ -e $isa ]; do
         ## ASSERT: parent class exists
@@ -431,7 +468,9 @@ test -e $tob/^ && { # object ^ file/directory/link exists...
 
 ## ASSERT: no ^ file, so handle as base class thinobject
 
+####################
 ## default methods follow
+####################
 
 test -n "$SHOWHEADER" && echo $ob: 
 
@@ -630,5 +669,225 @@ test "$method" == "delete" && { ## CAUTION!!
     exit 0
     }
 
+####################
+## no method found, so check for automatic accessors... 
+####################
+
+isa=$tob # start looking in the object...
+while [ -e $isa ]; do
+    ## ASSERT: parent class exists
+    test -e $isa/\@$method && { # called ob.foo, found @foo in ob...
+        lines="$1"
+      # exec echo @$method accessor lines $lines
+        test -z $lines && exec cat $isa/@$method
+        exec perl -e "\$[=1; @r=<>; print @r[$lines]" $isa/@$method
+        }
+    
+    test -e $isa/\%$method && { # called ob.foo, found %foo in ob...
+        keys="$@"
+        test -z "$keys" && exec cat $isa/%$method
+        keys=${keys// /|}
+        exec awk -v IGNORECASE=1 "\$1~/$keys/" $isa/%$method
+        exec echo %$method accessor with keys $keys ${keys// /|}
+        }
+    isa=$isa/^ # continue search with parent class, if any...
+done
+
+# test -e $tob/\@$method && { # called ob.foo, found @foo in ob...
+#     lines="$1"
+#   # exec echo @$method accessor lines $lines
+#     test -z $lines && exec cat $tob/@$method
+#     exec perl -e "\$[=1; @r=<>; print @r[$lines]" $tob/@$method
+#     }
+# 
+# test -e $tob/\%$method && { # called ob.foo, found %foo in ob...
+#     keys="$@"
+#     test -z "$keys" && exec cat $tob/%$method
+#     keys=${keys// /|}
+#     exec awk -v IGNORECASE=1 "\$1~/$keys/" $tob/%$method
+#     exec echo %$method accessor with keys $keys ${keys// /|}
+#     }
+
+
+####################
+## still no method found -- check for default?
+####################
+
+isa=$tob/^ # start looking in the object class ...
+while [ -e $isa ]; do
+    ## ASSERT: class exists
+    test -e $isa/_default && {
+        test -x $isa/_default && {
+          # echo DEBUG thinob: exec $isa/_default $ob $method $*
+            exec $isa/_default $ob $method $*
+            }
+        ## ASSERT: _default is not executable
+        ## maybe it can contain a recipe to be executed?
+        bail 'non-executable _default "method" found'
+        }
+    isa=$isa/^ # continue search with parent class, if any...
+done
+
+
 test $VERBOSE && echo no method $method found 
 bail "no method $method found"
+
+##############
+## manpage follows
+##############
+NAME
+    thinob, tob -- ThinObject ``enabler''
+SYNOPSIS
+    tob [OPTIONS]... object.method [METHOD_OPTIONS]... [ARGUMENTS]...
+    tob -m method object...
+DESCRIPTION
+    The thinob or tob script enables the specified object to execute
+    its specified method under the ThinObject scheme.
+
+    ThinObject strives to achieve object oriented programming and data
+    management directly on the filesystem, in a language-independent way.
+    Methods are executable programs, so may be written in any language.
+    The key to the thinobject system is the use of a symlink to a class
+    directory (or executable handler), named "^".  Methods and attributes
+    are searched for along the chain of class links.
+OPTIONS
+    -d
+    --debug
+    turn on debug output
+
+    -v
+    --verbose
+    turn on verbose output
+
+    -m M
+    --method M
+    apply method M to the following list of objects    
+
+    -a ARGS...
+    --arg ARGS...
+    provide arguments; useful in conjunction with the --method option
+
+    -h
+    --help
+    show this help screen (manpage)
+
+    -S
+    --not-strict
+    override normal validity checking of class path
+    
+    --no-cd
+    do not chdir into object directory to execute the method
+
+    -H
+    --not-hidden
+    with new or clone methods, create object directly, not as a dot-directory
+    
+    -T
+    --no-touch
+    with new or clone methods, create hidden object, don't touch nominal file
+    
+    -q
+    --quiet
+    suppress output to stderr on errors
+    
+METHODS
+    new CLASS
+    create a new object of class CLASS
+
+    clone OBJECT
+    create a new object as a clone (copy) of OBJECT
+
+    tob
+    output the object directory path
+
+    isa
+    output the class hierarchy
+
+    exists
+    return success if the object exists
+
+    ls [LS_OPTIONS] [file]...
+    run the shell ``ls'' command in the object directory
+
+    wc [WC_OPTIONS] [file]...
+    run the shell ``wc'' command in the object directory
+
+    find [FIND_ARGUMENT]...
+    run the shell ``find'' command in the object directory
+
+    cat [FILE]...
+    run the shell ``cat'' command in the object directory
+
+    method
+    output list of methods available to the object
+
+    method METHOD
+    output the pathname of METHOD in the object
+
+    edit [EDIT_OPTIONS] FILE...
+    invoke the shell ``EDITOR'' in the object directory
+
+    touch [TOUCH_OPTIONS] FILE...
+    run the shell ``touch'' command in the object directory
+
+    mkdir [MKDIR_OPTIONS] DIR...
+    run the shell ``mkdir'' command in the object directory
+
+    delete [FILE]...
+    delete selected file(s) or the entire object
+
+    set FILE
+    overwrite the value (contents) of FILE in the object
+    NEEDS WORK!!
+
+    param
+    output attributes of the object, one per line
+    NEEDS WORK!!
+
+    foo [ARG]...
+    if no method ``foo'' is found in the class hierarchy, search
+    for a LIST property (@foo) or a DICTIONARY property (%foo) and
+    treat this pseudo method as an ``accessor'' of that property.
+
+PROPERTIES
+    The ThinObject system uses ordinary files and directories in the
+    filesystem, so the contents of an object is arbitrary.  It may be
+    convenient/helpful to think of the contents of an object as its
+    ``properties'', if only to distinguish them from otherwise 
+    ordinary files (which they really are).
+
+    However, special meaning is applied to certain files, as follows:
+
+    ^
+    symlink to the parent class
+
+    @
+    @foo
+    list property, a file containing a list of entries, one per line.
+    @, the anonymous list property, may be scanned when any object method
+    is invoked.
+
+    %
+    %foo
+    dictionary property, file containing a list of tag=value entries,
+    one pair per line.  %, the anonymous dictionary property, may be 
+    scanned in automatically during method invocation, so can be used
+    to store various object attributes.
+
+    foo=bar
+    attribute 'foo' is assigned the value 'bar'.
+
+SEE ALSO
+    Each thinobject class is *supposed to* provide a help method, and
+    a --help option to each of its methods.
+
+BUGS
+    Probably plenty.  This is an experimental system, with many details
+    remaining to flesh out and/or fix.
+
+    Not sure the --quiet option is working quite right...
+
+AUTHOR
+    Ken Irving <fnkci@uaf.edu> (c) 2007
+END_OF_MANPAGE
+
