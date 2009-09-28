@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# $Header: /home/ken/proj/thinobject/src/sh/../../src-sh/tob.sh,v 1.3 2007/04/03 21:27:16 ken Exp $
+# $Header: /home/ken/proj/thinobject/src/sh/../../src-sh/tob.sh,v 1.4 2007/04/12 18:54:25 ken Exp $
 
 # define a special exit status to search up object classes, sub to super(s):
 CONTINUE_METHOD_SEARCH=100
@@ -87,7 +87,7 @@ function resolve_ob_to_tob () { # return object path in global var tob:
 
     ## ASSERT: $ob is NOT a symlink, so is either a file, directory, or null
 
-    if [ -d $ob -a -e "$ob/ISA" ]; then # $ob is a thinobject (but not checked)
+    if [ -d $ob -a -e "$ob/^" ]; then # $ob is a thinobject (but not checked)
         tob=$ob
         return
     fi
@@ -98,7 +98,7 @@ function resolve_ob_to_tob () { # return object path in global var tob:
     else # ob has a slash in it
         tob=${ob%\/*}/.${ob/*\//}
     fi
-    test -L $tob/ISA && return # tob is a thinobject
+    test -L $tob/^ && return # tob is a thinobject
     bail "$1 ($ob) is not a thinobject"
     }
 
@@ -199,9 +199,9 @@ if [ $method == 'new' -o $method == 'clone' ]; then
         test $VERBOSE && echo creating new object $ob
         test ! $NO_TOUCH && touch $ob
         mkdir $tob
-        ln -s $class $tob/ISA
-      # test -x $tob/ISA/new && exec tob $ob.new
-        test -x $tob/ISA/new && exec $tob/ISA/new $tob $*
+        ln -s $class $tob/^
+      # test -x $tob/^/new && exec tob $ob.new
+        test -x $tob/^/new && exec $tob/^/new $tob $*
         exit 0
         }
 
@@ -271,15 +271,15 @@ test "$method" == "tob" && {
     }
 
 test "$method" == "isa" && {
-    test -e $tob/ISA && {
-        test -L $tob/ISA && {
-            ls -l $tob/ISA | awk -v s=$LIB_ROOT '{
+    test -e $tob/^ && {
+        test -L $tob/^ && {
+            ls -l $tob/^ | awk -v s=$LIB_ROOT '{
                 sub(s, "", $NF); # remove lib_root from link target
                 sub("^/+", "", $NF); # remove leading & trailing "/"
                 sub("/+$", "", $NF);
                 print $NF
                 }'
-            superclass=$tob/ISA/SUPER
+            superclass=$tob/^/^
             pad="    "
             while [ -L $superclass ]; do
                 readlink -f $superclass | awk -v s=$LIB_ROOT -v pad="$pad" '{
@@ -288,12 +288,12 @@ test "$method" == "isa" && {
                     sub("/+$", "", $NF);
                     print pad $NF
                     }'
-                superclass=$superclass/SUPER
+                superclass=$superclass/^
                 pad="    "$pad
             done
             exit 0
             }
-        bail "$ob ISA property is not a symlink..."
+        bail "$ob ^ property is not a symlink..."
         }
     ## ASSERT: no object class specified, so the default is:
     echo thinobject
@@ -302,21 +302,21 @@ test "$method" == "isa" && {
 
 ## ASSERT a method was passed
 
-test -e $tob/ISA && { # object ISA file/directory/link exists...
+test -e $tob/^ && { # object ^ file/directory/link exists...
 
     ## not sure the following test is really required or valid...
     ##    e.g., one could have a once-only object I suppose ...
-    ## require object's ISA to be a symlink:
-    test ! -L $tob/ISA &&
-        bail "ERROR: object $ob ISA property is not a symlink"
+    ## require object's ^ to be a symlink:
+    test ! -L $tob/^ &&
+        bail "ERROR: object $ob ^ property is not a symlink"
 
     test -z $NOT_STRICT && { # safety check
-      # test $VERBOSE && echo CHECKING: $(ls -l $tob/ISA)
-        ls -l $tob/ISA | awk -v s=$LIB_ROOT 'index($NF,s)!=1{exit(1)}' ||
+      # test $VERBOSE && echo CHECKING: $(ls -l $tob/^)
+        ls -l $tob/^ | awk -v s=$LIB_ROOT 'index($NF,s)!=1{exit(1)}' ||
             bail "invalid class/method handler location"
         }
 
-    isa=$tob/ISA
+    isa=$tob/^
     while [ -e $isa ]; do
         ## ASSERT: parent class exists
         if [ -d $isa ]; then # parent class methods directory
@@ -347,12 +347,12 @@ test -e $tob/ISA && { # object ISA file/directory/link exists...
             test $exitcode == $CONTINUE_METHOD_SEARCH || exit $exitcode
             }
         ## ASSERT: method either not found or handler says to keep going...
-        isa=$isa/SUPER # continue search with parent class, if any...
+        isa=$isa/^ # continue search with parent class, if any...
     done
 
     }
 
-## ASSERT: no ISA file, so handle as base class thinobject
+## ASSERT: no ^ file, so handle as base class thinobject
 
 ## default methods follow
 
