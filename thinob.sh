@@ -4,7 +4,7 @@
 CONTINUE_METHOD_SEARCH=100
 
 # require class handlers & methods to be under this path, unless --not-strict
-LIB=( ~/lib /usr/local/lib /usr/lib )
+LIB=( ~/lib /usr/local/lib /home/.usr-local/lib /usr/lib )
 ROOT=( thinob tob ThinObject )
 
 function check_class () {
@@ -27,6 +27,19 @@ function classname () { # remove class library root from class link ^
             path=$lib/$root
             test ${classname#$path/} == $classname || {
                 classname=${classname#$path/}
+                return 0
+                }
+        done
+    done
+    return 1
+    }
+
+function class_as_object () {
+    local class="$1"
+    for lib in ${LIB[@]}; do
+        for root in ${ROOT[@]}; do
+            classpath=$lib/$root/$class
+            test -d $classpath && { # got it!
                 return 0
                 }
         done
@@ -125,6 +138,13 @@ function resolve_ob_to_tob () { # return object path in global var tob:
         tob=${ob%\/*}/.${ob/*\//}
     fi
     test -L $tob/^ && return # tob is a thinobject
+    
+    ## object $ob not found, so check if instead it's a ThinObject class:
+    class_as_object $ob && { # yes, it is a class
+        tob=$classpath       # access the class (almost) as if it's an object
+        return
+        }
+
     bail "$1 ($ob) is not a thinobject"
     }
 
