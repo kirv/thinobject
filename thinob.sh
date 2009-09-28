@@ -1,14 +1,40 @@
 #!/bin/sh
 
-# $Header: /home/ken/proj/thinobject/src/sh/../../src-sh/thinob.sh,v 1.2 2007/10/02 09:41:50 ken Exp $
+# $Header: /home/ken/proj/thinobject/src/sh/../../src-sh/thinob.sh,v 1.3 2007/10/02 09:42:39 ken Exp $
 
 # define a special exit status to search up object classes, sub to super(s):
 CONTINUE_METHOD_SEARCH=100
 
 # require class handlers & methods to be under this path, unless --not-strict
-# LIB_ROOT=/usr/lib/thinob/:/usr/local/lib/thinob/:~/lib/thinob/:$THINOB-LIB
-# LIB_ROOT=( /usr/lib/thinob/ /usr/local/lib/thinob/ ~/lib/thinob/ )
-LIB_ROOT=/usr/local/lib/thinob/
+LIB=( ~/lib /usr/local/lib /usr/lib )
+ROOT=( thinob tob ThinObject )
+
+function check_class () {
+    local class="$1"
+    for lib in ${LIB[@]}; do
+        for root in ${ROOT[@]}; do
+            path=$lib/$root
+            test ${class#$path/} == $class || { # got it!
+                return 0
+                }
+        done
+    done
+    return 1
+    }
+
+function classname () { # remove class library root from class link ^
+    classname=$1
+    for lib in ${LIB[@]}; do
+        for root in ${ROOT[@]}; do
+            path=$lib/$root
+            test ${classname#$path/} == $classname || {
+                classname=${classname#$path/}
+                return 0
+                }
+        done
+    done
+    return 1
+    }
 
 function bail () { echo $* >&2; exit 1; }
 
@@ -189,21 +215,24 @@ if [ $method == 'new' -o $method == 'clone' ]; then
         ## ASSERT class is specified
 
         if [ ${class#/} != $class ]; then # absolute path
-     #      test ! "$NOT_STRICT" -a ${class#$LIB_ROOT} == $class &&
-     #          bail "ERROR new: invalid class library path"
-
-            test ! "$NOT_STRICT" && {
-                found=0
-                for path in ${LIB_ROOT[@]}; do
-                    test ${class#$path} == $class || found=1
-                done
-                echo found=$found
-                test found == 1 || bail "ERROR new: invalid class library path"
-              # bail "ERROR new: invalid class library path"
-                }
-
+            test ! "$NOT_STRICT" && 
+                check_class $class || bail "ERROR new: invalid class library path"
         else # relative path
-            class=$LIB_ROOT/$class
+            unset classpath
+            for lib in ${LIB[@]}; do
+                for root in ${ROOT[@]}; do
+                    echo CHECKING: $lib/$root/$class...
+                    test -x $lib/$root/$class && {
+                        classpath=$lib/$root/$class
+                        test -f $classpath || test -d $classpath ||
+                            bail "ERROR new: $class not directory or handler"
+                        break 2
+                        }
+                done
+            done
+            test -z "$classpath" &&
+                bail "ERROR new: class library $class not found"
+            class=$classpath
         fi
         test ! -e $class &&
             bail "ERROR new: class library $class not found"
@@ -286,28 +315,21 @@ test "$method" == "tob" && {
 
 test "$method" == "isa" && {
     test -e $tob/^ && {
-        test -L $tob/^ && {
-            ls -l $tob/^ | awk -v s=$LIB_ROOT '{
-                sub(s, "", $NF); # remove lib_root from link target
-                sub("^/+", "", $NF); # remove leading & trailing "/"
-                sub("/+$", "", $NF);
-                print $NF
-                }'
-            superclass=$tob/^/^
-            pad="    "
-            while [ -L $superclass ]; do
-                readlink -f $superclass | awk -v s=$LIB_ROOT -v pad="$pad" '{
-                    sub(s, "", $NF); # remove lib_root from link target
-                    sub("^/+", "", $NF); # remove leading & trailing "/"
-                    sub("/+$", "", $NF);
-                    print pad $NF
-                    }'
-                superclass=$superclass/^
-                pad="    "$pad
-            done
-            exit 0
-            }
-        bail "$ob ^ property is not a symlink..."
+        class=$tob/^
+        test -L $class || bail "$ob ^ property is not a symlink..."
+        pad=""
+        while [ -L $class ]; do
+            classlink=$(readlink -f $class)
+            if [ $VERBOSE ]; then # show full path of class link, no indent
+                echo $classlink
+            else                  # show class name, indented
+                classname $classlink
+                echo "$pad$classname"
+            fi
+            class=$class/^
+            pad="  "$pad
+        done
+        exit 0
         }
     ## ASSERT: no object class specified, so the default is:
     echo thinobject
@@ -325,8 +347,7 @@ test -e $tob/^ && { # object ^ file/directory/link exists...
         bail "ERROR: object $ob ^ property is not a symlink"
 
     test -z $NOT_STRICT && { # safety check
-      # test $VERBOSE && echo CHECKING: $(ls -l $tob/^)
-        ls -l $tob/^ | awk -v s=$LIB_ROOT 'index($NF,s)!=1{exit(1)}' ||
+        check_class $(readlink -f $tob/^) ||
             bail "invalid class/method handler location"
         }
 
