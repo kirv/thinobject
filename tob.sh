@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# $Header: /home/ken/proj/thinobject/src/sh/../../src-sh/tob.sh,v 1.2 2007/04/03 21:26:42 ken Exp $
+# $Header: /home/ken/proj/thinobject/src/sh/../../src-sh/tob.sh,v 1.3 2007/04/03 21:27:16 ken Exp $
 
 # define a special exit status to search up object classes, sub to super(s):
 CONTINUE_METHOD_SEARCH=100
@@ -8,103 +8,7 @@ CONTINUE_METHOD_SEARCH=100
 # require class handlers & methods to be under this path, unless --not-strict
 LIB_ROOT=/usr/local/lib/ThinObject
 
-function manpage() {
-    cat <<END_MANPAGE
-NAME
-
-tob -- thinobject enabler 
-
-SYNOPSIS
-
-  $ tob OPTIONS object.method args...
-
-DESCRIPTION
-
-*thinobject* is an experimental system aimed at implementing object
-oriented behaviors directly on a (unix) filesystem.  A thinobject is a
-file or directory with an associated hidden directory of the same name
-but with a "dot" prefix.
-
-The object hidden directory can contain arbitrary files (i.e., properties)
-and directories.
-
-The object hidden directory may contain a symlink, "ISA", which points to
-a "class handler" for the object, or to a "class directory" containing
-object methods.  A class directory may contain a symlink, "SUPER",
-to a parent class directory or handler.
-
-Class handlers and methods can use a special exit status value ($CONTINUE_METHOD_SEARCH)
-to tell tob.sh to keep searching for method handlers.  Searching will
-fall through to the "base class" methods defined in this program, tob.sh.
-
-OPTIONS
-
-  -h, --help
-    display manpage
-
-  -S, --not-strict
-    suppress checking of class/method handler location
-
-  --nocd
-    don't change to the object hidden directory
-
-  -m method 
-  --method METHOD
-    apply method to each argument object
-
-  -v, --verbose
-    show object name before other output
-
-  -d, --debug
-    print debugging information
-    --debug + --verbose also shows commands to be run for base methods
-
-DEFAULT METHODS
-
-tob 
-  print (expose) path to the object hidden store (directory)
-  (note; this method cannot be subclassed)
-
-exists
-  return true if the object is a *thinobject*
-
-ls [args]
-  apply shell C<ls> command to object hidden store
-
-find [args]
-  apply shell C<find> command to object hidden store
-
-cat property ...
-  print property content to STDOUT
-
-set property [content]
-  overwrite the object property with arguments or from STDIN
-
-isa 
-  print object class
-
-new [class]
-  create empty object and hidden store
-  class must exist under LIB_ROOT ($LIB_ROOT) unless --not-strict is set
-
-clone object2
-  create new object as copy of object2
-
-edit [options] property ...
-  invoke system editor to edit selected properties
-
-AUTHOR
-
-copyright (c) 2006 Ken Irving <fnkci@uaf.edu>
-the author intends this code to be licensed under the GNU Public License (GPL)
-
-END_MANPAGE
-    };
-
-function bail () {
-    echo $* >&2
-    exit 1
-    }
+function bail () { echo $* >&2; exit 1; }
 
 ob=$1
 shift
@@ -136,6 +40,16 @@ while [ -n "$ob" -a ${ob#-} != $ob ]; do # option detected by leading "-" ...
         NOCD=1
         opt="$opt --nocd"
 
+    elif [ "ob" == "-H" -o "$ob" == "--not-hidden" ]; then
+        ## with new or clone methods, create object directly, not dotted...
+        NOT_HIDDEN=1
+        opt="$opt --not-hidden"
+
+    elif [ "ob" == "-T" -o "$ob" == "--no-touch" ]; then
+        ## with new or clone methods, create hidden ob, don't 'touch' nominal
+        NO_TOUCH=1
+        opt="$opt --no-touch"
+
     elif [ "$ob" == "-h" -o "$ob" == "--help" ]; then
         manpage
         exit 0
@@ -149,7 +63,7 @@ done
 
 test -z $ob && bail "no object specified"
 
-test $method && { # iterate same method on multiple objects
+test $method && { # iterate method on multiple objects (see -m, --method)
     while [ $ob ]; do
         if [ ${ob/=} != $ob ]; then # tag=value form detected
             args="$args $ob"
@@ -163,16 +77,77 @@ test $method && { # iterate same method on multiple objects
     exit 0
     }
 
-test ${ob#./} != $ob && ob=${ob:2} # drop leading ./ from ob name if present
+# ASSERT: $ob contains object(s) and method
+# echo START: $ob
 
-if [[ ${ob/./} == $ob ]]; then # no dot in ob, so no method specified
-    method=exists
-else # parse object.method:
-    method=$ob
-  # method=${method#*.} # method follows "."
-    method=${method##*.} # method follows "."
-    ob=${ob%.*}         # object precedes "."
-fi
+function resolve_ob_to_tob () { # return object path in global var tob:
+  # tob="${1}__"
+    ob=$1
+    test -L $ob && ob=$(readlink -f $ob) # resolve symlinked/aliased ob
+
+    ## ASSERT: $ob is NOT a symlink, so is either a file, directory, or null
+
+    if [ -d $ob -a -e "$ob/ISA" ]; then # $ob is a thinobject (but not checked)
+        tob=$ob
+        return
+    fi
+    ## ASSERT: $ob itself is not a thinobject, so check the dot-object...
+
+    if [ "${ob/\/*/}" == "$ob" ]; then # no slash in ob
+        tob=.$ob
+    else # ob has a slash in it
+        tob=${ob%\/*}/.${ob/*\//}
+    fi
+    test -L $tob/ISA && return # tob is a thinobject
+    bail "$1 ($ob) is not a thinobject"
+    }
+
+####################
+## check for & resolve colon-delimited (contained) objects to the final object:
+####################
+
+test ${ob/::} == $ob || bail double colons not supported... need to fix?
+
+# ## replace any '::' sequences temporarily:
+# ob=${ob//::/__2COLONS__}
+while [ ${ob/:/} != $ob ]; do
+  # echo .
+    oball=$ob
+    ob=${ob%%:*}
+    oblist=${oball#*:}
+
+    # ## restore double colon in ob
+    # ob=${ob//__2COLONS__/::}
+   
+  # echo RESOLVE: $ob
+  # echo REMAINS: $oblist
+
+  # echo resolve $ob to tob
+
+    resolve_ob_to_tob $ob
+
+    ob=$tob/$oblist
+
+    # ## encode double colon in ob
+    # ob=${ob//::/__2COLONS__}
+  # echo _TEST: $ob
+
+    done
+
+# ob=${ob//__2COLONS__/::}
+
+# echo _DONE: $ob
+
+####################
+## now parse method from object
+####################
+
+method=${ob##*.}
+ob=${ob%.*}
+
+# echo .
+# echo OBJECT: $ob
+# echo METHOD: $method
 
 test -z $ob && bail "no object parsed, method $method"
 
@@ -183,151 +158,128 @@ test -z $method && bail "no method parsed, object $ob"
 # echo "    DEBUG: ob: $ob"
 # echo "    DEBUG: method: $method"
 
-test ${ob/::/} != $ob && { # check for double colons...
-    echo double colon filename, $ob, not supported\; fix if needed...
-    ## this could be fixed if necessary
-    exit 1
-    }
+if [ $method == 'new' -o $method == 'clone' ]; then
 
-# test ${ob/:/} != $ob && { # ":" delimits a contained object
-#   # echo DEBUG: contained object detected
-#     subob=${ob#*:}
-#   # echo subob: $subob
-#     ## check for subob later...
-#     ob=${ob%%:*}
-#   # echo ob: $ob
-#     ## ob is now the top object to resolve, and subob its contained object
-#     }
+    echo DEBUG: about to create new object: $ob
 
-if [ ${ob/:/} != $ob ]; then # ":" delimits a contained object
-  # echo DEBUG: contained object detected
-    subob=${ob#*:}
-  # echo subob: $subob
-    ## check for subob later...
-    ob=${ob%%:*}
-  # echo ob: $ob
-    ## ob is now the top object to resolve, and subob its contained object
-elif [ ! -e $ob ]; then # object not found; check for new or clone methods
-    ## ASSERT: ob does not exist
-    test "$method" != "new" -a "$method" != "clone" &&
-        bail "$ob object not found"
-
-    ## ASSERT method new() or clone()
-    if [ ${ob/\/} == $ob ]; then # no slash in ob
-        dob=.$ob
-    else # ob has a slash in it
-        dob=${ob%\/*}/.${ob/*\//}
+    if [ $NOT_HIDDEN ]; then
+        test -e $ob && bail "$ob already exists as file or directory"
+        ## ASSERT: $ob does not exist
+        tob=$ob
+    else
+        ## create tob by "dotting" ob:
+        if [ ${ob/\/} == $ob ]; then # no slash in ob
+            tob=.$ob
+        else # ob has a slash in it
+            tob=${ob%\/*}/.${ob/*\//}
+        fi
     fi
-    test -e "$dob" &&
-        bail "no object $ob found, but hidden store $dob already exists!??"
-    test $VERBOSE && echo object: $ob, hidden store: $dob
+
+  # echo nominal: $ob
+  # echo _object: $tob
+  # echo _method: $method
+
+    test -e "$tob" && bail "thinobject $tob already exists!??"
 
     test "$method" == "new" && {
-        test -n "$1" && { # class specified as argument
-            isa=$1
-            if [ ${isa#/} != $isa ]; then # absolute path
-                test ! "$NOT_STRICT" -a ${isa#$LIB_ROOT} == $isa &&
-                    bail "ERROR new: invalid class library path"
-            else # relative path
-                isa=$LIB_ROOT/$isa
-            fi
-            test ! -e $isa &&
-                bail "ERROR new: class library $isa not found"
-            ## should perhaps do more validity testing of the class here
-            }
+        class="$1"; shift
+        test -n $class || bail "no thinobject class specified!" 
+        ## ASSERT class is specified
+
+        if [ ${class#/} != $class ]; then # absolute path
+            test ! "$NOT_STRICT" -a ${class#$LIB_ROOT} == $class &&
+                bail "ERROR new: invalid class library path"
+        else # relative path
+            class=$LIB_ROOT/$class
+        fi
+        test ! -e $class &&
+            bail "ERROR new: class library $class not found"
+        ## should perhaps do more validity testing of the class here
+
         test $VERBOSE && echo creating new object $ob
-        touch $ob
-        mkdir $dob
-        test $isa && ln -s $isa $dob/ISA
-        test -x $dob/ISA/new && exec tob $ob.new
+        test ! $NO_TOUCH && touch $ob
+        mkdir $tob
+        ln -s $class $tob/ISA
+      # test -x $tob/ISA/new && exec tob $ob.new
+        test -x $tob/ISA/new && exec $tob/ISA/new $tob $*
         exit 0
         }
 
-    ## ASSERT: method clone()
+    test "$method" == "clone" && {
+        ob2=$1
+        shift
 
-    ob2=$1
-    shift
+        bail clone method not supported yet!
 
-    test -z "$ob2" &&
-        bail "ERROR clone: need to specify object to clone"
+        ## need to check out the following bits...
+    
+        test -z "$ob2" &&
+            bail "ERROR clone: need to specify object to clone"
+    
+      # echo resolve $ob2 and its hidden store
+        ## resolve symlink to target if linked
+        test -L $ob2 && tob2=$(readlink -f $ob2) # resolve symlinked/aliased ob2
+    
+        if [ ${ob2/\/*/} == $ob2 ]; then # no slash in ob2
+            tob2=.$ob2
+        else # ob2 has a slash in it
+            tob2=${ob2%\/*}/.${ob2/*\//}
+        fi
+    
+        test ! -d "$tob2" &&
+            bail "$ob2 is not a thinobject \(no hidden store $tob2\)"
+    
+        test $VERBOSE && echo cloning $ob2 to $ob
+        cp -p $ob2 $ob
+        cp -rp $tob2 $tob
+        exit 0
+        }
+    bail "shouldn't get here..."
+fi ## end of new or clone section
 
-    if [ -n "$1" ]; then $ob2=$1; else
-        bail "need to specify object to clone"
-    fi
+# echo .
+# echo OBJECT: $ob
+# echo METHOD: $method
 
-  # echo resolve $ob2 and its hidden store
-    ## resolve symlink to target if linked
-    test -L $ob2 && dob=$(readlink -f $ob2) # resolve symlinked/aliased ob2
+resolve_ob_to_tob $ob
+# echo ___TOB: $tob
 
-    if [ ${ob2/\/*/} == $ob2 ]; then # no slash in ob2
-        dob2=.$ob2
-    else # ob2 has a slash in it
-        dob2=${ob2%\/*}/.${ob2/*\//}
-    fi
+###########################################################333
 
-    test ! -d "$dob2" &&
-        bail "$ob2 is not a thinobject \(no hidden store $dob2\)"
+## ASSERT: $ob is a nominal object, $tob is the actual thinobject
 
-    echo cloning $ob2 to $ob
-    cp -p $ob2 $ob
-    cp -rp $dob2 $dob
-    exit 0
-fi
+test -z "$ob" -o -z "$tob" && bail "no object was parsed"
 
-## ASSERT: object ob exists
+test ! -d $tob && bail "ERROR: $tob is not a directory"
 
-dob=$ob
-test -L $dob && dob=$(readlink -f $dob) # resolve symlinked/aliased ob
+test -z "$method" && bail "no method specified for $ob"
 
-## ASSERT: $dob should be paired with a dot-directory in same directory
-
-if [ ${dob#*/} == $dob ]; then # no slash in ob
-    dob=.$dob
-else # dob has a slash in it
-  # dob=${dob%\/*}/.${dob/*\//}
-    dob=${dob%/*}/.${dob##*/}
-fi
-
-## ASSERT: $ob is an object, $dob its hidden store
-
-test -z "$ob" -o -z "$dob" && exit 1 # no object was parsed 
-
-test ! -d $dob && # no dot-directory found
-    bail "ERROR: object $ob hidden store $dob is not a directory"
-
-## ASSERT ob is a thinobject, dob is the hidden store
-
-test $subob && { # remake method call on the contained object
-  # echo "EXEC: " $0 $opt $dob/$subob.$method $args $*
-    exec $0 $opt $dob/$subob.$method $args $*
-    exit 0
+test -n "$DEBUG" && {
+    echo DEBUG: nominal object=$ob
+    echo DEBUG: thinobject=$tob
+    echo DEBUG: method=$method
+    echo DEBUG: args1=\'$args\' args2=\'$*\'
     }
-
-test -n "$DEBUG" &&
-    echo DEBUG: object=$ob, method=$method, args1=\'$args\' args2=\'$*\'
-
-test -z "$method" &&
-    bail "SHOULDN\'T HAPPEN -- no method specified for $ob"
 
 ## SPECIAL CASES: tob and isa methods precede the normal method search
 test "$method" == "tob" && {
-    test -z "$*" && echo $dob
+    test -z "$*" && echo $tob
     for arg in $*; do
-        echo $dob/$arg
+        echo $tob/$arg
     done
     exit 0
     }
 
 test "$method" == "isa" && {
-    test -e $dob/ISA && {
-        test -L $dob/ISA && {
-            ls -l $dob/ISA | awk -v s=$LIB_ROOT '{
+    test -e $tob/ISA && {
+        test -L $tob/ISA && {
+            ls -l $tob/ISA | awk -v s=$LIB_ROOT '{
                 sub(s, "", $NF); # remove lib_root from link target
                 sub("^/+", "", $NF); # remove leading & trailing "/"
                 sub("/+$", "", $NF);
                 print $NF
                 }'
-            superclass=$dob/ISA/SUPER
+            superclass=$tob/ISA/SUPER
             pad="    "
             while [ -L $superclass ]; do
                 readlink -f $superclass | awk -v s=$LIB_ROOT -v pad="$pad" '{
@@ -350,21 +302,21 @@ test "$method" == "isa" && {
 
 ## ASSERT a method was passed
 
-test -e $dob/ISA && { # object ISA file/directory/link exists...
+test -e $tob/ISA && { # object ISA file/directory/link exists...
 
     ## not sure the following test is really required or valid...
     ##    e.g., one could have a once-only object I suppose ...
     ## require object's ISA to be a symlink:
-    test ! -L $dob/ISA &&
+    test ! -L $tob/ISA &&
         bail "ERROR: object $ob ISA property is not a symlink"
 
     test -z $NOT_STRICT && { # safety check
-      # test $VERBOSE && echo CHECKING: $(ls -l $dob/ISA)
-        ls -l $dob/ISA | awk -v s=$LIB_ROOT 'index($NF,s)!=1{exit(1)}' ||
+      # test $VERBOSE && echo CHECKING: $(ls -l $tob/ISA)
+        ls -l $tob/ISA | awk -v s=$LIB_ROOT 'index($NF,s)!=1{exit(1)}' ||
             bail "invalid class/method handler location"
         }
 
-    isa=$dob/ISA
+    isa=$tob/ISA
     while [ -e $isa ]; do
         ## ASSERT: parent class exists
         if [ -d $isa ]; then # parent class methods directory
@@ -413,10 +365,10 @@ test "$method" == "exists" && {
 
 test "$method" == "ls" && {
     if [ -z $NOCD ]; then
-        cd $dob
+        cd $tob
         target="$@"
     else
-        target="$dob/$@"
+        target="$tob/$@"
     fi
   # test $DEBUG -a $VERBOSE && echo exec ls -p $args $target
     exec ls -p $args $target
@@ -424,10 +376,10 @@ test "$method" == "ls" && {
 
 test "$method" == "wc" && {
     if [ -z $NOCD ]; then
-        cd $dob
+        cd $tob
         target="$*"
     else
-        target="$dob/$*"
+        target="$tob/$*"
     fi
   # test $DEBUG -a $VERBOSE && echo exec wc -p $args $target
     exec wc $args $target
@@ -435,7 +387,7 @@ test "$method" == "wc" && {
 
 test "$method" == "find" && {
     test -z "$NOCD" && {
-        cd $dob
+        cd $tob
         if [ -n "$*" ]; then
           # exec find -L $* # follow symlinks by default!
             test $DEBUG -a $VERBOSE &&
@@ -448,16 +400,16 @@ test "$method" == "find" && {
             exec find -not -type d -not -regex '.*/\..*' -follow -printf "%P\n"
         fi
         }
-    test $DEBUG -a $VERBOSE && echo exec find $dob $*
-    exec find $dob $*
+    test $DEBUG -a $VERBOSE && echo exec find $tob $*
+    exec find $tob $*
     }
 
 test "$method" == "cat" && {
     if [ -z $NOCD ]; then
-        cd $dob
+        cd $tob
         target="$*"
     else
-        target="$dob/$*"
+        target="$tob/$*"
     fi
     for prop in $target; do
         if [ -e $prop ]; then
@@ -473,11 +425,11 @@ test "$method" == "cat" && {
 test "$method" == "set" && {
     prop="$1"
     shift
-    test ! -e $dob/$prop && bail "ERROR: no property $prop"
+    test ! -e $tob/$prop && bail "ERROR: no property $prop"
     if [ -n "$1" ]; then
-        exec echo "$*" > $dob/$prop
+        exec echo "$*" > $tob/$prop
     else
-        exec cat > $dob/$prop
+        exec cat > $tob/$prop
     fi
     }
 
@@ -486,7 +438,7 @@ test "$method" == "param" && {
     shift
     value="$1"
     shift
-    cd $dob
+    cd $tob
     test -z "$tag" && { # list all parameters
         for f in *\=*; do echo $f; done
         exit 0
@@ -505,7 +457,7 @@ test "$method" == "method" && {
     shift
     value="$1"
     shift
-    cd $dob
+    cd $tob
     test -z "$tag" && { # list all methods
         for f in *\=*; do echo $f; done
         exit 0
@@ -522,12 +474,12 @@ test "$method" == "method" && {
 test "$method" == "edit" && {
     if [ -z "$1" ]; then target="%"; else target="$*"; fi
     if [ -z $NOCD ]; then
-        cd $dob
+        cd $tob
     else
         for f in $*; do
             ## non-option argument is the file to edit:
             if [ $f == ${f#-} ]; then
-                target="$target $dob/$f"
+                target="$target $tob/$f"
             else
                 target="$target $f"
             fi
@@ -540,11 +492,11 @@ test "$method" == "edit" && {
 
 test "$method" == "delete" && { ## CAUTION!!
     if [ -z "$*" ]; then # no args, so delete object
-        rmdir $dob || bail 
+        rmdir $tob || bail 
         rm $ob
     else
         for f in $*; do
-            property=$dob/$f
+            property=$tob/$f
             test "$VERBSOSE" && echo delete property $property
             if [ -f $property ]; then   # ordinary file
                 rm $property
