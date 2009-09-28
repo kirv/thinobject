@@ -64,7 +64,6 @@ Ken Irving <fnkci@uaf.edu>
 END_MANPAGE
     };
 
-obdir=./
 ob=$1
 shift
 
@@ -117,8 +116,12 @@ if [[ ${ob/.*/} == $ob ]]; then # form: tob method object
     fi
 else # form: tob object.method
     method=$ob
-    ob=${ob/.*/}
-    method=${method/*./}
+    method=${method/*./} # method follows "."
+    ob=${ob/.*/}         # object precedes "."
+    test ${ob%/} != $ob && { # object is null
+        echo error: invalid object
+        exit -1
+        }
 fi
 
 test "$ob" == "." && { # trivial: ignore . and .. files
@@ -162,7 +165,7 @@ test ! -e $ob && {
 
   # echo resolve $ob2 and its hidden store
     ## resolve symlink to target if linked
-    test -L "$ob2" && ob2=$(ls -l $ob2 | awk '{print $NF}')
+    test -L $ob2 && dob=$(readlink -f $ob2) # resolve symlinked/aliased ob2
 
     if [ ${ob2/\/*/} == $ob2 ]; then # no slash in ob2
         dob2=.$ob2
@@ -182,51 +185,18 @@ test ! -e $ob && {
     }
 ## ASSERT: the file or directory ob exists
 
-## the object might be a symlink to the actual object
-## resolve symlink object to actual object name
-test -L "$ob" && realob=$(ls -l $ob | awk '{print $NF}')
+dob=$ob
+test -L $dob && dob=$(readlink -f $dob) # resolve symlinked/aliased ob
 
-## ASSERT: if ob is a symlink, realob is the object
+## ASSERT: $dob should be paired with a dot-directory in same directory
 
-## next, resolve the hidden dot-file for the object
-
-if [ -z "$realob" ]; then
-
-    if [ ${ob/\/*/} == $ob ]; then # no slash in ob
-        dob=.$ob
-    else # ob has a slash in it
-        obdir=${ob%\/*}
-        dob=${ob%\/*}/.${ob/*\//}
-    fi
-
-
-else # given object is a symlink (alias)
-
-    echo doh
+if [ "${dob/\//}" == $dob ]; then # no slash in ob
+    dob=.$dob
+else # dob has a slash in it
+    dob=${dob%\/*}/.${dob/*\//}
 fi
 
-
-# if [ ${ob/\/*/} == $ob ]; then # no slash in ob
-#     obdir=.
-#     dob=.$ob
-#     test -n "$realob" && dob=.$realob
-# else # ob has a slash in it
-#     obdir=${ob%\/*}
-#     ob=${ob/*\//}
-#     dob=.$ob
-#     test -n "$realob" && dob=.$realob
-# fi
-
-if [ ${ob/\/*/} == $ob ]; then # no slash in ob
-    dob=.$ob
-else # ob has a slash in it
-    dob=${ob%\/*}/.${ob/*\//}
-fi
-
-  echo "ob     $ob"
-  echo "obdir  $obdir"
-  echo "realob $realob"
-  echo "dob    $dob"
+## ASSERT: $ob is an object, $dob its hidden store
 
 test -z "$ob" && exit 2 # no object was parsed 
 
@@ -235,15 +205,15 @@ test -z "$ob" && exit 2 # no object was parsed
 
 test -z "$dob" && exit 2 # no object parsed 
 
-test ! -d $obdir/$dob && { # no dot-directory found
-    echo ERROR: no dot-directory found, so $obdir/$ob is not an object
+test ! -d $dob && { # no dot-directory found
+    echo ERROR: no dot-directory found, so $ob is not an object
     exit 12
     }
 
-## ASSERT ob is a thinobject, obdir/dob is the hidden store
+## ASSERT ob is a thinobject, dob is the hidden store
 
 test -n "$DEBUG" &&
-    echo DEBUG: obdir=$obdir, object=$ob, method=$method, $obdir/$ob.$method
+    echo DEBUG: object=$ob, method=$method, $ob.$method
 
 test -z "$method" && { ## no method was specified
     ## return true because the argument object is a thinobject
@@ -252,34 +222,34 @@ test -z "$method" && { ## no method was specified
 
 ## ASSERT a method was passed
 
-test -e $obdir/$dob/tob && { # if tob file/directory/link exists...
+test -e $dob/tob && { # if tob file/directory/link exists...
 
     ## require object's tob to be a symlink:
-    test ! -L $obdir/$dob/tob && {
+    test ! -L $dob/tob && {
         echo ERROR: a thinobject foo must have symlink .foo/tob
         exit 13
         }
     
-    test -d $obdir/$dob/tob/ && { # tob is a directory
-        test ! -e $obdir/$dob/tob/$method && {
+    test -d $dob/tob/ && { # tob is a directory
+        test ! -e $dob/tob/$method && {
             echo ERROR: thinobject foo method $method not found
             exit 14
             }
-        test ! -x $obdir/$dob/tob/$method && {
+        test ! -x $dob/tob/$method && {
             echo ERROR: thinobject foo method $method not executable
             exit 15
             }
-        exec $obdir/$dob/tob/$method $ob $*
+        exec $dob/tob/$method $ob $*
         }
     
     ## ASSERT: tob symlink is not a directory, so must be executable ob handler
     
-    test ! -x $obdir/$dob/tob && {
+    test ! -x $dob/tob && {
         echo ERROR: thinobject foo handler is not executable
         exit 5
         }
     
-    exec $obdir/$dob/tob $method $ob $*
+    exec $dob/tob $method $ob $*
     
     }
 
@@ -287,37 +257,37 @@ test -e $obdir/$dob/tob && { # if tob file/directory/link exists...
 
 ## ASSERT: no tob file, so handle as base class thinobject
 
-test -z $NOHEADER && echo $obdir/$ob: 
+test -z $NOHEADER && echo $ob: 
 
 # test "$method" == "ls" && {
 #     test -z $NOCD && {
-#         cd $obdir/$dob 
+#         cd $dob 
 #         exec ls $* .
 #         }
-#     exec ls $* $obdir/$dob
+#     exec ls $* $dob
 
 test "$method" == "ls" && {
     test -z $NOCD && {
-        cd $obdir/$dob 
-        exec ls $* 
+        cd $dob 
+        exec ls -p $* 
         }
     if [ -z "$*" ]; then 
-      # echo exec ls $obdir/$dob
-        exec ls $obdir/$dob
+      # echo exec ls $dob
+        exec ls -p $dob
     else
         for arg in $*; do
-          # echo ls $obdir/$dob/$arg...
-            ls $obdir/$dob/$arg
+          # echo ls $dob/$arg...
+            ls -p $dob/$arg
         done
     fi
     }
 
 test "$method" == "find" && {
     test -z "$NOCD" && {
-        cd $obdir/$dob
+        cd $dob
         exec find $*
         }
-    exec find $obdir/$dob $*
+    exec find $dob $*
     }
 
 # test "$method" == "class" && echo tob
@@ -329,7 +299,7 @@ test "$method" == "class" && {
 
 test "$method" == "cat" && {
     test -z $NOCD && {
-        cd $obdir/$dob 
+        cd $dob 
         for arg in $*; do
             cat $arg
         done
@@ -337,13 +307,13 @@ test "$method" == "cat" && {
         }
     ## 
     if [ -z "$*" ]; then 
-        exec cat $obdir/$ob
+        exec cat $ob
     else
         for arg in $*; do
-            cat $obdir/$dob/$arg
+            cat $dob/$arg
         done
-      # for arg in $obdir/$dob/$*; do
-      #     arg=$obdir/$dob/$arg
+      # for arg in $dob/$*; do
+      #     arg=$dob/$arg
       #     echo cat $arg:
       #   # cat $arg
       # done
@@ -351,10 +321,28 @@ test "$method" == "cat" && {
     }
 
 test "$method" == "path" && {
-    test -z "$*" && echo $obdir/$dob
+    test -z "$*" && echo $dob
     for arg in $*; do
-        echo $obdir/$dob/$arg
+        echo $dob/$arg
     done
+    }
+
+test "$method" == "get" && {
+    prop="$1"
+    test ! -e $dob/$prop && {
+        echo ERROR: no property $prop
+        exit 1
+        }
+    cat $dob/$prop
+    }
+
+test "$method" == "set" && {
+    prop="$1"
+    test ! -e $dob/$prop && {
+        echo ERROR: no property $prop
+        exit 1
+        }
+    cat > $dob/$prop
     }
 
 exit 0
