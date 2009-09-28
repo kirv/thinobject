@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # define a special exit status to search up object classes, sub to super(s):
-CONTINUE_METHOD_SEARCH=100
+TOB_CONTINUE_SEARCH=100
 
 # require class handlers & methods to be under this path, unless --not-strict
 LIB=( ~/lib /usr/local/lib /home/.usr-local/lib /usr/lib )
@@ -359,6 +359,7 @@ resolve_ob_to_tob $ob
 # echo ___TOB: $tob
 
 export tob_tob=$tob
+export tob_path=$tob
 
 ###########################################################333
 
@@ -479,7 +480,7 @@ test -e $tob/^ && { # object ^ file/directory/link exists...
         test -n "$exitcode" && { # method handler was run, and returned
             ## continue only if special exit status value is returned
             ## note that exit status of 0 will also apply here...
-            test $exitcode == $CONTINUE_METHOD_SEARCH || exit $exitcode
+            test $exitcode == $TOB_CONTINUE_SEARCH || exit $exitcode
             }
         ## ASSERT: method either not found or handler says to keep going...
         isa=$isa/^ # continue search with parent class, if any...
@@ -733,6 +734,11 @@ while [ -e $isa ]; do
         default_handler=_default-dict
         break
         }
+    test -e $isa/\%\@$method && { # found %@method
+        property=$isa/%@$method
+        default_handler=_default-dict-list
+        break
+        }
     isa=$isa/^ # continue search with parent class...
 done
 
@@ -764,6 +770,16 @@ test -n "$property" && {
         keys=${keys// /|}
         exec /usr/bin/awk -v IGNORECASE=1 "\$1~/$keys/" $property
         exec STUB echo $property dict accessor with keys $keys ${keys// /|}
+        }
+
+    test $default_handler == _default-dict-list && { # ... found %@foo...
+        keys="$@"
+        test -z "$keys" && exec /bin/cat $property
+        keys=${keys// /|}
+        exec /usr/bin/awk -v IGNORECASE=1 -v keys="$keys" '
+            NR==1{while(++i<=NF)sub($i,"^" i+1 "$",keys)}
+            NR ~ keys ' $property
+        exec STUB echo $property dict-list accessor with keys $keys ${keys// /|}
         }
     }
 
@@ -936,6 +952,12 @@ PROPERTIES
     scanned in automatically during method invocation, so can be used
     to store various object attributes.
 
+    %@
+    %@foo
+    dictionary property implemented as a list, with keys listed all
+    the first line, values on subsequent lines.  Blank lines and 
+    comments lines are skipped.
+
     foo=bar
     attribute 'foo' is assigned the value 'bar'.
 
@@ -945,6 +967,8 @@ ENVIRONMENT VARIABLES
     tob_object -- the object name as passed to the thinob enabler
 
     tob_ob -- the nominal object name (may be partially resolved)
+
+    tob_path -- the fully resolved object name
 
     tob_tob -- the fully resolved object name
 
