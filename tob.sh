@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# $Header: /home/ken/proj/thinobject/src/sh/../../src-sh/tob.sh,v 1.4 2007/04/12 18:54:25 ken Exp $
+# $Header: /home/ken/proj/thinobject/src/sh/../../src-sh/tob.sh,v 1.5 2007/09/29 20:37:31 ken Exp $
 
 # define a special exit status to search up object classes, sub to super(s):
 CONTINUE_METHOD_SEARCH=100
@@ -200,9 +200,10 @@ if [ $method == 'new' -o $method == 'clone' ]; then
         test ! $NO_TOUCH && touch $ob
         mkdir $tob
         ln -s $class $tob/^
-      # test -x $tob/^/new && exec tob $ob.new
-        test -x $tob/^/new && exec $tob/^/new $tob $*
-        exit 0
+        test -x $tob/^/new || exit 0 # no new method
+        $tob/^/new $tob "$@" && exit 0 # all done!
+        ## ASSERT: the ob.new method failed, so clean up
+        exec tob $ob.delete
         }
 
     test "$method" == "clone" && {
@@ -492,7 +493,10 @@ test "$method" == "edit" && {
 
 test "$method" == "delete" && { ## CAUTION!!
     if [ -z "$*" ]; then # no args, so delete object
-        rmdir $tob || bail 
+        for f in $tob/*; do
+            rm $f
+        done
+        rmdir $tob 
         rm $ob
     else
         for f in $*; do
@@ -502,8 +506,10 @@ test "$method" == "delete" && { ## CAUTION!!
                 rm $property
             elif [ -L $property ]; then # symlink
                 rm $property
-            else                        # directory
+            elif [ -d $property ]; then # directory
                 rmdir $property || bail "$property directory not empty"
+            else                        # directory
+                echo \"$property\" not found or at least not deleted...
             fi
         done
     fi
