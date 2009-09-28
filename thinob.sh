@@ -86,12 +86,12 @@ while [ -n "$ob" -a ${ob#-} != $ob ]; do # option detected by leading "-" ...
         NOCD=1
         opt="$opt --nocd"
 
-    elif [ "ob" == "-H" -o "$ob" == "--not-hidden" ]; then
+    elif [ "$ob" == "-H" -o "$ob" == "--not-hidden" ]; then
         ## with new or clone methods, create object directly, not dotted...
         NOT_HIDDEN=1
         opt="$opt --not-hidden"
 
-    elif [ "ob" == "-T" -o "$ob" == "--no-touch" ]; then
+    elif [ "$ob" == "-T" -o "$ob" == "--no-touch" ]; then
         ## with new or clone methods, create hidden ob, don't 'touch' nominal
         NO_TOUCH=1
         opt="$opt --no-touch"
@@ -129,6 +129,9 @@ test $method && { # iterate method on multiple objects (see -m, --method)
 
 # ASSERT: $ob contains object(s) and method
 # echo START: $ob
+export tob_object=${ob%.*}
+# export tob_method=${ob##*.}
+
 
 function resolve_ob_to_tob () { # return object path in global var tob:
   # tob="${1}__"
@@ -202,6 +205,14 @@ ob=${ob//__2COLONS__/::}
 method=${ob##*.}
 ob=${ob%.*}
 
+export tob_ob=$ob
+export tob_method=$method
+
+test -n "$DEBUG" && {
+    echo DEBUG: object=$ob
+    echo DEBUG: method=$method
+    }
+
 # echo .
 # echo OBJECT: $ob
 # echo METHOD: $method
@@ -219,7 +230,7 @@ test -z $method && bail "no method parsed, object $ob"
 
 if [ $method == 'new' -o $method == 'clone' ]; then
 
-    echo DEBUG: about to create new object: $ob
+  # echo DEBUG: about to create new object: $ob
 
     if [ $NOT_HIDDEN ]; then
         test -e $ob && bail "$ob already exists as file or directory"
@@ -247,12 +258,12 @@ if [ $method == 'new' -o $method == 'clone' ]; then
 
         if [ ${class#/} != $class ]; then # absolute path
             test ! "$NOT_STRICT" && 
-                check_class $class || bail "ERROR new: invalid class library path"
+                check_class $class || bail "ERROR new: invalid class library path: <$class>"
         else # relative path
             unset classpath
             for lib in ${LIB[@]}; do
                 for root in ${ROOT[@]}; do
-                    echo CHECKING: $lib/$root/$class...
+                  # echo CHECKING: $lib/$root/$class...
                     test -x $lib/$root/$class && {
                         classpath=$lib/$root/$class
                         test -f $classpath || test -d $classpath ||
@@ -294,8 +305,8 @@ if [ $method == 'new' -o $method == 'clone' ]; then
             isa=$isa/^
         done
                 
-     #  test -x $tob/^/new || exit 0 # no new method
-     #  $tob/^/new $tob "$@" && exit 0 # all done!
+        test -x $tob/^/new || exit 0 # no new method
+        $tob/^/new $tob "$@" && exit 0 # all done!
         ## ASSERT: the ob.new method failed, so clean up
         exec /usr/local/bin/thinob $ob.delete
         }
@@ -338,6 +349,8 @@ fi ## end of new or clone section
 
 resolve_ob_to_tob $ob
 # echo ___TOB: $tob
+
+export tob_tob=$tob
 
 ###########################################################333
 
@@ -710,6 +723,11 @@ while [ -e $isa ]; do
         }
     
     test -e $isa/\%$method && { # called ob.foo, found %foo in ob...
+        exec $0 $ob._dictionary $isa/\%$method $@
+        test -n "$1" && test "$1" == "--csv" && {
+            OUTPUT_AS_CSV=1
+            shift
+            }
         keys="$@"
         test -z "$keys" && exec /bin/cat $isa/%$method
         keys=${keys// /|}
@@ -902,6 +920,17 @@ PROPERTIES
 
     foo=bar
     attribute 'foo' is assigned the value 'bar'.
+
+ENVIRONMENT VARIABLES
+    The following variables are exported:
+
+    tob_object -- the object name as passed to the thinob enabler
+
+    tob_ob -- the nominal object name (may be partially resolved)
+
+    tob_tob -- the fully resolved object name
+
+    tob_method -- the invoked method
 
 SEE ALSO
     Each thinobject class is *supposed to* provide a help method, and
