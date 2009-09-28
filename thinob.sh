@@ -56,6 +56,12 @@ function bail () {
     exit 1
     }
 
+function bail_rtnval () {
+    rtnval="$1" && shift
+    test -z "$QUIET" && echo $* >&2
+    exit $rtnval
+    }
+
 ob=$1
 shift
 while [ -n "$ob" -a ${ob#-} != $ob ]; do # option detected by leading "-" ...
@@ -159,7 +165,7 @@ function resolve_ob_to_tob () { # return object path in global var tob:
         return
         }
 
-    bail "$1 ($ob) is not a thinobject or was not found"
+    bail_rtnval 2 "$1 ($ob) is not a thinobject or was not found"
     }
 
 ####################
@@ -709,52 +715,58 @@ test "$method" == "delete" && { ## CAUTION!!
     }
 
 ####################
-## no method found, so check for automatic accessors... 
+## no ob.method found, so check for properties @method or %method
 ####################
 
-isa=$tob # start looking in the object...
-while [ -e $isa ]; do
-    ## ASSERT: parent class exists
-    test -e $isa/\@$method && { # called ob.foo, found @foo in ob...
-        lines="$1"
-      # exec /bin/echo @$method accessor lines $lines
-        test -z $lines && exec /bin/cat $isa/@$method
-        exec /usr/bin/perl -e "\$[=1; @r=<>; print @r[$lines]" $isa/@$method
+isa=$tob # 
+unset property default_handler
+while [ -e $isa ]; do 
+    test -e $isa/\@$method && { # found @method
+        property=$isa/@$method
+        default_handler=_default-list
+        break
         }
-    
-    test -e $isa/\%$method && { # called ob.foo, found %foo in ob...
-        exec $0 $ob._dictionary $isa/\%$method $@
-        test -n "$1" && test "$1" == "--csv" && {
-            OUTPUT_AS_CSV=1
-            shift
-            }
-        keys="$@"
-        test -z "$keys" && exec /bin/cat $isa/%$method
-        keys=${keys// /|}
-        exec /usr/bin/awk -v IGNORECASE=1 "\$1~/$keys/" $isa/%$method
-        exec /bin/echo %$method accessor with keys $keys ${keys// /|}
+    test -e $isa/\%$method && { # found %method
+        property=$isa/%$method
+        default_handler=_default-dict
+        break
         }
-    isa=$isa/^ # continue search with parent class, if any...
+    isa=$isa/^ # continue search with parent class...
 done
 
-# test -e $tob/\@$method && { # called ob.foo, found @foo in ob...
-#     lines="$1"
-#   # exec /bin/echo @$method accessor lines $lines
-#     test -z $lines && exec /bin/cat $tob/@$method
-#     exec /usr/bin/perl -e "\$[=1; @r=<>; print @r[$lines]" $tob/@$method
-#     }
-# 
-# test -e $tob/\%$method && { # called ob.foo, found %foo in ob...
-#     keys="$@"
-#     test -z "$keys" && exec /bin/cat $tob/%$method
-#     keys=${keys// /|}
-#     exec /usr/bin/awk -v IGNORECASE=1 "\$1~/$keys/" $tob/%$method
-#     exec /bin/echo %$method accessor with keys $keys ${keys// /|}
-#     }
+test -n "$property" && {
+  # echo FOUND $property, looking for $default_handler...
+    isa=$tob/^ # start search for default handler in the object class...
+    while [ -e $isa ]; do # search for _default-list or _default-dict
+        test -e $isa/$default_handler && {
+          # echo TODO: /bin/echo exec $isa/$default_handler $property $@
+            exec $isa/$default_handler $ob $property $@ # found & dispatched
+            }
+        isa=$isa/^ # continue to parent class...
+    done
 
+    ## ASSERT: property was found, but no default handler, so handle inline:
+  # echo FOUND $property, but no $default_handler...
+
+    test $default_handler == _default-list && { # called ob.foo, found @foo...
+        lines="$1"
+        test -z $lines && exec /bin/cat $property
+        exec /usr/bin/perl -e "\$[=1; @r=<>; print @r[$lines]" $property
+        # leaving unreachable stub as documentation...
+        exec STUB echo $property list accessor lines $lines
+        }
+    
+    test $default_handler == _default-dict && { # called ob.foo, found %foo...
+        keys="$@"
+        test -z "$keys" && exec /bin/cat $property
+        keys=${keys// /|}
+        exec /usr/bin/awk -v IGNORECASE=1 "\$1~/$keys/" $property
+        exec STUB echo $property dict accessor with keys $keys ${keys// /|}
+        }
+    }
 
 ####################
-## still no method found -- check for default?
+## still no method found -- check for _default method...
 ####################
 
 isa=$tob/^ # start looking in the object class ...
@@ -794,6 +806,10 @@ DESCRIPTION
     The key to the thinobject system is the use of a symlink to a class
     directory (or executable handler), named "^".  Methods and attributes
     are searched for along the chain of class links.
+RETURN VALUE
+    0   ok, no error
+    1   some error occurred
+    2   object is not a thinobject
 OPTIONS
     -d
     --debug
