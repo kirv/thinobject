@@ -68,33 +68,39 @@ obdir=./
 ob=$1
 shift
 
-if [ "$ob" == "-h" -o "$ob" == "--help" ]; then
+test "$ob" == "-h" -o "$ob" == "--help" && {
     manpage
-    exit 
-fi
+    exit 1
+    }
 
-if [ "$ob" == "-d" -o "$ob" == "--debug" ]; then
+test "$ob" == "-d" -o "$ob" == "--debug" && {
     DEBUG=1
     ob=$1
     shift
-fi
+    }
 
-if [ "$ob" == "-q" -o "$ob" == "--noheader" ]; then
+test "$ob" == "-q" -o "$ob" == "--noheader" && {
     NOHEADER=1
     ob=$1
     shift
-fi
+    }
 
-if [ "$ob" == "--nocd" -o "$ob" == "--nochdir" ]; then
+test "$ob" == "-s" -o "$ob" == "--silent" && {
+    NOOUTPUT=1
+    NOHEADER=1
+    ob=$1
+    shift
+    }
+
+test "$ob" == "--nocd" -o "$ob" == "--nochdir" && {
     NOCD=1
     ob=$1
     shift
-fi
+    }
 
-## drop current directory (./) from ob name if present
-if [[ "$ob" == ./* ]]; then
-    ob=${ob:2}
-fi
+## resolve symlink object to actual object name
+
+[[ "$ob" == ./* ]] && ob=${ob:2} # drop leading ./ from ob name if present
 
 if [[ ${ob/.*/} == $ob ]]; then # form: tob method object
     method=$ob
@@ -106,95 +112,96 @@ else # form: tob object.method
     method=${method/*./}
 fi
 
-if [ "$ob" == "." ]; then # trivial: ignore . and .. files
+test "$ob" == "." && { # trivial: ignore . and .. files
     exit -1
-fi
+    }
 
-if [ ${ob/\/*/} != $ob ]; then # split obdir from ob
+# if [ -L $ob ]; then
+#     echo $ob is a symlink
+#     symob=$(ls -l bullen/kvr | awk '{print $NF}')
+#     echo symob is $symob
+# fi
+
+test -L "$ob" && symob=$(ls -l bullen/kvr | awk '{print $NF}')
+
+test ${ob/\/*/} != $ob && { # split obdir from ob
     obdir=${ob%\/*}
     ob=${ob/*\//}
+    test -n "$symob" && ob=$symob
+    }
 
-fi
+test "$ob" == "." && exit -1 # trivial: ignore . and .. files
 
-if [ "$ob" == "." ]; then # trivial: ignore . and .. files
-    exit -1
-fi
+test -z "$ob" && exit 2 # no object parsed 
 
-if [ -z "$ob" ]; then # no object parsed 
-    exit 2
-fi
+test -z "$method" && exit 3 # no object parsed 
 
-if [ -z "$method" ]; then # no object parsed 
-    exit 3
-fi
-
-if [ ! -e $obdir/.$ob ]; then # not a thinobject, so ignore...
-    exit -1
-fi
+test ! -e $obdir/.$ob && exit -1 # not a thinobject, so ignore...
 
 test -n "$DEBUG" &&
     echo DEBUG: obdir=$obdir, object=$ob, method=$method, $obdir/$ob.$method
 
-## look for the object's dot-directory:
-if [ ! -d $obdir/.$ob ]; then
+
+test ! -d $obdir/.$ob && { # no dot-directory found
     echo ERROR: a thinobject foo must have a .foo/ directory
     exit 12
-fi
+    }
 
-if [ -e $obdir/.$ob/tob ]; then # if tob file/directory/link exists...
+test -e $obdir/.$ob/tob && { # if tob file/directory/link exists...
 
     ## require object's tob to be a symlink:
-    if [ ! -L $obdir/.$ob/tob ]; then
+    test ! -L $obdir/.$ob/tob && {
         echo ERROR: a thinobject foo must have symlink .foo/tob
         exit 13
-    fi
+        }
     
-    if [ -d $obdir/.$ob/tob/ ]; then # tob is a directory
-        if [ ! -e $obdir/.$ob/tob/$method ]; then
+    test -d $obdir/.$ob/tob/ && { # tob is a directory
+        test ! -e $obdir/.$ob/tob/$method && {
             echo ERROR: thinobject foo method $method not found
             exit 14
-        fi
-        if [ ! -x $obdir/.$ob/tob/$method ]; then
+            }
+        test ! -x $obdir/.$ob/tob/$method && {
             echo ERROR: thinobject foo method $method not executable
             exit 15
-        fi
+            }
         exec $obdir/.$ob/tob/$method $ob $*
-    fi
+        }
     
     ## ASSERT: tob symlink is not a directory, so must be executable ob handler
     
-    if [ ! -x $obdir/.$ob/tob ]; then
+    test ! -x $obdir/.$ob/tob && {
         echo ERROR: thinobject foo handler is not executable
         exit 5
-    fi
+        }
     
     exec $obdir/.$ob/tob $method $ob $*
     
-fi
+    }
 
 ## ASSERT: no tob file, so handle as base class thinobject
 
-if [ -z $NOHEADER ]; then 
-    echo $obdir/$ob: 
-fi
+test -z $NOHEADER && echo $obdir/$ob: 
 
-if [ "$method" == "ls" ]; then
-    if [ -z $NOCD ]; then 
+test "$method" == "ls" && {
+    test -z $NOCD && {
         cd $obdir/.$ob 
         exec ls $* .
-    fi
+        }
     exec ls $* $obdir/.$ob
-fi
+    }
 
-if [ "$method" == "find" ]; then
-    if [ -z "$NOCD" ]; then 
+test "$method" == "find" && {
+    test -z "$NOCD" && {
         cd $obdir/.$ob
         exec find $*
-    fi
+        }
     exec find $obdir/.$ob $*
-fi
+    }
 
-if [ "$method" == "class" ]; then
-    echo tob
-fi
+# test "$method" == "class" && echo tob
+
+test "$method" == "class" && {
+    test -z $NOOUTPUT && echo tob
+    exit 0
+    }
 
