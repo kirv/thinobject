@@ -236,32 +236,71 @@ test -z $method && bail "no method parsed, object $ob"
 
 if [ $method == 'new' -o $method == 'clone' ]; then
 
-  # echo DEBUG: about to create new object: $ob
+    ## new and clone both use the first argument as the class or the
+    ## reference object, but may have some options before the argument:
 
-    if [ $NOT_HIDDEN ]; then
-        test -e $ob && bail "$ob already exists as file or directory"
-        ## ASSERT: $ob does not exist
-        tob=$ob
-    else
-        ## create tob by "dotting" ob:
-        if [ ${ob/\/} == $ob ]; then # no slash in ob
-            tob=.$ob
-        else # ob has a slash in it
-            tob=${ob%\/*}/.${ob/*\//}
-        fi
+    while [ "${1:0:1}" == "-" ]; do
+        opt=$1 && shift
+        case $opt in
+        --hide|--hidden)
+            HIDE_OBJECT=1
+            ;;
+        --shadow)
+            SHADOW_A_FILE=1
+            HIDE_OBJECT=1
+            ;;
+        --touch)
+            TOUCH_FILE=1
+            ;;
+        *)
+            echo unknown option: \"$opt\"
+            show_usage
+            exit 2
+            ;;
+        esac
+    done
+
+    ## create potential tob by "dotting" ob:
+    if [ ${ob/\/} == $ob ]; then # no slash in ob
+        tob=.$ob
+    else # ob has a slash in it
+        tob=${ob%\/*}/.${ob/*\//}
     fi
+
+    test -e $tob &&
+        bail "new: $tob already exists"
+
+    if [ "$SHADOW_A_FILE" ]; then
+        ## the file ob must exist or --touch specified...
+        test -e $ob || { # no file or directory of this name
+            test -n "$TOUCH_FILE" || ## --touch option not given
+                bail "new: --shadow requires --touch if object doesn't exist"
+            ## ASSERT: --shadow --touch options were given
+            touch $ob
+            }
+        ## ASSERT: $ob exists and $tob does not yet exist
+    else # don't shadow an existing file, but create object or .object
+        test -e $ob && 
+          # bail "new: $ob already exists as file, directory, or object"
+            bail "new: $ob already exists"
+        ## ASSERT: neither $ob nor $tob exists
+        ## note that $tob is already the hidden object name
+        test -z "$HIDE_OBJECT" && tob=$ob
+        test -n "$TOUCH_FILE" && 
+            bail "ERROR new: --touch option without --shadow" 
+    fi
+    ## ASSERT: $tob is the object to be created, and $ob may exist or not
 
   # echo nominal: $ob
   # echo _object: $tob
   # echo _method: $method
-
-    test -e "$tob" && bail "thinobject $tob already exists!??"
 
     test "$method" == "new" && {
         class="$1"; shift
         test -n $class || bail "no thinobject class specified!" 
         ## ASSERT class is specified
 
+        ## resolve class path:
         if [ ${class#/} != $class ]; then # absolute path
             test ! "$NOT_STRICT" && 
                 check_class $class || bail "ERROR new: invalid class library path: <$class>"
@@ -282,19 +321,18 @@ if [ $method == 'new' -o $method == 'clone' ]; then
                 bail "ERROR new: class library $class not found"
             class=$classpath
         fi
-        test ! -e $class &&
+        test -e $class ||
             bail "ERROR new: class library $class not found"
         ## should perhaps do more validity testing of the class here
 
-        test $VERBOSE && echo creating new object $ob
-        test ! $NO_TOUCH && touch $ob
+        test $VERBOSE && echo creating new object $tob
         /bin/mkdir $tob
         ln -s $class $tob/^
         ## check for and copy class .@uri property to object:
         test -e $class/.@uri && cp $class/.@uri $tob/
+
         ## ASERT: class link is set; search for new method, else done
         isa=$tob/^
-
         while [ -e $isa ]; do ## look for new method
             if [ -d $isa ]; then # parent class methods directory
                 test -e $isa/new && { # new method found!
@@ -873,13 +911,38 @@ OPTIONS
     --quiet
     suppress output to stderr on errors
     
-METHODS
-    new CLASS
-    create a new object of class CLASS
+OBJECT CREATION
+    Built-in special methods new and clone create a new object of the given
+    class or as a copy of the given object.  (They are ``special'' since
+    they operate on objects which do not yet exist.)
 
-    clone OBJECT
-    create a new object as a clone (copy) of OBJECT
+    Note: The clone method is not yet supported.
 
+    new [--hide|--hidden] [--shadow] [--touch] CLASS
+        create a new object of class CLASS
+
+    clone [--hide|--hidden] [--shadow] [--touch] OBJECT
+        create a new object as a clone (copy) of OBJECT
+
+    By default, the object is created as a directory, but the following
+    options are supported:
+
+        --hide
+        --hidden
+            create the object as a "dot directory" (i.e., as .ob/)
+    
+        --shadow
+            create the object as a "dot directory" where a file or 
+            directory of the same name (without the dot) exists
+    
+        --touch
+            with --shadow, create a file (using touch) if it does not
+            already exist
+    
+    After object creation, the ``new'' method of the class is invoked if
+   it exists.
+
+BUILT-IN METHODS
     tob
     output the object directory path
 
