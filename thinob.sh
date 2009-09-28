@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# $Header: /home/ken/proj/thinobject/src/sh/../../src-sh/tob.sh,v 1.5 2007/09/29 20:37:31 ken Exp $
+# $Header: /home/ken/proj/thinobject/src/sh/../../src-sh/thinob.sh,v 1.1 2007/09/29 22:03:16 ken Exp $
 
 # define a special exit status to search up object classes, sub to super(s):
 CONTINUE_METHOD_SEARCH=100
@@ -203,7 +203,7 @@ if [ $method == 'new' -o $method == 'clone' ]; then
         test -x $tob/^/new || exit 0 # no new method
         $tob/^/new $tob "$@" && exit 0 # all done!
         ## ASSERT: the ob.new method failed, so clean up
-        exec tob $ob.delete
+        exec thinob $ob.delete
         }
 
     test "$method" == "clone" && {
