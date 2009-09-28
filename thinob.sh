@@ -1,12 +1,14 @@
 #!/bin/sh
 
-# $Header: /home/ken/proj/thinobject/src/sh/../../src-sh/thinob.sh,v 1.1 2007/09/29 22:03:16 ken Exp $
+# $Header: /home/ken/proj/thinobject/src/sh/../../src-sh/thinob.sh,v 1.2 2007/10/02 09:41:50 ken Exp $
 
 # define a special exit status to search up object classes, sub to super(s):
 CONTINUE_METHOD_SEARCH=100
 
 # require class handlers & methods to be under this path, unless --not-strict
-LIB_ROOT=/usr/local/lib/ThinObject
+# LIB_ROOT=/usr/lib/thinob/:/usr/local/lib/thinob/:~/lib/thinob/:$THINOB-LIB
+# LIB_ROOT=( /usr/lib/thinob/ /usr/local/lib/thinob/ ~/lib/thinob/ )
+LIB_ROOT=/usr/local/lib/thinob/
 
 function bail () { echo $* >&2; exit 1; }
 
@@ -187,8 +189,19 @@ if [ $method == 'new' -o $method == 'clone' ]; then
         ## ASSERT class is specified
 
         if [ ${class#/} != $class ]; then # absolute path
-            test ! "$NOT_STRICT" -a ${class#$LIB_ROOT} == $class &&
-                bail "ERROR new: invalid class library path"
+     #      test ! "$NOT_STRICT" -a ${class#$LIB_ROOT} == $class &&
+     #          bail "ERROR new: invalid class library path"
+
+            test ! "$NOT_STRICT" && {
+                found=0
+                for path in ${LIB_ROOT[@]}; do
+                    test ${class#$path} == $class || found=1
+                done
+                echo found=$found
+                test found == 1 || bail "ERROR new: invalid class library path"
+              # bail "ERROR new: invalid class library path"
+                }
+
         else # relative path
             class=$LIB_ROOT/$class
         fi
