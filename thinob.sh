@@ -62,6 +62,33 @@ function bail_rtnval () {
     exit $rtnval
     }
 
+function tob_error () {
+    unset EXIT_VALUE
+    while [ "${1:0:1}" == "-" ]; do # handle option ...
+        opt=$1 && shift
+      # RESTORE_VERBOSE="$VERBOSE" # in case this is changed
+        case $opt in
+        --exit|-x) EXIT_VALUE=$1 && shift ;;
+        -v) VERBOSE=1 ;;
+        -V) unset VERBOSE ;;
+        *)  echo "tob_error(): unknown option: \"$opt\"" 1>&2
+            echo "    SYNOPSIS: tob_error [--exit|-x N] [-v|V] args ..." 1>&2
+            ;;
+        esac
+    done
+    echo $tob_object.$tob_method: $* 1>&2
+    test "$VERBOSE" && { PAD="    "
+        echo "${PAD}tob_object: $tob_object" 1>&2
+        echo "${PAD}tob_method: $tob_method" 1>&2
+        echo "${PAD}tob_path: $tob_path" 1>&2
+        echo "${PAD}method path: $0" 1>&2
+        echo "${PAD}pwd: $(pwd)" 1>&2
+        }
+    test "$EXIT_VALUE" && exit $EXIT_VALUE
+  # VERBOSE="$RESTORE_VERBOSE"
+    }   
+export -f tob_error
+
 ob=$1
 shift
 while [ -n "$ob" -a ${ob#-} != $ob ]; do # option detected by leading "-" ...
@@ -1029,18 +1056,26 @@ PROPERTIES
     foo=bar
     attribute 'foo' is assigned the value 'bar'.
 
-ENVIRONMENT VARIABLES
-    The following variables are exported:
-
+EXPORTED VARIABLES
     tob_object -- the object name as passed to the thinob enabler
 
-    tob_ob -- the nominal object name (may be partially resolved)
+    tob_method -- the invoked method
 
     tob_path -- the fully resolved object name
 
     tob_tob -- the fully resolved object name
 
-    tob_method -- the invoked method
+    tob_ob -- the nominal object name (may be partially resolved)
+
+EXPORTED FUNCTIONS
+    tob_error -- print message on STDERR
+        SYNOPSIS: tob_error [--exit|-x NUMBER] [-v|V] message ..."
+        OPTIONS:
+            --exit N  -- specify exit status number
+            -x N      -- specify exit status number
+            -v        -- be verbose; show thinobject state variables
+            -V        -- don't be verbose
+        output format is: $tob_object.$tob_method: ARGUMENTS...
 
 SEE ALSO
     Each thinobject class is *supposed to* provide a help method, and
