@@ -290,6 +290,8 @@ if [ $method == 'new' -o $method == 'clone' ]; then
         test ! $NO_TOUCH && touch $ob
         /bin/mkdir $tob
         ln -s $class $tob/^
+        ## check for and copy class .@uri property to object:
+        test -e $class/.@uri && cp $class/.@uri $tob/
         ## ASERT: class link is set; search for new method, else done
         isa=$tob/^
 
