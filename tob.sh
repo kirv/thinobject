@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# $Header: /home/ken/proj/thinobject/src/sh/../../src-sh/tob.sh,v 1.1 2007/04/03 21:26:22 ken Exp $
+# $Header: /home/ken/proj/thinobject/src/sh/../../src-sh/tob.sh,v 1.2 2007/04/03 21:26:42 ken Exp $
 
 # define a special exit status to search up object classes, sub to super(s):
 CONTINUE_METHOD_SEARCH=100
@@ -169,7 +169,8 @@ if [[ ${ob/./} == $ob ]]; then # no dot in ob, so no method specified
     method=exists
 else # parse object.method:
     method=$ob
-    method=${method#*.} # method follows "."
+  # method=${method#*.} # method follows "."
+    method=${method##*.} # method follows "."
     ob=${ob%.*}         # object precedes "."
 fi
 
@@ -179,7 +180,34 @@ test -z $method && bail "no method parsed, object $ob"
 
 ## ASSERT: ob and method have been parsed, but not checked
 
-test ! -e $ob && { # object not found; check for new or clone methods
+# echo "    DEBUG: ob: $ob"
+# echo "    DEBUG: method: $method"
+
+test ${ob/::/} != $ob && { # check for double colons...
+    echo double colon filename, $ob, not supported\; fix if needed...
+    ## this could be fixed if necessary
+    exit 1
+    }
+
+# test ${ob/:/} != $ob && { # ":" delimits a contained object
+#   # echo DEBUG: contained object detected
+#     subob=${ob#*:}
+#   # echo subob: $subob
+#     ## check for subob later...
+#     ob=${ob%%:*}
+#   # echo ob: $ob
+#     ## ob is now the top object to resolve, and subob its contained object
+#     }
+
+if [ ${ob/:/} != $ob ]; then # ":" delimits a contained object
+  # echo DEBUG: contained object detected
+    subob=${ob#*:}
+  # echo subob: $subob
+    ## check for subob later...
+    ob=${ob%%:*}
+  # echo ob: $ob
+    ## ob is now the top object to resolve, and subob its contained object
+elif [ ! -e $ob ]; then # object not found; check for new or clone methods
     ## ASSERT: ob does not exist
     test "$method" != "new" -a "$method" != "clone" &&
         bail "$ob object not found"
@@ -244,7 +272,7 @@ test ! -e $ob && { # object not found; check for new or clone methods
     cp -p $ob2 $ob
     cp -rp $dob2 $dob
     exit 0
-    }
+fi
 
 ## ASSERT: object ob exists
 
@@ -268,6 +296,12 @@ test ! -d $dob && # no dot-directory found
     bail "ERROR: object $ob hidden store $dob is not a directory"
 
 ## ASSERT ob is a thinobject, dob is the hidden store
+
+test $subob && { # remake method call on the contained object
+  # echo "EXEC: " $0 $opt $dob/$subob.$method $args $*
+    exec $0 $opt $dob/$subob.$method $args $*
+    exit 0
+    }
 
 test -n "$DEBUG" &&
     echo DEBUG: object=$ob, method=$method, args1=\'$args\' args2=\'$*\'
@@ -404,12 +438,14 @@ test "$method" == "find" && {
         cd $dob
         if [ -n "$*" ]; then
           # exec find -L $* # follow symlinks by default!
-            test $DEBUG -a $VERBOSE && echo exec find -follow $*
-            exec find -follow $* # follow symlinks by default!
+            test $DEBUG -a $VERBOSE &&
+                echo exec find -follow -not -regex '.*/\..*' $*
+            exec find -follow -not -regex '.*/\..*' $* # follow symlinks by default!
         else # by default, show output without leading "./"
           # exec find -L -printf "%P\n"
-            test "$DEBUG" -a "$VERBOSE" && echo exec find -follow -printf "%P\n"
-            exec find -follow -not -type d -printf "%P\n"
+            test "$DEBUG" -a "$VERBOSE" &&
+                echo exec find -not -type d -not -regex '.*/\..*' -follow -printf "%P\n"
+            exec find -not -type d -not -regex '.*/\..*' -follow -printf "%P\n"
         fi
         }
     test $DEBUG -a $VERBOSE && echo exec find $dob $*
@@ -464,12 +500,32 @@ test "$method" == "param" && {
     exec ls $tag\=*
     }
 
+test "$method" == "method" && {
+    tag="$1"
+    shift
+    value="$1"
+    shift
+    cd $dob
+    test -z "$tag" && { # list all methods
+        for f in *\=*; do echo $f; done
+        exit 0
+        }
+    test -n "$value" && { # set parameter value
+        test -e $tag\=* && rm $tag\=* 
+        touch $tag\=$value
+        }
+    ## ASSERT: $tag is defined -- but may or may not exist
+    test ! -e $tag\=* && exit 1
+    exec ls $tag\=*
+    }
+
 test "$method" == "edit" && {
+    if [ -z "$1" ]; then target="%"; else target="$*"; fi
     if [ -z $NOCD ]; then
         cd $dob
-        target="$*"
     else
         for f in $*; do
+            ## non-option argument is the file to edit:
             if [ $f == ${f#-} ]; then
                 target="$target $dob/$f"
             else
