@@ -76,7 +76,7 @@ function tob_error () {
             ;;
         esac
     done
-    echo $tob_object.$tob_method: $* 1>&2
+    echo -e $tob_object.$tob_method: $* 1>&2
     test "$VERBOSE" && { PAD="    "
         echo "${PAD}tob_object: $tob_object" 1>&2
         echo "${PAD}tob_method: $tob_method" 1>&2
@@ -475,6 +475,7 @@ test "$method" == "isa" && {
     exit 0
     }
 
+
 ####################
 ## ASSERT a method was passed
 ####################
@@ -491,6 +492,9 @@ test -e $tob/^ && { # object ^ file/directory/link exists...
         check_class $(/bin/readlink -f $tob/^) ||
             bail "invalid class/method handler location"
         }
+
+    classname $(/bin/readlink -f $tob/^)
+    export tob_class=$classname
 
     ## remove & count SUPER:: prefixes
     super=0
@@ -592,19 +596,17 @@ test "$method" == "find" && {
     test -z "$NOCD" && {
         cd $tob
         if [ -n "$*" ]; then
-          # exec /usr/bin/find -L $* # follow symlinks by default!
-            test $DEBUG -a $VERBOSE &&
-                echo exec /usr/bin/find -follow -not -regex '.*/\..*' $*
-            exec /usr/bin/find -follow -not -regex '.*/\..*' $* 2>/dev/null # follow symlinks by default!
-        else # by default, show output without leading "./"
-          # exec /usr/bin/find -L -printf "%P\n"
             test "$DEBUG" -a "$VERBOSE" &&
-                echo exec /usr/bin/find -not -type d -not -regex '.*/\..*' -follow -printf "%P\n"
-            exec /usr/bin/find -not -type d -not -regex '.*/\..*' -follow -printf "%P\n" 2>/dev/null
+                echo exec /usr/bin/find $*
+            exec /usr/bin/find $*
+        else # by default, show output without leading "./"
+            test "$DEBUG" -a "$VERBOSE" &&
+                echo exec /usr/bin/find -not -type d -printf "%P\n"
+            exec /usr/bin/find -not -type d -printf "%P\n"
         fi
         }
-    test $DEBUG -a $VERBOSE && echo exec /usr/bin/find $tob $*
-    exec /usr/bin/find $tob $* 2>/dev/null
+    test "$DEBUG" -a "$VERBOSE" && echo exec /usr/bin/find $tob $*
+    exec /usr/bin/find $tob $*
     }
 
 test "$method" == "cat" && {
@@ -757,32 +759,84 @@ test "$method" == "mkdir" && {
     exit 0
     }
 
-test "$method" == "delete" && { ## CAUTION!!
-    if [ -z "$*" ]; then # no args, so delete object
-        test -L $tob_object && { ## delete symlink to object, not the object
-            rm $tob_object
+test "$method" == "delete" && { ## CAUTION!! object & content will be removed
+    ## if no arguments, delete the thinobject completely with rm -r:
+    test -z "$*" && { 
+
+        ## delete symlink to object, not the object!
+        test -L $tob_object && { 
+            test "$VERBOSE" && echo deleting symlink: $tob_object
+            /bin/rm $tob_object ||
+                tob_error -v -x $? failed to delete $tob_object
             exit
             }
-        for f in $tob/*; do
-            /bin/rm $f
-        done
-        /bin/rmdir $tob 
-        /bin/rm $ob
-    else
-        for f in $*; do
-            property=$tob/$f
-            test "$VERBSOSE" && echo delete property $property
-            if [ -f $property ]; then   # ordinary file
-                /bin/rm $property
-            elif [ -L $property ]; then # symlink
-                /bin/rm $property
-            elif [ -d $property ]; then # directory
-                /bin/rmdir $property || bail "$property directory not empty"
-            else                        # directory
-                echo \"$property\" not found or at least not deleted...
-            fi
-        done
-    fi
+
+        ## the object and all content will be deleted
+        ## ... but first make sure it's a directory:
+        test -d $tob_path || {
+            tob_error -v -x 1 error??: $tob_path is not a directory
+            }
+
+        ## ... and that it has a class symlink ^ 
+        test -L $tob_path/^ ||
+            tob_error -v -x 1 error?: $tob_object class symlink not found
+
+        ## ... then go ahead and delete it:
+        /bin/rm -r $tob_path ||
+            tob_error -v -x $? failed to delete $tob_path directory
+
+        test "$VERBOSE" && echo object directory $tob_path was deleted
+
+        ## exit if there's nothing left:
+        test -e $tob_object || exit 0  ## success!
+
+        ## ASSERT: the nominal (former) object remains if it was shadowed
+
+        ## for now just print a warning, consider providing option to delete it
+        tob_error "nominal object $tob_object (no longer a thinobject) remains"
+
+        exit 0
+        }
+
+    ## ASSERT: arguments are given, representing object properties to delete
+    for f in $*; do
+
+        property=$tob/$f
+
+        test -e $property || { # no such property
+            test "$VERBOSE" && echo no property: $property
+            tob_error no property: $property
+            continue
+            }
+
+        ## ASSERT: property exists, should be a symlink, file, or directory
+
+        test -L $property && { # symlink
+            test "$VERBOSE" && echo deleting symlink property $property
+            /bin/rm $property ||
+                tob_error -x $? failed to delete symlink $property
+            continue
+            }
+
+        test -f $property && { # file
+            test "$VERBOSE" && echo deleting file property $property
+            /bin/rm $property ||
+                tob_error -x $? failed to delete file $property
+            continue
+            }
+
+        test -d $property && { # directory
+            test "$VERBOSE" && echo deleting directory property $property
+            /bin/rm -r $property ||
+                tob_error -x $? failed to delete directory $property
+            continue
+            }
+
+        ## can't happen, but handle it if it does...
+        tob_error -x 1 -v failed to delete property $property
+
+    done
+
     exit 0
     }
 
