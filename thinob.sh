@@ -8,7 +8,7 @@ LIB=( ~/lib /usr/local/lib /home/.usr-local/lib /usr/lib )
 ROOT=( thinob tob ThinObject )
 
 function manpage() { # print manpage at end of this script...
-    exec awk '/^NAME$/{ok=1}ok' $0
+    exec /usr/bin/awk '/^NAME$/{ok=1}ok' $0
     }
 
 function check_class () {
@@ -133,7 +133,7 @@ test $method && { # iterate method on multiple objects (see -m, --method)
 function resolve_ob_to_tob () { # return object path in global var tob:
   # tob="${1}__"
     ob=$1
-    test -L $ob && ob=$(readlink -f $ob) # resolve symlinked/aliased ob
+    test -L $ob && ob=$(/bin/readlink -f $ob) # resolve symlinked/aliased ob
 
     ## ASSERT: $ob is NOT a symlink, so is either a file, directory, or null
 
@@ -271,7 +271,7 @@ if [ $method == 'new' -o $method == 'clone' ]; then
 
         test $VERBOSE && echo creating new object $ob
         test ! $NO_TOUCH && touch $ob
-        mkdir $tob
+        /bin/mkdir $tob
         ln -s $class $tob/^
         ## ASERT: class link is set; search for new method, else done
         isa=$tob/^
@@ -297,7 +297,7 @@ if [ $method == 'new' -o $method == 'clone' ]; then
      #  test -x $tob/^/new || exit 0 # no new method
      #  $tob/^/new $tob "$@" && exit 0 # all done!
         ## ASSERT: the ob.new method failed, so clean up
-        exec thinob $ob.delete
+        exec /usr/local/bin/thinob $ob.delete
         }
 
     test "$method" == "clone" && {
@@ -313,7 +313,7 @@ if [ $method == 'new' -o $method == 'clone' ]; then
     
       # echo resolve $ob2 and its hidden store
         ## resolve symlink to target if linked
-        test -L $ob2 && tob2=$(readlink -f $ob2) # resolve symlinked/aliased ob2
+        test -L $ob2 && tob2=$(/bin/readlink -f $ob2) # resolve symlinked/aliased ob2
     
         if [ ${ob2/\/*/} == $ob2 ]; then # no slash in ob2
             tob2=.$ob2
@@ -371,7 +371,7 @@ test "$method" == "isa" && {
         test -L $class || bail "$ob ^ property is not a symlink..."
         pad=""
         while [ -L $class ]; do
-            classlink=$(readlink -f $class)
+            classlink=$(/bin/readlink -f $class)
             if [ $VERBOSE ]; then # show full path of class link, no indent
                 echo $classlink
             else                  # show class name, indented
@@ -401,7 +401,7 @@ test -e $tob/^ && { # object ^ file/directory/link exists...
         bail "ERROR: object $ob ^ property is not a symlink"
 
     test -z $NOT_STRICT && { # safety check
-        check_class $(readlink -f $tob/^) ||
+        check_class $(/bin/readlink -f $tob/^) ||
             bail "invalid class/method handler location"
         }
 
@@ -486,8 +486,8 @@ test "$method" == "ls" && {
     else
         target="$tob/$@"
     fi
-  # test $DEBUG -a $VERBOSE && echo exec ls -p $args $target
-    exec ls -p $args $target
+  # test $DEBUG -a $VERBOSE && echo exec /bin/ls -p $args $target
+    exec /bin/ls -p $args $target
     }
 
 test "$method" == "wc" && {
@@ -497,27 +497,27 @@ test "$method" == "wc" && {
     else
         target="$tob/$*"
     fi
-  # test $DEBUG -a $VERBOSE && echo exec wc -p $args $target
-    exec wc $args $target
+  # test $DEBUG -a $VERBOSE && echo exec /bin/wc -p $args $target
+    exec /usr/bin/wc $args $target
     }
 
 test "$method" == "find" && {
     test -z "$NOCD" && {
         cd $tob
         if [ -n "$*" ]; then
-          # exec find -L $* # follow symlinks by default!
+          # exec /usr/bin/find -L $* # follow symlinks by default!
             test $DEBUG -a $VERBOSE &&
-                echo exec find -follow -not -regex '.*/\..*' $*
-            exec find -follow -not -regex '.*/\..*' $* 2>/dev/null # follow symlinks by default!
+                echo exec /usr/bin/find -follow -not -regex '.*/\..*' $*
+            exec /usr/bin/find -follow -not -regex '.*/\..*' $* 2>/dev/null # follow symlinks by default!
         else # by default, show output without leading "./"
-          # exec find -L -printf "%P\n"
+          # exec /usr/bin/find -L -printf "%P\n"
             test "$DEBUG" -a "$VERBOSE" &&
-                echo exec find -not -type d -not -regex '.*/\..*' -follow -printf "%P\n"
-            exec find -not -type d -not -regex '.*/\..*' -follow -printf "%P\n" 2>/dev/null
+                echo exec /usr/bin/find -not -type d -not -regex '.*/\..*' -follow -printf "%P\n"
+            exec /usr/bin/find -not -type d -not -regex '.*/\..*' -follow -printf "%P\n" 2>/dev/null
         fi
         }
-    test $DEBUG -a $VERBOSE && echo exec find $tob $*
-    exec find $tob $* 2>/dev/null
+    test $DEBUG -a $VERBOSE && echo exec /usr/bin/find $tob $*
+    exec /usr/bin/find $tob $* 2>/dev/null
     }
 
 test "$method" == "cat" && {
@@ -530,7 +530,7 @@ test "$method" == "cat" && {
     for prop in $target; do
         if [ -e $prop ]; then
             test $VERBOSE && echo $prop:
-            cat $prop
+            /bin/cat $prop
         else
             bail "ERROR: no property $prop"
         fi
@@ -543,9 +543,9 @@ test "$method" == "set" && {
     shift
     test ! -e $tob/$prop && bail "ERROR: no property $prop"
     if [ -n "$1" ]; then
-        exec echo "$*" > $tob/$prop
+        exec /bin/echo "$*" > $tob/$prop
     else
-        exec cat > $tob/$prop
+        exec /bin/cat > $tob/$prop
     fi
     }
 
@@ -560,12 +560,12 @@ test "$method" == "param" && {
         exit 0
         }
     test -n "$value" && { # set parameter value
-        test -e $tag\=* && rm $tag\=* 
-        touch $tag\=$value
+        test -e $tag\=* && /bin/rm $tag\=* 
+        /usr/bin/touch $tag\=$value
         }
     ## ASSERT: $tag is defined -- but may or may not exist
     test ! -e $tag\=* && exit 1
-    exec ls $tag\=*
+    exec /bin/ls $tag\=*
     }
 
 test "$method" == "method" && {
@@ -579,12 +579,12 @@ test "$method" == "method" && {
         exit 0
         }
     test -n "$value" && { # set parameter value
-        test -e $tag\=* && rm $tag\=* 
-        touch $tag\=$value
+        test -e $tag\=* && /bin/rm $tag\=* 
+        /usr/bin/touch $tag\=$value
         }
     ## ASSERT: $tag is defined -- but may or may not exist
     test ! -e $tag\=* && exit 1
-    exec ls $tag\=*
+    exec /bin/ls $tag\=*
     }
 
 test "$method" == "edit" && {
@@ -621,7 +621,7 @@ test "$method" == "touch" && {
         done
     fi
     test $VERBOSE && echo touch $target
-    touch $target
+    /usr/bin/touch $target
     exit 0
     }
 
@@ -666,27 +666,27 @@ test "$method" == "mkdir" && {
         done
     fi
     test $VERBOSE && echo mkdir $target
-    mkdir $target
+    /bin/mkdir $target
     exit 0
     }
 
 test "$method" == "delete" && { ## CAUTION!!
     if [ -z "$*" ]; then # no args, so delete object
         for f in $tob/*; do
-            rm $f
+            /bin/rm $f
         done
-        rmdir $tob 
-        rm $ob
+        /bin/rmdir $tob 
+        /bin/rm $ob
     else
         for f in $*; do
             property=$tob/$f
             test "$VERBSOSE" && echo delete property $property
             if [ -f $property ]; then   # ordinary file
-                rm $property
+                /bin/rm $property
             elif [ -L $property ]; then # symlink
-                rm $property
+                /bin/rm $property
             elif [ -d $property ]; then # directory
-                rmdir $property || bail "$property directory not empty"
+                /bin/rmdir $property || bail "$property directory not empty"
             else                        # directory
                 echo \"$property\" not found or at least not deleted...
             fi
@@ -704,34 +704,34 @@ while [ -e $isa ]; do
     ## ASSERT: parent class exists
     test -e $isa/\@$method && { # called ob.foo, found @foo in ob...
         lines="$1"
-      # exec echo @$method accessor lines $lines
-        test -z $lines && exec cat $isa/@$method
-        exec perl -e "\$[=1; @r=<>; print @r[$lines]" $isa/@$method
+      # exec /bin/echo @$method accessor lines $lines
+        test -z $lines && exec /bin/cat $isa/@$method
+        exec /usr/bin/perl -e "\$[=1; @r=<>; print @r[$lines]" $isa/@$method
         }
     
     test -e $isa/\%$method && { # called ob.foo, found %foo in ob...
         keys="$@"
-        test -z "$keys" && exec cat $isa/%$method
+        test -z "$keys" && exec /bin/cat $isa/%$method
         keys=${keys// /|}
-        exec awk -v IGNORECASE=1 "\$1~/$keys/" $isa/%$method
-        exec echo %$method accessor with keys $keys ${keys// /|}
+        exec /usr/bin/awk -v IGNORECASE=1 "\$1~/$keys/" $isa/%$method
+        exec /bin/echo %$method accessor with keys $keys ${keys// /|}
         }
     isa=$isa/^ # continue search with parent class, if any...
 done
 
 # test -e $tob/\@$method && { # called ob.foo, found @foo in ob...
 #     lines="$1"
-#   # exec echo @$method accessor lines $lines
-#     test -z $lines && exec cat $tob/@$method
-#     exec perl -e "\$[=1; @r=<>; print @r[$lines]" $tob/@$method
+#   # exec /bin/echo @$method accessor lines $lines
+#     test -z $lines && exec /bin/cat $tob/@$method
+#     exec /usr/bin/perl -e "\$[=1; @r=<>; print @r[$lines]" $tob/@$method
 #     }
 # 
 # test -e $tob/\%$method && { # called ob.foo, found %foo in ob...
 #     keys="$@"
-#     test -z "$keys" && exec cat $tob/%$method
+#     test -z "$keys" && exec /bin/cat $tob/%$method
 #     keys=${keys// /|}
-#     exec awk -v IGNORECASE=1 "\$1~/$keys/" $tob/%$method
-#     exec echo %$method accessor with keys $keys ${keys// /|}
+#     exec /usr/bin/awk -v IGNORECASE=1 "\$1~/$keys/" $tob/%$method
+#     exec /bin/echo %$method accessor with keys $keys ${keys// /|}
 #     }
 
 
