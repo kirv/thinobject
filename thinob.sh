@@ -279,7 +279,7 @@ if [ $method == 'new' -o $method == 'clone' ]; then
         while [ -e $isa ]; do ## look for new method
             if [ -d $isa ]; then # parent class methods directory
                 test -e $isa/new && { # new method found!
-                    $isa/new $tob $@ && exit 0 # all done!
+                    $isa/new $tob "$@" && exit 0 # all done!
                     }
             else ## monolithic parent class handler
                 if [ -x $isa ]; then ## handler is executable
@@ -622,6 +622,32 @@ test "$method" == "touch" && {
     fi
     test $VERBOSE && echo touch $target
     touch $target
+    exit 0
+    }
+
+test "$method" == "grep" && {
+    opts=''
+    pat=$1
+    shift
+    while [ $pat != ${pat#-} ]; do # collect any grep options
+        opts="$opts $pat"
+        pat=$1
+        shift
+    done
+    if [ -z $NOCD ]; then
+        cd $tob
+        target=$@
+    else
+        for f in $*; do
+            if [ $f == ${f#-} ]; then
+                target="$target $tob/$f"
+            else
+                opts="$opts $f"
+            fi
+        done
+    fi
+    test $VERBOSE && echo grep $opts $pat $target
+    grep $opts $pat $target
     exit 0
     }
 
