@@ -1,7 +1,5 @@
 #!/bin/sh
 
-# $Header: /home/ken/proj/thinobject/src/sh/../../src-sh/thinob.sh,v 1.3 2007/10/02 09:42:39 ken Exp $
-
 # define a special exit status to search up object classes, sub to super(s):
 CONTINUE_METHOD_SEARCH=100
 
@@ -427,16 +425,16 @@ test "$method" == "find" && {
           # exec find -L $* # follow symlinks by default!
             test $DEBUG -a $VERBOSE &&
                 echo exec find -follow -not -regex '.*/\..*' $*
-            exec find -follow -not -regex '.*/\..*' $* # follow symlinks by default!
+            exec find -follow -not -regex '.*/\..*' $* 2>/dev/null # follow symlinks by default!
         else # by default, show output without leading "./"
           # exec find -L -printf "%P\n"
             test "$DEBUG" -a "$VERBOSE" &&
                 echo exec find -not -type d -not -regex '.*/\..*' -follow -printf "%P\n"
-            exec find -not -type d -not -regex '.*/\..*' -follow -printf "%P\n"
+            exec find -not -type d -not -regex '.*/\..*' -follow -printf "%P\n" 2>/dev/null
         fi
         }
     test $DEBUG -a $VERBOSE && echo exec find $tob $*
-    exec find $tob $*
+    exec find $tob $* 2>/dev/null
     }
 
 test "$method" == "cat" && {
