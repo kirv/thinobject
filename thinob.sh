@@ -132,10 +132,10 @@ function resolve_ob_to_tob () { # return object path in global var tob:
 ## check for & resolve colon-delimited (contained) objects to the final object:
 ####################
 
-test ${ob/::} == $ob || bail double colons not supported... need to fix?
+# test ${ob/::} == $ob || bail double colons not supported... need to fix?
 
-# ## replace any '::' sequences temporarily:
-# ob=${ob//::/__2COLONS__}
+## replace any '::' sequences temporarily:
+ob=${ob//::/__2COLONS__}
 while [ ${ob/:/} != $ob ]; do
   # echo .
     oball=$ob
@@ -160,7 +160,7 @@ while [ ${ob/:/} != $ob ]; do
 
     done
 
-# ob=${ob//__2COLONS__/::}
+ob=${ob//__2COLONS__/::}
 
 # echo _DONE: $ob
 
@@ -349,20 +349,44 @@ test -e $tob/^ && { # object ^ file/directory/link exists...
             bail "invalid class/method handler location"
         }
 
+    ## remove & count SUPER:: prefixes
+    super=0
+    while [ ${method:0:7} == "SUPER::" ]; do
+        method=${method:7}
+        super=$((super+1))
+      # echo $super $method
+    done
+    
     isa=$tob/^
     while [ -e $isa ]; do
         ## ASSERT: parent class exists
         if [ -d $isa ]; then # parent class methods directory
+          # echo checking for $isa/$method...
             test -e $isa/$method && { # method found!
-                if [ -x $isa/$method ]; then
-                    # call object method handler, grab exitcode
-                    $isa/$method $ob $args "$@"
-                    exitcode=$?
-                else
+                
+                if [ ! -x $isa/$method ]; then
                     ## suspect this may also happen due to permissions...
                     ## ... so may need to rethink this simple bail-out
                     bail "ERROR: super object method $method not executable"
                 fi
+
+                ## ASSERT: method is executable
+
+              # if [ -x $isa/$method ]; then
+              #     # call object method handler, grab exitcode
+              #     $isa/$method $ob $args "$@"
+              #     exitcode=$?
+              # fi
+
+                if [ $super == 0 ]; then
+                    # call object method handler, grab exitcode
+                    $isa/$method $ob $args "$@"
+                    exitcode=$?
+                else
+                    super=$((super-1))
+                  # echo skipping method to reach super method
+                fi
+
                 }
         else ## monolithic parent class handler
             if [ -x $isa ]; then ## handler is executable
@@ -489,7 +513,7 @@ test "$method" == "method" && {
     tag="$1"
     shift
     value="$1"
-    shift
+    shift 
     cd $tob
     test -z "$tag" && { # list all methods
         for f in *\=*; do echo $f; done
@@ -520,6 +544,44 @@ test "$method" == "edit" && {
     fi
     test $VERBOSE && echo editor $target
     editor $target
+    exit 0
+    }
+
+test "$method" == "touch" && {
+    if [ -z "$1" ]; then target="%"; else target="$*"; fi
+    if [ -z $NOCD ]; then
+        cd $tob
+    else
+        for f in $*; do
+            ## non-option argument is the file to touch:
+            if [ $f == ${f#-} ]; then
+                target="$target $tob/$f"
+            else
+                target="$target $f"
+            fi
+        done
+    fi
+    test $VERBOSE && echo touch $target
+    touch $target
+    exit 0
+    }
+
+test "$method" == "mkdir" && {
+    if [ -z "$1" ]; then target="%"; else target="$*"; fi
+    if [ -z $NOCD ]; then
+        cd $tob
+    else
+        for f in $*; do
+            ## non-option argument is the file/dir name to mkdir:
+            if [ $f == ${f#-} ]; then
+                target="$target $tob/$f"
+            else
+                target="$target $f"
+            fi
+        done
+    fi
+    test $VERBOSE && echo mkdir $target
+    mkdir $target
     exit 0
     }
 
