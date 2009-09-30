@@ -245,43 +245,9 @@ test -e $uri_source && {
 
 ## lastly, execute the init method, if defined & specified:
 
-NEED TO DO!!!
-
-test -x $tob/^/new || exit 0 # no new method
-$tob/^/new $tob "$@" && exit 0 # all done!
-## ASSERT: the ob.new method failed, so clean up
-exec /usr/local/bin/thinob $ob.delete
-
-# echo .
-# echo OBJECT: $ob
-# echo METHOD: $method
-
-resolve_ob_to_tob $ob
-# echo ___TOB: $tob
-
-export tob_tob=$tob
-export tob_path=$tob
-
-###########################################################333
-
-## ASSERT: $ob is a nominal object, $tob is the actual thinobject
-
-test -z "$ob" -o -z "$tob" &&
-    bail "no object was parsed"
-
-test ! -d $tob &&
-    bail "ERROR: $tob is not a directory"
-
-test -z "$method" &&
-    bail "no method specified for $ob"
-
-test -n "$DEBUG" && {
-    echo DEBUG: nominal object=$ob
-    echo DEBUG: thinobject=$tob
-    echo DEBUG: method=$method
-    echo DEBUG: args1=\'$args\' args2=\'$*\'
-    }
-
+test -n "init_method_path" &&
+    $init_method_path $tob "$@" ||
+        bail init method failed: $init_method_path $tob "$@"
 
 
 ##############
@@ -289,6 +255,7 @@ test -n "$DEBUG" && {
 ##############
 NAME
     thinob-new -- create a new thinobject
+
 SYNOPSIS
     thinob-new [OPTIONS] TARGET [CLASS] 
 
@@ -370,14 +337,6 @@ OPTIONS
     -h
     --help
     show this help screen (manpage)
-
-SEE ALSO
-    Each thinobject class is *supposed to* provide a help method, and
-    a --help option to each of its methods.
-
-BUGS
-    Probably plenty.  This is an experimental system, with many details
-    remaining to flesh out and/or fix.
 
 AUTHOR
     Ken Irving <fnkci@uaf.edu> (c) 2009
