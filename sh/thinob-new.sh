@@ -8,72 +8,28 @@ function manpage() { # print manpage at end of this script...
     exec /usr/bin/awk '/^NAME$/{ok=1}ok' $0
     }
 
-function class_as_object () {
-    local class="$1"
-    for lib in ${LIB[@]}; do
-        for root in ${ROOT[@]}; do
-            classpath=$lib/$root/$class
-            test -d $classpath && { # got it!
-                return 0
-                }
-        done
+## provide a mechanism to back out of any changes if necessary:
+dim -a rollback_commands
+function rollback () {
+    test -n "$VERBOSE" &&
+        echo rolling back commands:
+    for (( i=${#rollback_commands[@]}; $i > 0; i=$i - 1 )); do
+        cmd="${rollback_commands[$i]}"
+        test -n "$VERBOSE" &&
+            echo executing rollback command: $cmd...
+        $cmd || {
+            echo failed to execute rollback command: $cmd
+            exit 2
+            }
     done
-    return 1
-    }
-
-function check_init_method () {
-    local class="$1"
-    ## ok if no method is specified
-    test -z "$TOB_NEW_INIT_METHOD" && return 0
-    ## ok if the empty method ("") is specified
-    test "$TOB_NEW_INIT_METHOD" == "" && return 0
-    ## ASSERT: an init method was specified...
-    for lib in ${LIB[@]}; do
-        for root in ${ROOT[@]}; do
-            classpath=$lib/$root/$class
-            test -d $classpath && { # got it!
-                test -x $classpath/$TOB_NEW_INIT_METHOD && return 0
-                bail method $TOB_NEW_INIT_METHOD not found in class $class
-                }
-        done
-    done
-    return 1
     }
 
 function bail () {
     echo $* >&2
+    test -n "$rollback_commands" &&
+        rollback
     exit 1
     }
-
-function resolve_ob_to_tob () { # return object path in global var tob:
-  # tob="${1}__"
-    ob=$1
-    test -L $ob && ob=$(/bin/readlink -f $ob) # resolve symlinked/aliased ob
-
-    ## ASSERT: $ob is NOT a symlink, so is either a file, directory, or null
-
-    if [ -d $ob -a -e "$ob/^" ]; then # $ob is a thinobject (but not checked)
-        tob=$ob
-        return
-    fi
-    ## ASSERT: $ob itself is not a thinobject, so check the dot-object...
-
-    if [ "${ob/\/*/}" == "$ob" ]; then # no slash in ob
-        tob=.$ob
-    else # ob has a slash in it
-        tob=${ob%\/*}/.${ob/*\//}
-    fi
-    test -L $tob/^ && return # tob is a thinobject
-    
-    ## object $ob not found, so check if instead it's a ThinObject class:
-    class_as_object $ob && { # yes, it is a class
-        tob=$classpath       # access the class (almost) as if it's an object
-        return
-        }
-
-    bail_rtnval 2 "$1 ($ob) is not a thinobject or was not found"
-    }
-
 
 ## parse options, which must precede target and (optional) class:
 while [ -n "$1" -a ${1#-} != $1 ]; do
@@ -98,7 +54,10 @@ while [ -n "$1" -a ${1#-} != $1 ]; do
         unset TOB_DOT_ATTR
 
     elif [ "$opt" == "-m" -o "$opt" == "--init-method" ]; then
-        test -n "$1" || bail "missing argument for --init-method or -m option"
+        test -n "$1" ||
+            bail "missing argument for --init-method or -m option"
+        test "$1" == ${1#*/} ||
+            bail init method cannot include a slash: $1
         TOB_NEW_INIT_METHOD=$1 && shift
 
     elif [ "$opt" == "-v" -o "$opt" == "--verbose" ]; then
@@ -122,24 +81,21 @@ while [ -n "$1" -a ${1#-} != $1 ]; do
     fi
 done
 
-## required argument specifying the target object to be created:
 target=$1 && shift
+
+## an argument specifying the target object to be created is required:
 test -n "$target" ||
     bail "no target specified for object creation"
 
-## check if the target is already a thinobject:
+##  the target must not already be a thinobject:
 tob -q $target.tob > /dev/null &&
     bail $target already exists as a thinobject
 
-## ASSERT: target is not a thinobject
-
-## specify class of the new object, or it defaults to Object
+## second argument specifies class of the new object, or it defaults to Object
 class=$1 && shift
 test -n "$class" || class=Object
 
 ## check that class can be resolved:
-check_class($class) ||
-    bail thinobject class $class not found
 
 for lib in ${LIB[@]}; do
     for root in ${ROOT[@]}; do
@@ -149,18 +105,39 @@ for lib in ${LIB[@]}; do
 done
 
 test -d $classpath ||
-    bail unable to resolve class $class
+    bail unable to resolve thinobject class $class
 
 ## ASSERT: class resolves
 
-test "$TOB_NEW_INIT_METHOD" == "" && return 0
+## use method 'init' by default if nothing is specified
+test -z "$TOB_NEW_INIT_METHOD" && TOB_NEW_INIT_METHOD=init
 
-check_init_method($class) 
-## (note: any remaining arguments will be passed to an init method, if called)
+unset init_method_path
 
-## try to handle target as a set of cases:
+## resolve init method unless blank value is specified:
+test -n "$TOB_NEW_INIT_METHOD" && {
+    searchpath=$classpath/^
+    while test -d $searchpath/; do
+        test -e $searchpath/$TOB_NEW_INIT_METHOD &&
+            test -x $searchpath/$TOB_NEW_INIT_METHOD &&
+                init_method_path=$searchpath/$TOB_NEW_INIT_METHOD &&
+                    break
+        searchpath=$searchpath/^
+    done
+    }
 
-unset DO
+## check that init method exists unless blank value is specified:
+test -n "$TOB_NEW_INIT_METHOD" && -n "$init_method_path" ||
+    bail thinobject method $TOB_NEW_INIT_METHOD not found
+
+## any remaining arguments will be passed to an init method, if called;
+## but check that there are no more arguments if there's no init method 
+test -z "init_method_path" && test -n "$1" &&
+    bail error: extra arguments given: $*
+
+## now try to handle target as a set of cases:
+
+unset DO_THIS
 
 if test ! -e $target; then
     test -n "$VERBOSE" &&
@@ -168,97 +145,108 @@ if test ! -e $target; then
 
     ## create the object as an ordinary or hidden directory:
     if test -n "$TOB_NEW_DOTDIR"; then
-        DO=CREATE_DIR
+        DO_THIS=CREATE_DIR
     elif test "$TOB_NEW_DOTDIR" == "1"; then
-        DO=CREATE_DOT_DIR
+        DO_THIS=CREATE_DOT_DIR
     else
         bail unexpected value of variable TOB_NEW_DOTDIR: $TOB_NEW_DOTDIR
     fi
 
 elif test -L $target; then
-    test -n "$VERBOSE" &&
-        echo target is a symlink
-    bail $target is a symlink, so no thinobject will be created
+    bail thinobject will not be created because target $target is a symlink
 
 elif test -f $target; then
     test -n "$VERBOSE" &&
         echo target is an ordinary file
-    DO=CREATE_DOT_DIR
+    DO_THIS=CREATE_DOT_DIR
 
 elif test -d $target; then
     test -n "$VERBOSE" &&
         echo target is a directory
     if test -n "$TOB_NEW_DOTDIR"; then
-        DO=USE_DIR
+        DO_THIS=USE_DIR
     elif test "$TOB_NEW_DOTDIR" == "1"; then
-        DO=CREATE_DOT_DIR
+        DO_THIS=CREATE_DOT_DIR
     else
         bail unexpected value of variable TOB_NEW_DOTDIR: $TOB_NEW_DOTDIR
     fi
 
 fi
 
-## next, do what variable DO says to do:
-if test -z "$DO"; then
-    bail internal error: variable DO is not set
-elif test $DO == USE_DIR; then
+## next, do what variable DO_THIS says to do:
+if test -z "$DO_THIS"; then
+    bail internal error: variable DO_THIS is not set
+
+elif test $DO_THIS == USE_DIR; then
     tob=$target
-elif test $DO == CREATE_DIR; then
+
+elif test $DO_THIS == CREATE_DIR; then
     tob=$target
     test -d $tob &&
         bail thinobject directory $tob already exists
-    test $VERBOSE && echo creating new thinobject $tob
+    test $VERBOSE &&
+        echo creating new thinobject $tob
     mkdir $tob ||
-        bail failed to create thinobject directory: $target
-elif test $DO == CREATE_DOT_DIR; then
+        bail failed to create thinobject directory: $tob
+    ${rollback_commands[ ${#rollback_commands[@]} ]}="rmdir $tob"
+
+elif test $DO_THIS == CREATE_DOT_DIR; then
     ## create potential tob by "dotting" target:
-    if [ ${target/\/} == $target ]; then # no slash in target
+    if test ${target/\/} == $target; then # no slash in target
         tob=.$target
     else # target has a slash in it
+        ## insert dot after last slash:
         tob=${target%\/*}/.${target/*\//}
     fi
     test -d $tob &&
         bail thinobject directory $tob already exists for $target
-    test $VERBOSE && echo creating new thinobject $tob for $target
+    test $VERBOSE &&
+        echo creating new thinobject $tob for $target
     mkdir $tob ||
         bail failed to create thinobject directory $tob for $target
+    ${rollback_commands[ ${#rollback_commands[@]} ]}="rmdir $tob"
+
 else
-    bail internal error: unknown value for DO variable: $DO
+    bail internal error: unknown value for DO_THIS variable: $DO_THIS
+
 fi
 
-## ASSERT: directory $tob exists, but no class link is defined
+## ASSERT: directory $tob exists, but class link is not yet defined
 
 test -d $tob && test ! -e $tob/^ && test ! -e $tob/.^ ||
-    bail class link $tob/^ or $tob/.^ already exists
+    bail error: file $tob/^ or $tob/.^ already exists in place of class link
 
 ## next, create the class link
 
-test $VERBOSE && echo creating new object $tob
-/bin/mkdir $tob
-ln -s $class $tob/^
-## check for and copy class .@uri property to object:
-test -e $class/.@uri && cp $class/.@uri $tob/
+test $VERBOSE &&
+    echo setting link to class $class in thinobject $tob for $target
 
-## ASERT: class link is set; search for new method, else done
-isa=$tob/^
-while [ -e $isa ]; do ## look for new method
-    if [ -d $isa ]; then # parent class methods directory
-        test -e $isa/new && { # new method found!
-            $isa/new $tob "$@" && exit 0 # all done!
-            }
-    else ## monolithic parent class handler
-        if [ -x $isa ]; then ## handler is executable
-            # invoke handler, grab exitcode
-            $isa new $ob $args "$@"
-            exitcode=$?
-        else
-            ## as noted above, not sure if this bail-out is right to do...
-            bail "ERROR: $isa handler not executable"
-        fi
-    fi
-    isa=$isa/^
-done
-        
+classlink_name=^
+test -n "$TOB_DOT_ATTR" && classlink_name=.^
+
+ln -s $class $tob/$classlink_name ||
+    bail failed to create symlink: ln -s $class $tob/$classlink_name
+    
+${rollback_commands[ ${#rollback_commands[@]} ]}="rm $tob/$classlink_name"
+
+## check for uri property (@uri or .@uri) in class:
+unset uri_source
+test -e $classpath/.@uri && uri_source=$classpath/.@uri
+test -e $classpath/@uri && uri_source=$classpath/@uri
+
+## copy class uri property to thinobject:
+test -e $uri_source && {
+    uri_dest=@uri
+    test -n "$TOB_DOT_ATTR" && uri_dest=.@uri
+    cp $uri_source $tob/$uri_dest ||
+        bail failed to copy class uri property $uri_source to $tob/$uri_dest
+    ${rollback_commands[ ${#rollback_commands[@]} ]}="rm $tob/$uri_dest"
+    }
+
+## lastly, execute the init method, if defined & specified:
+
+NEED TO DO!!!
+
 test -x $tob/^/new || exit 0 # no new method
 $tob/^/new $tob "$@" && exit 0 # all done!
 ## ASSERT: the ob.new method failed, so clean up
@@ -278,11 +266,14 @@ export tob_path=$tob
 
 ## ASSERT: $ob is a nominal object, $tob is the actual thinobject
 
-test -z "$ob" -o -z "$tob" && bail "no object was parsed"
+test -z "$ob" -o -z "$tob" &&
+    bail "no object was parsed"
 
-test ! -d $tob && bail "ERROR: $tob is not a directory"
+test ! -d $tob &&
+    bail "ERROR: $tob is not a directory"
 
-test -z "$method" && bail "no method specified for $ob"
+test -z "$method" &&
+    bail "no method specified for $ob"
 
 test -n "$DEBUG" && {
     echo DEBUG: nominal object=$ob
