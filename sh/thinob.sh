@@ -166,7 +166,7 @@ export tob_object=${ob%.*}
 # export tob_method=${ob##*.}
 
 
-function resolve_ob_to_tob () { # return object path in global var tob:
+function resolve_object_path () { # return object path in global var tob:
   # tob="${1}__"
     ob=$1
     test -L $ob && ob=$(/bin/readlink -f $ob) # resolve symlinked/aliased ob
@@ -217,7 +217,7 @@ while [ ${ob/:/} != $ob ]; do
 
   # echo resolve $ob to tob
 
-    resolve_ob_to_tob $ob
+    resolve_object_path $ob
 
     ob=$tob/$oblist
 
@@ -420,7 +420,7 @@ fi ## end of new or clone section
 # echo OBJECT: $ob
 # echo METHOD: $method
 
-resolve_ob_to_tob $ob
+resolve_object_path $ob
 # echo ___TOB: $tob
 
 export tob_tob=$tob
