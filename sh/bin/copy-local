@@ -1,0 +1,5 @@
+#!/bin/sh
+
+destination=/usr/local/bin/
+
+cp thinob-new.sh $destination/tob-new
