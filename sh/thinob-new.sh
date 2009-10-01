@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # require class handlers & methods to be under this path
 LIB=( ~/lib /usr/local/lib /home/.usr-local/lib /usr/lib )
@@ -9,7 +9,7 @@ function manpage() { # print manpage at end of this script...
     }
 
 ## provide a mechanism to back out of any changes if necessary:
-dim -a rollback_commands
+declare -a rollback_commands
 function rollback () {
     test -n "$VERBOSE" &&
         echo rolling back commands:
@@ -22,6 +22,13 @@ function rollback () {
             exit 2
             }
     done
+    }
+function push_rollback_command () {
+  # ${rollback_commands[${#rollback_commands[@]}]}="$@"
+    test -n "$VERBOSE" &&
+        echo adding rollback command: $@
+    echo commands so far: ${rollback_commands[@]}
+  # $rollback_commands=( "${rollback_commands[@]}" "$@")
     }
 
 function bail () {
@@ -114,10 +121,14 @@ test -z "$TOB_NEW_INIT_METHOD" && TOB_NEW_INIT_METHOD=init
 
 unset init_method_path
 
+echo init method: $TOB_NEW_INIT_METHOD
+
 ## resolve init method unless blank value is specified:
 test -n "$TOB_NEW_INIT_METHOD" && {
-    searchpath=$classpath/^
+    searchpath=$classpath
     while test -d $searchpath/; do
+        test -n "$VERBOSE" &&
+            echo searching for $TOB_NEW_INIT_METHOD in $searchpath/
         test -e $searchpath/$TOB_NEW_INIT_METHOD &&
             test -x $searchpath/$TOB_NEW_INIT_METHOD &&
                 init_method_path=$searchpath/$TOB_NEW_INIT_METHOD &&
@@ -127,7 +138,7 @@ test -n "$TOB_NEW_INIT_METHOD" && {
     }
 
 ## check that init method exists unless blank value is specified:
-test -n "$TOB_NEW_INIT_METHOD" && -n "$init_method_path" ||
+test -n "$TOB_NEW_INIT_METHOD" && test -n "$init_method_path" ||
     bail thinobject method $TOB_NEW_INIT_METHOD not found
 
 ## any remaining arguments will be passed to an init method, if called;
@@ -141,10 +152,10 @@ unset DO_THIS
 
 if test ! -e $target; then
     test -n "$VERBOSE" &&
-        echo target does not exist
+        echo "target '$target' does not (yet) exist"
 
     ## create the object as an ordinary or hidden directory:
-    if test -n "$TOB_NEW_DOTDIR"; then
+    if test -z "$TOB_NEW_DOTDIR"; then
         DO_THIS=CREATE_DIR
     elif test "$TOB_NEW_DOTDIR" == "1"; then
         DO_THIS=CREATE_DOT_DIR
@@ -188,7 +199,9 @@ elif test $DO_THIS == CREATE_DIR; then
         echo creating new thinobject $tob
     mkdir $tob ||
         bail failed to create thinobject directory: $tob
-    ${rollback_commands[ ${#rollback_commands[@]} ]}="rmdir $tob"
+  # ${rollback_commands[ ${#rollback_commands[@]} ]}="rmdir $tob"
+  # $rollback_commands=("${rollback_commands[@]}" "rmdir $tob")
+    push_rollback_command rmdir $tob
 
 elif test $DO_THIS == CREATE_DOT_DIR; then
     ## create potential tob by "dotting" target:
@@ -204,7 +217,9 @@ elif test $DO_THIS == CREATE_DOT_DIR; then
         echo creating new thinobject $tob for $target
     mkdir $tob ||
         bail failed to create thinobject directory $tob for $target
-    ${rollback_commands[ ${#rollback_commands[@]} ]}="rmdir $tob"
+  # ${rollback_commands[ ${#rollback_commands[@]} ]}="rmdir $tob"
+  # $rollback_commands=("${rollback_commands[@]}" "rmdir $tob")
+    push_rollback_command rmdir $tob
 
 else
     bail internal error: unknown value for DO_THIS variable: $DO_THIS
@@ -224,10 +239,12 @@ test $VERBOSE &&
 classlink_name=^
 test -n "$TOB_DOT_ATTR" && classlink_name=.^
 
-ln -s $class $tob/$classlink_name ||
-    bail failed to create symlink: ln -s $class $tob/$classlink_name
+ln -s $classpath $tob/$classlink_name ||
+    bail failed to create symlink: ln -s $classpath $tob/$classlink_name
     
-${rollback_commands[ ${#rollback_commands[@]} ]}="rm $tob/$classlink_name"
+# ${rollback_commands[ ${#rollback_commands[@]} ]}="rm $tob/$classlink_name"
+# $rollback_commands=("${rollback_commands[@]}" "rm $tob/$classlink_name")
+push_rollback_command rmdir $tob/$classlink_name
 
 ## check for uri property (@uri or .@uri) in class:
 unset uri_source
@@ -240,7 +257,9 @@ test -e $uri_source && {
     test -n "$TOB_DOT_ATTR" && uri_dest=.@uri
     cp $uri_source $tob/$uri_dest ||
         bail failed to copy class uri property $uri_source to $tob/$uri_dest
-    ${rollback_commands[ ${#rollback_commands[@]} ]}="rm $tob/$uri_dest"
+  # ${rollback_commands[ ${#rollback_commands[@]} ]}="rm $tob/$uri_dest"
+  # $rollback_commands=("${rollback_commands[@]}" "rm $tob/$uri_dest")
+    push_rollback_command rmdir $tob/$uri_dest
     }
 
 ## lastly, execute the init method, if defined & specified:
