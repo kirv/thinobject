@@ -296,6 +296,25 @@ test "$method" == "tob" && {
     exit 0
     }
 
+test "$method" == "type" && {
+    pad=""
+    test -L $tob/.^ && class=$tob/.^ ||
+        test -L $tob/^ && class=$tob/^
+    while [ -L $class ]; do
+        classlink=$(/bin/readlink -f $class)
+        if [ $VERBOSE ]; then # show full path of class link, no indent
+            echo $classlink
+        else                  # show class name, indented
+            classname $classlink
+            echo "$pad$classname"
+        fi
+        test -L $class/.^ && class=$class/.^ ||
+            test -L $class/^ && class=$class/^
+        pad="  $pad"
+    done
+    exit 0
+    }
+
 test "$method" == "isa" && {
     test -e $tob/^ && {
         class=$tob/^
