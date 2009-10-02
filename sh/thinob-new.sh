@@ -10,11 +10,13 @@ function manpage() { # print manpage at end of this script...
 
 ## provide a mechanism to back out of any changes if necessary:
 declare -a rollback_commands
+
 function push_rollback_command () {
     test -n "$VERBOSE" &&
         echo adding rollback command: $@
     rollback_commands=( "$*" "${rollback_commands[@]}" )
     }
+
 function rollback () {
     test -n "$VERBOSE" &&
         echo rolling back commands:
@@ -40,18 +42,19 @@ while [ -n "$1" -a ${1#-} != $1 ]; do
 
     opt=$1 && shift
 
-    if [ "$opt" == "--hide" -o "$opt" == "--shadow" ]
+    if [ "$opt" == "-s" -o "$opt" == "--hide" -o "$opt" == "--shadow" ]
         then
         ## create object as dotted directory
         TOB_NEW_DOTDIR=1
 
-    elif [ "$opt" == "--no-hide" -o "$opt" == "--no-shadow" ]; then
+    elif [ "$opt" == "-S" -o "$opt" == "--no-hide" -o "$opt" == "--no-shadow" ]
+    then
         ## create object directly, not dotted...
         unset TOB_NEW_DOTDIR
 
     elif [ "$opt" == "-a" -o "$opt" == "--hide-attr" ]; then
         ## create object directly, not dotted...
-        unset TOB_DOT_ATTR
+        TOB_DOT_ATTR=1
 
     elif [ "$opt" == "-A" -o "$opt" == "--no-hide-attr" ]; then
         ## create object directly, not dotted...
@@ -349,5 +352,4 @@ OPTIONS
 
 AUTHOR
     Ken Irving <fnkci@uaf.edu> (c) 2009
-END_OF_MANPAGE
 
