@@ -24,7 +24,7 @@ function check_class () {
     return 1
     }
 
-function classname () { # remove class library root from class link ^
+function classname () { # remove class library root from class link
     classname=$1
     for lib in ${LIB[@]}; do
         for root in ${ROOT[@]}; do
@@ -173,10 +173,14 @@ function resolve_object_path () { # return object path in global var tob:
 
     ## ASSERT: $ob is NOT a symlink, so is either a file, directory, or null
 
-    if [ -d $ob -a -e "$ob/^" ]; then # $ob is a thinobject (but not checked)
-        tob=$ob
-        return
-    fi
+    test -d "$ob" && {
+        test -L "$ob/^" || test -L "$ob/.^" && {
+            ## $ob is a thinobject (but not checked)
+            tob=$ob
+            return
+            }
+        }
+    
     ## ASSERT: $ob itself is not a thinobject, so check the dot-object...
 
     if [ "${ob/\/*/}" == "$ob" ]; then # no slash in ob
@@ -184,7 +188,9 @@ function resolve_object_path () { # return object path in global var tob:
     else # ob has a slash in it
         tob=${ob%\/*}/.${ob/*\//}
     fi
-    test -L $tob/^ && return # tob is a thinobject
+
+    test -L "$ob/^" || test -L "$ob/.^" &&
+        return # tob is a thinobject
     
     ## object $ob not found, so check if instead it's a ThinObject class:
     class_as_object $ob && { # yes, it is a class

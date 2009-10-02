@@ -7,3 +7,5 @@ test thinob.sh -nt $destination/tob &&
 
 test thinob-new.sh -nt $destination/tob-new &&
     cp thinob-new.sh $destination/tob-new
+
+exit 0
