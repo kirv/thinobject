@@ -20,7 +20,7 @@ function rollback () {
         echo rolling back commands:
     for cmd in "${rollback_commands[@]}"; do
         test -n "$VERBOSE" &&
-            echo executing rollback command: $cmd...
+            printf "\t%s\n" "$cmd"
         $cmd || {
             echo failed to execute rollback command: $cmd
             exit 2
@@ -130,8 +130,10 @@ while test -d $searchpath/; do
 done
 
 ## check that init method exists:
-test -n "$TOB_NEW_INIT_METHOD" && test -n "$init_method_path" ||
-    bail thinobject method $TOB_NEW_INIT_METHOD not found
+test -n "$TOB_NEW_INIT_METHOD" && {
+    test -n "$init_method_path" ||
+        bail thinobject method $TOB_NEW_INIT_METHOD not found
+    }
 
 ## any remaining arguments will be passed to an init method, if called;
 ## but check that there are no more arguments if there's no init method 
@@ -238,9 +240,10 @@ test -e $classpath/.@uri && uri_source=$classpath/.@uri
 test -e $classpath/@uri && uri_source=$classpath/@uri
 
 ## copy class uri property to thinobject:
-test -e $uri_source && {
+test -e "$uri_source" && {
     uri_dest=@uri
     test -n "$TOB_DOT_ATTR" && uri_dest=.@uri
+    echo "cp FROM:$uri_source TO:$tob/$uri_dest"
     cp $uri_source $tob/$uri_dest ||
         bail failed to copy class uri property $uri_source to $tob/$uri_dest
     push_rollback_command rm $tob/$uri_dest
@@ -248,10 +251,13 @@ test -e $uri_source && {
 
 ## lastly, execute the init method, if defined & specified:
 
-test -n "init_method_path" &&
+test -n "$init_method_path" && {
+    echo 1:$init_method_path 2:$tob 3:"$@"
     $init_method_path $tob "$@" ||
         bail init method failed: $init_method_path $tob "$@"
+    }
 
+exit 0
 
 ##############
 ## manpage follows
