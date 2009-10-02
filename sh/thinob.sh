@@ -719,13 +719,28 @@ for isa in $tob $tob_classlinks; do
         default_handler=_default-list
         break
         }
+    test -e $isa/.\@$method && { # found @method
+        property=$isa/.@$method
+        default_handler=_default-list
+        break
+        }
     test -e $isa/\%$method && { # found %method
         property=$isa/%$method
         default_handler=_default-dict
         break
         }
+    test -e $isa/.\%$method && { # found %method
+        property=$isa/.%$method
+        default_handler=_default-dict
+        break
+        }
     test -e $isa/\%\@$method && { # found %@method
         property=$isa/%@$method
+        default_handler=_default-dict-list
+        break
+        }
+    test -e $isa/.\%\@$method && { # found %@method
+        property=$isa/.%@$method
         default_handler=_default-dict-list
         break
         }
