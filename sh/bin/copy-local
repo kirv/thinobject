@@ -2,4 +2,8 @@
 
 destination=/usr/local/bin/
 
-cp thinob-new.sh $destination/tob-new
+test thinob.sh -nt $destination/tob &&
+    cp thinob.sh $destination/tob
+
+test thinob-new.sh -nt $destination/tob-new &&
+    cp thinob-new.sh $destination/tob-new
