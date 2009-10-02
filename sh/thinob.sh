@@ -51,6 +51,30 @@ function class_as_object () {
     return 1
     }
 
+declare -a tob_classlinks
+declare -a tob_classnames
+function follow_class_links () {
+    if test -L $tob/.^; then
+        class=$tob/.^
+    elif test -L $tob/^; then
+         class=$tob/^
+    fi
+    while [ -L $class ]; do
+        classlink=$(/bin/readlink -f $class)
+        tob_classlinks=($tob_classlinks $classlink)
+        classname $classlink
+        tob_classnames=($tob_classnames $classname)
+        if test -L $class/.^; then
+            class=$class/.^
+        elif test -L $class/^; then
+             class=$class/^
+        else
+            return 0
+        fi
+    done
+    return 1
+    }
+
 function bail () {
     test -z "$QUIET" && echo $* >&2
     exit 1
@@ -297,47 +321,30 @@ test "$method" == "tob" && {
     }
 
 test "$method" == "type" && {
-    pad=""
-    test -L $tob/.^ && class=$tob/.^ ||
-        test -L $tob/^ && class=$tob/^
-    while [ -L $class ]; do
-        classlink=$(/bin/readlink -f $class)
-        if [ $VERBOSE ]; then # show full path of class link, no indent
-            echo $classlink
-        else                  # show class name, indented
-            classname $classlink
-            echo "$pad$classname"
-        fi
-        test -L $class/.^ && class=$class/.^ ||
-            test -L $class/^ && class=$class/^
-        pad="  $pad"
-    done
+    follow_class_links
+    if test -n "$VERBOSE"; then
+        echo ${tob_classlinks[@]}
+    else
+        echo ${tob_classnames[@]}
+    fi
     exit 0
     }
 
 test "$method" == "isa" && {
-    test -e $tob/^ && {
-        class=$tob/^
-        test -L $class || bail "$ob ^ property is not a symlink..."
+    follow_class_links
+    test -z "$VERBOSE" && {
         pad=""
-        while [ -L $class ]; do
-            classlink=$(/bin/readlink -f $class)
-            if [ $VERBOSE ]; then # show full path of class link, no indent
-                echo $classlink
-            else                  # show class name, indented
-                classname $classlink
-                echo "$pad$classname"
-            fi
-            class=$class/^
-            pad="  "$pad
+        for classname in ${tob_classnames[@]}; do
+            echo "$pad$classname"
+            pad="  $pad"
         done
         exit 0
         }
-    ## ASSERT: no object class specified, so the default is:
-    echo thinobject
+    for classlink in ${tob_classlinks[@]}; do
+        echo $classlink
+    done
     exit 0
     }
-
 
 ####################
 ## ASSERT a method was passed
