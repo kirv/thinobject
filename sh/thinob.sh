@@ -52,7 +52,6 @@ function class_as_object () {
     }
 
 declare -a tob_classlinks
-declare -a tob_classnames
 function follow_class_links () {
     if test -L $tob/.^; then
         class=$tob/.^
@@ -62,8 +61,6 @@ function follow_class_links () {
     while [ -L $class ]; do
         classlink=$(/bin/readlink -f $class)
         tob_classlinks=($tob_classlinks $classlink)
-        classname $classlink
-        tob_classnames=($tob_classnames $classname)
         if test -L $class/.^; then
             class=$class/.^
         elif test -L $class/^; then
@@ -73,6 +70,17 @@ function follow_class_links () {
         fi
     done
     return 1
+    }
+
+declare -a tob_classnames
+function parse_class_names () {
+    test -n $tob_classlinks ||
+        follow_class_links
+    for classlink in ${tob_classlinks[@]}; do
+        classname $classlink
+        tob_classnames=($tob_classnames $classname)
+    done
+    return 0
     }
 
 function bail () {
@@ -322,26 +330,28 @@ test "$method" == "tob" && {
 
 test "$method" == "type" && {
     follow_class_links
-    if test -n "$VERBOSE"; then
+    test -n "$VERBOSE" && {
         echo ${tob_classlinks[@]}
-    else
-        echo ${tob_classnames[@]}
-    fi
+        exit 0
+        }
+    parse_class_names
+    echo ${tob_classnames[@]}
     exit 0
     }
 
 test "$method" == "isa" && {
     follow_class_links
-    test -z "$VERBOSE" && {
-        pad=""
-        for classname in ${tob_classnames[@]}; do
-            echo "$pad$classname"
-            pad="  $pad"
+    test -n "$VERBOSE" && {
+        for classlink in ${tob_classlinks[@]}; do
+            echo $classlink
         done
         exit 0
         }
-    for classlink in ${tob_classlinks[@]}; do
-        echo $classlink
+    parse_class_names
+    pad=""
+    for classname in ${tob_classnames[@]}; do
+        echo "$pad$classname"
+        pad="  $pad"
     done
     exit 0
     }
