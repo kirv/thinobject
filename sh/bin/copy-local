@@ -2,10 +2,18 @@
 
 destination=/usr/local/bin/
 
-test thinob.sh -nt $destination/tob &&
-    cp thinob.sh $destination/tob
+test -n "$1" && {
+    opt=$1 && shift
+    test $opt == "--verbose" || test $opt == "-v" &&
+        VERBOSE=1
+    }
 
-test thinob-new.sh -nt $destination/tob-new &&
-    cp thinob-new.sh $destination/tob-new
+for prog in tob tob-new; do
+    test $prog -nt $destination/$prog && {
+        test "$VERBOSE" && 
+            echo copying $prog to $destination
+        cp $prog $destination/$prog ||
+            echo FAILED copying $prog to $destination
+        }
+done
 
-exit 0
