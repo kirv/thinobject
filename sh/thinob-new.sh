@@ -10,11 +10,15 @@ function manpage() { # print manpage at end of this script...
 
 ## provide a mechanism to back out of any changes if necessary:
 declare -a rollback_commands
+function push_rollback_command () {
+    test -n "$VERBOSE" &&
+        echo adding rollback command: $@
+    rollback_commands=( "$*" "${rollback_commands[@]}" )
+    }
 function rollback () {
     test -n "$VERBOSE" &&
         echo rolling back commands:
-    for (( i=${#rollback_commands[@]}; $i > 0; i=$i - 1 )); do
-        cmd="${rollback_commands[$i]}"
+    for cmd in "${rollback_commands[@]}"; do
         test -n "$VERBOSE" &&
             echo executing rollback command: $cmd...
         $cmd || {
@@ -22,13 +26,6 @@ function rollback () {
             exit 2
             }
     done
-    }
-function push_rollback_command () {
-  # ${rollback_commands[${#rollback_commands[@]}]}="$@"
-    test -n "$VERBOSE" &&
-        echo adding rollback command: $@
-    echo commands so far: ${rollback_commands[@]}
-  # $rollback_commands=( "${rollback_commands[@]}" "$@")
     }
 
 function bail () {
@@ -116,28 +113,23 @@ test -d $classpath ||
 
 ## ASSERT: class resolves
 
+## resolve init method if specified on the command line:
+init_method=$TOB_NEW_INIT_METHOD
 ## use method 'init' by default if nothing is specified
-test -z "$TOB_NEW_INIT_METHOD" && TOB_NEW_INIT_METHOD=init
-
+test -z "$init_method" && init_method=init
 unset init_method_path
+searchpath=$classpath
+while test -d $searchpath/; do
+    test -n "$VERBOSE" &&
+        echo searching for $init_method in $searchpath/
+    test -e $searchpath/$init_method &&
+        test -x $searchpath/$init_method &&
+            init_method_path=$searchpath/$init_method &&
+                break
+    searchpath=$searchpath/^
+done
 
-echo init method: $TOB_NEW_INIT_METHOD
-
-## resolve init method unless blank value is specified:
-test -n "$TOB_NEW_INIT_METHOD" && {
-    searchpath=$classpath
-    while test -d $searchpath/; do
-        test -n "$VERBOSE" &&
-            echo searching for $TOB_NEW_INIT_METHOD in $searchpath/
-        test -e $searchpath/$TOB_NEW_INIT_METHOD &&
-            test -x $searchpath/$TOB_NEW_INIT_METHOD &&
-                init_method_path=$searchpath/$TOB_NEW_INIT_METHOD &&
-                    break
-        searchpath=$searchpath/^
-    done
-    }
-
-## check that init method exists unless blank value is specified:
+## check that init method exists:
 test -n "$TOB_NEW_INIT_METHOD" && test -n "$init_method_path" ||
     bail thinobject method $TOB_NEW_INIT_METHOD not found
 
@@ -199,8 +191,6 @@ elif test $DO_THIS == CREATE_DIR; then
         echo creating new thinobject $tob
     mkdir $tob ||
         bail failed to create thinobject directory: $tob
-  # ${rollback_commands[ ${#rollback_commands[@]} ]}="rmdir $tob"
-  # $rollback_commands=("${rollback_commands[@]}" "rmdir $tob")
     push_rollback_command rmdir $tob
 
 elif test $DO_THIS == CREATE_DOT_DIR; then
@@ -217,8 +207,6 @@ elif test $DO_THIS == CREATE_DOT_DIR; then
         echo creating new thinobject $tob for $target
     mkdir $tob ||
         bail failed to create thinobject directory $tob for $target
-  # ${rollback_commands[ ${#rollback_commands[@]} ]}="rmdir $tob"
-  # $rollback_commands=("${rollback_commands[@]}" "rmdir $tob")
     push_rollback_command rmdir $tob
 
 else
@@ -242,9 +230,7 @@ test -n "$TOB_DOT_ATTR" && classlink_name=.^
 ln -s $classpath $tob/$classlink_name ||
     bail failed to create symlink: ln -s $classpath $tob/$classlink_name
     
-# ${rollback_commands[ ${#rollback_commands[@]} ]}="rm $tob/$classlink_name"
-# $rollback_commands=("${rollback_commands[@]}" "rm $tob/$classlink_name")
-push_rollback_command rmdir $tob/$classlink_name
+push_rollback_command rm $tob/$classlink_name
 
 ## check for uri property (@uri or .@uri) in class:
 unset uri_source
@@ -257,9 +243,7 @@ test -e $uri_source && {
     test -n "$TOB_DOT_ATTR" && uri_dest=.@uri
     cp $uri_source $tob/$uri_dest ||
         bail failed to copy class uri property $uri_source to $tob/$uri_dest
-  # ${rollback_commands[ ${#rollback_commands[@]} ]}="rm $tob/$uri_dest"
-  # $rollback_commands=("${rollback_commands[@]}" "rm $tob/$uri_dest")
-    push_rollback_command rmdir $tob/$uri_dest
+    push_rollback_command rm $tob/$uri_dest
     }
 
 ## lastly, execute the init method, if defined & specified:
