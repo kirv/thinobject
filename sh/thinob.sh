@@ -53,6 +53,8 @@ function class_as_object () {
 
 declare -a tob_classlinks
 function follow_class_links () {
+    test -n "$tob_classlinks" &&
+        return 0
     if test -L $tob/.^; then
         class=$tob/.^
     elif test -L $tob/^; then
@@ -74,6 +76,8 @@ function follow_class_links () {
 
 declare -a tob_classnames
 function parse_class_names () {
+    test -n "$tob_classnames" &&
+        return 0
     test -n $tob_classlinks ||
         follow_class_links
     for classlink in ${tob_classlinks[@]}; do
@@ -319,7 +323,12 @@ test -n "$DEBUG" && {
     echo DEBUG: args1=\'$args\' args2=\'$*\'
     }
 
+####################
+## ASSERT a method was passed
+####################
+
 ## SPECIAL CASES: tob and isa methods precede the normal method search
+
 test "$method" == "tob" && {
     test -z "$*" && echo $tob
     for arg in $*; do
@@ -356,88 +365,66 @@ test "$method" == "isa" && {
     exit 0
     }
 
-####################
-## ASSERT a method was passed
-####################
+follow_class_links # initialize tob_classlinks array
 
-test -e $tob/^ && { # object ^ file/directory/link exists...
-
-    ## not sure the following test is really required or valid...
-    ##    e.g., one could have a once-only object I suppose ...
-    ## require object's ^ to be a symlink:
-    test ! -L $tob/^ &&
-        bail "ERROR: object $ob ^ property is not a symlink"
-
-    test -z $NOT_STRICT && { # safety check
-        check_class $(/bin/readlink -f $tob/^) ||
-            bail "invalid class/method handler location"
-        }
-
-    classname $(/bin/readlink -f $tob/^)
-    export tob_class=$classname
-
-    ## remove & count SUPER:: prefixes
-    super=0
-    while [ ${method:0:7} == "SUPER::" ]; do
-        method=${method:7}
-        super=$((super+1))
-      # echo $super $method
-    done
-    
-    ## search in class, parent class, parent of parent class, etc., 
-    isa=$tob/^
-    while [ -e $isa ]; do
-        ## ASSERT: parent class exists
-        if [ -d $isa ]; then # parent class methods directory
-          # echo checking for $isa/$method...
-            test -e $isa/$method && { # method found!
-                
-                if [ ! -x $isa/$method ]; then
-                    ## suspect this may also happen due to permissions...
-                    ## ... so may need to rethink this simple bail-out
-                    bail "ERROR: super object method $method not executable"
-                fi
-
-                ## ASSERT: method is executable
-
-              # if [ -x $isa/$method ]; then
-              #     # call object method handler, grab exitcode
-              #     $isa/$method $ob $args "$@"
-              #     exitcode=$?
-              # fi
-
-                if [ $super == 0 ]; then
-                    # call object method handler, grab exitcode
-                    $isa/$method $ob $args "$@"
-                    exitcode=$?
-                else
-                    super=$((super-1))
-                  # echo skipping method to reach super method
-                fi
-
-                }
-        else ## monolithic parent class handler
-            if [ -x $isa ]; then ## handler is executable
-                # invoke handler, grab exitcode
-                $isa $method $ob $args "$@"
-                exitcode=$?
-            else
-                ## as noted above, not sure if this bail-out is right to do...
-                bail "ERROR: $isa handler not executable"
-            fi
-        fi
-        test -n "$exitcode" && { # method handler was run, and returned
-            ## continue only if special exit status value is returned
-            ## note that exit status of 0 will also apply here...
-            test $exitcode == $TOB_CONTINUE_SEARCH || exit $exitcode
-            }
-        ## ASSERT: method either not found or handler says to keep going...
-        isa=$isa/^ # continue search with parent class, if any...
-    done
-
+test -z $NOT_STRICT && { # safety check
+    check_class $tob_classlinks ||
+        bail "invalid class/method handler location"
     }
 
-## ASSERT: no ^ file, so handle as base class thinobject
+parse_class_names # initialize tob_classnames array
+export tob_class=$tob_classnames
+
+## remove & count SUPER:: prefixes
+super=0
+while [ ${method:0:7} == "SUPER::" ]; do
+    method=${method:7}
+    super=$((super+1))
+  # echo $super $method
+done
+
+## search in class, parent class, parent of parent class, etc., 
+for isa in ${tob_classlinks[@]}; do
+    ## ASSERT: parent class exists
+    if [ -d $isa ]; then # parent class methods directory
+      # echo checking for $isa/$method...
+        test -e $isa/$method && { # method found!
+            
+            ## suspect this may also happen due to permissions...
+            ## ... so may need to rethink this simple bail-out
+            test -x $isa/$method ||
+                bail "ERROR: method $method in $isa/ not executable"
+
+            ## ASSERT: method is executable
+
+            if [ $super == 0 ]; then
+                # call object method handler, grab exitcode
+                $isa/$method $ob $args "$@"
+                exitcode=$?
+            else
+                super=$((super-1))
+              # echo skipping method to reach super method
+            fi
+
+            }
+    else ## monolithic parent class handler
+        if [ -x $isa ]; then ## handler is executable
+            # invoke handler, grab exitcode
+            $isa $method $ob $args "$@"
+            exitcode=$?
+        else
+            ## as noted above, not sure if this bail-out is right to do...
+            bail "ERROR: $isa handler not executable"
+        fi
+    fi
+    test -n "$exitcode" && { # method handler was run, and returned
+        ## continue only if special exit status value is returned
+        ## note that exit status of 0 will also apply here...
+        test $exitcode == $TOB_CONTINUE_SEARCH || exit $exitcode
+        }
+    ## ASSERT: method either not found or handler says to keep going...
+done
+
 
 ####################
 ## default methods follow
@@ -651,7 +638,7 @@ test "$method" == "delete" && { ## CAUTION!! object & content will be removed
             exit
             }
 
-        ## the object and all content will be deleted
+        ## the object and all contents will be deleted
         ## ... but first make sure it's a directory:
         test -d $tob_path || {
             tob_error -v -x 1 error??: $tob_path is not a directory
@@ -659,7 +646,8 @@ test "$method" == "delete" && { ## CAUTION!! object & content will be removed
 
         ## ... and that it has a class symlink ^ 
         test -L $tob_path/^ ||
-            tob_error -v -x 1 error?: $tob_object class symlink not found
+            test -L $tob_path/.^ ||
+                tob_error -v -x 1 error?: $tob_object class symlink not found
 
         ## ... then go ahead and delete it:
         /bin/rm -r $tob_path ||
@@ -724,9 +712,8 @@ test "$method" == "delete" && { ## CAUTION!! object & content will be removed
 ## no ob.method found, so check for properties @method or %method
 ####################
 
-isa=$tob # 
 unset property default_handler
-while [ -e $isa ]; do 
+for isa in $tob $tob_classlinks; do
     test -e $isa/\@$method && { # found @method
         property=$isa/@$method
         default_handler=_default-list
@@ -742,22 +729,18 @@ while [ -e $isa ]; do
         default_handler=_default-dict-list
         break
         }
-    isa=$isa/^ # continue search with parent class...
 done
 
 test -n "$property" && {
   # echo FOUND $property, looking for $default_handler...
-    isa=$tob/^ # start search for default handler in the object class...
-    while [ -e $isa ]; do # search for _default-list or _default-dict
+    for isa in $tob_classlinks; do # search for _default-list or _default-dict
         test -e $isa/$default_handler && {
           # echo TODO: /bin/echo exec $isa/$default_handler $property $@
             exec $isa/$default_handler $ob $property $@ # found & dispatched
             }
-        isa=$isa/^ # continue to parent class...
     done
 
     ## ASSERT: property was found, but no default handler, so handle inline:
-  # echo FOUND $property, but no $default_handler...
 
     test $default_handler == _default-list && { # called ob.foo, found @foo...
         lines="$1"
@@ -795,8 +778,7 @@ test -n "$property" && {
 ## still no method found -- check for _default method...
 ####################
 
-isa=$tob/^ # start looking in the object class ...
-while [ -e $isa ]; do
+for isa in $tob_classlinks; do
     ## ASSERT: class exists
     test -e $isa/_default && {
         test -x $isa/_default && {
@@ -807,9 +789,7 @@ while [ -e $isa ]; do
         ## maybe it can contain a recipe to be executed?
         bail 'non-executable _default "method" found'
         }
-    isa=$isa/^ # continue search with parent class, if any...
 done
-
 
 test $VERBOSE && echo no method $method found 
 bail "no method $method found"
