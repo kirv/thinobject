@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # define a special exit status to search up object classes, sub to super(s):
 TOB_CONTINUE_SEARCH=100
@@ -52,6 +52,7 @@ function class_as_object () {
     }
 
 declare -a tob_classlinks
+export tob_classlinks      # NOTE: bash 3.2 arrays are not exportable!
 function follow_class_links () {
     test -n "$tob_classlinks" &&
         return 0

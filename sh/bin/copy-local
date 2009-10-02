@@ -2,8 +2,12 @@
 
 destination=/usr/local/bin/
 
+VERBOSE=1
+
 test -n "$1" && {
     opt=$1 && shift
+    test $opt == "--no-verbose" || test $opt == "-V" &&
+        unset VERBOSE
     test $opt == "--verbose" || test $opt == "-v" &&
         VERBOSE=1
     }
