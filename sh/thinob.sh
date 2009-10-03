@@ -181,7 +181,7 @@ while [ -n "$ob" -a ${ob#-} != $ob ]; do # option detected by leading "-" ...
     shift
 done
 
-test -z $ob && bail "no object specified"
+test -z "$ob" && bail "no object specified"
 
 test $method && { # iterate method on multiple objects (see -m, --method)
     while [ $ob ]; do
