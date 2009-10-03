@@ -1,0 +1,116 @@
+#!/bin/bash
+
+ob=$1 && shift
+cd $tob_path || exit 19
+
+self=.
+tob=/usr/local/bin/tob
+
+## gather all the web page elements from object and classes in arrays:
+
+declare -a html_css
+declare -a html_javascript
+declare -a html_body
+
+## also check for the xml "hook" method:
+declare xml
+
+path='./'
+while test -n "$path"; do
+    test -e "$path/@html-css" && 
+        html_css=( ${html_css[@]} "$path/@html-css" )
+
+    test -e "$path/@html-javascript" && 
+        html_javascript=( ${html_javascript[@]} "$path/@html-javascript" )
+
+    test -e "$path/@html-body" && 
+        html_body=( ${html_body[@]} "$path/@html-body" )
+
+    test -z "$xml" && test -d "$path/^" && test -x "$path/^/xml" &&
+        xml="$path/^/xml"
+
+    path="$path/^"
+    test -d $path || unset path
+done
+
+## begin output of the web page...
+
+echo '<html>'
+echo '<head>'
+echo '<title>'
+
+## use object name for the title unless @html-title exists:
+
+if [ -e @html-title ]; then
+    cat @html-title
+else
+    echo $ob
+fi
+
+echo '</title>'
+
+## now output css (if any)
+
+n=${#html_css[@]}
+while (( $n > 0 )); do
+    n=$(($n - 1))
+    echo '<style type="text/css">'
+    cat ${html_css[$n]}
+    echo '</style>'
+done
+
+## now output javascript (if any)
+
+n=${#html_javascript[@]}
+while (( $n > 0 )); do
+    n=$(($n - 1))
+    echo '<script> language="javascript"'
+    cat ${html_javascript[$n]}
+    echo '</script>'
+done
+
+echo '</head>'
+echo '<body>'
+
+## run xml method if defined and if anything has changed...
+test -n "$xml" && {
+    if [ -e \@html-body ]; then
+        for f in *; do
+            test $f -nt \@html-body && UPDATE_HTML_BODY=1
+        done
+    else
+        ## @html-body file does not exist, so create it
+        ## NOTE: must be done as a logon user, not via web server
+        UPDATE_HTML_BODY=1
+        touch \@html-body
+        chmod og+w \@html-body
+    fi
+
+    test "$UPDATE_HTML_BODY" == "1" && {
+        printf '<div id="%s">' $tob_path > @html-body
+      # $xml $self >> @html-body
+        $tob $self.xml >> @html-body
+        echo '</div>' >> @html-body
+        }
+        
+    }
+
+## now output the html page body, perhaps just the object name
+
+n=${#html_body[@]}
+if (( $n == 0 )); then
+
+    echo $tob_object
+
+else
+
+    while (( $n > 0 )); do
+        n=$(($n - 1))
+        cat ${html_body[$n]}
+    done
+
+fi
+
+echo '</body>'
+echo '</html>'
+

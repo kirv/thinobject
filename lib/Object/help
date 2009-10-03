@@ -1,0 +1,33 @@
+#!/bin/sh
+
+cat << END_HELP_SCREEN
+NAME
+    BaseClass -- thinobject base class
+
+DESCRIPTION
+    The ThinObject` BaseClass class provides some general-use methods
+    which may apply to all thinobject objects.
+
+    Note that there are several methods (or perhaps, ``faux''
+    methods?) available through the ThinObject I<enabler> program,
+    F<thinob> or F<tob>, which are not defined in the BaseClass class.
+
+METHODS
+    get-prop -- show one or all properties
+    set-prop -- set the value of a property
+    method -- show all methods, or pathname of a method
+    help   -- display this help screen
+
+SEE ALSO
+    C<thinob --help> or C<tob>...
+
+    The --help option of the various methods.
+
+BUGS
+    
+
+AUTHOR
+    Ken Irving <fnkci@uaf.edu> (c) 2007
+
+    Licensed under the GPL (Gnu Public Library)
+END_HELP_SCREEN

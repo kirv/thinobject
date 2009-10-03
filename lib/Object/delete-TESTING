@@ -1,0 +1,142 @@
+#!/bin/sh
+
+ob=$1; shift
+dict=$1; shift
+test -e $dict || exit 1
+
+test "$method" == "delete" && { ## CAUTION!!
+  # echo object: $ob
+  # echo tob-object: $tob_object
+  # echo tob-method: $tob_method
+  # echo tob-object: $tob
+  # test -f $tob_object && echo $tob_object is a file
+  # test -d $tob_object && echo $tob_object is a directory
+  # test -L $tob_object && echo $tob_object is a symlink
+
+    test -z "$*" && { ## no args, so delete the thinobject completely:
+        test -L $tob_object && { ## delete symlink to object, not the object!
+            /bin/rm $tob_object ||
+                tob_error -v -x $? failed to delete $tob_object
+            exit
+            }
+        ## check each file in the object; delete, or recurse if an object:
+        for f in $tob/* $tob/.*; do
+            test $f == $tob/. || test $f == $tob/.. && continue # skip . & ..
+            test $f == $tob/^ || test $f == $tob/.^ && continue # defer ^ or .^
+          # echo CHECKING $f
+            test -f $f && {
+                echo file: \
+                /bin/rm $f || tob_error -x $? -v failed to delete file $f
+                continue
+                }
+            test -L $f && {
+                echo symlink: \
+                /bin/rm $f || tob_error -x $? -v failed to delete symlink $f
+                continue
+                }
+            test -d $f && (test -L $f/^ || test -L $f/.^) && { ## thinobject
+                echo -e \\nrecursing to delete thinobject $f...
+                echo thinobject: \
+                $0 $f.delete ||
+                    tob_error -x $? -v failed to delete thinobject $f
+                echo -e ...returned\\n
+                continue
+                }
+            test -d $f && { ## directory
+                echo -e \\nrecursing to delete directory $f...
+                echo directory: \
+                $0 $tob.delete $(basename $f) ||
+                    tob_error -x $? -v failed to delete directory $f
+                echo -e ...returned\\n
+                continue
+                }
+        done
+        ## ASSERT: only the class symlink ^ or .^ should remain
+        test -L $tob/^ || test -L $tob/.^ ||
+            tob_error -x 1 -v expected class symlink is missing...
+        for classlink in $tob/^ $tob/.^; do
+            echo \
+            test -L $classlink && /bin/rm $classlink
+                tob_error -x 1 -v failed to delete class symlink
+        done
+        ## ASSERT: the object should now be empty (and no longer a thinobject!)
+        test -d $tob && /bin/rmdir $tob || {
+            echo failed to delete directory $tob
+            exit 1
+            }
+        test -f $ob && /bin/rm $ob || {
+            echo failed to delete file $ob 1>&2
+            exit 1
+            }
+        ## ASSERT: there should be nothing left!
+        exit
+        }
+
+    ## delete given argument objects
+    unset DEFER_CLASSLINK
+    for f in $*; do
+        property=$tob/$f
+        test "$VERBSOSE" && echo delete property $property
+        if [ -f $property ]; then   # ordinary file
+            /bin/rm $property ||
+                tob_error -x $? -v failed to delete file $property
+        elif [ -L $property ]; then # symlink
+            ## defer deleting class link so that object remains a thinobject
+            test $f == ^ || test $f == .^ && {
+                DEFER_CLASSLINK=$f
+                continue
+                }
+            /bin/rm $property ||
+                tob_error -x $? -v failed to delete symlink $property
+        elif [ -d $property ]; then # directory
+            test -L $property/^ || test -L $property/.^ && { # recurse...
+                echo -e \\nrecursing...
+                echo \
+                $0 $property.delete
+                echo -e ...returned\\n
+                continue
+                }
+
+            ## ASSERT: property is an ordinary directory, so scan it:
+
+            for p in $property/* $property/.*; do
+                test $p == $tob/. || test $p == $tob/.. && continue # skip . & ..
+              # echo CHECKING $p
+                test -f $p && {
+                    echo file: \
+                    /bin/rm $p || tob_error -x $? -v failed to delete file $p
+                    continue
+                    }
+                test -L $p && {
+                    echo symlink: \
+                    /bin/rm $p || tob_error -x $? -v failed to delete symlink $p
+                    continue
+                    }
+                test -d $p && (test -L $p/^ || test -L $p/.^) && { ## thinobject
+                    echo -e \\nrecursing to delete thinobject $p...
+                    echo thinobject: \
+                    $0 $p.delete ||
+                        tob_error -x $? -v failed to delete thinobject $p
+                    echo -e ...returned\\n
+                    continue
+                    }
+                test -d $p && { ## directory
+                    echo -e \\nrecursing to delete directory $p...
+                    echo directory: \
+                    $0 $tob.delete $(basename $p) ||
+                        tob_error -x $? -v failed to delete directory $p
+                    echo -e ...returned\\n
+                    continue
+                    }
+            done
+    
+        else                        # directory
+            echo \"$property\" not found or at least not deleted...
+             -x 1 -v failed to delete unknown-type property: $property
+        fi
+    done
+    test "$DEFER_CLASSLINK" &&
+        /bin/rm $tob/$DEFER_CLASSLINK ||
+            tob_error -x 1 -v failed to delete class symlink $tob/$f
+    exit 0
+    }

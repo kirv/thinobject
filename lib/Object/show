@@ -1,0 +1,85 @@
+#!/bin/bash
+ob=$1 && shift
+cd $tob_path
+
+## declare category or type arrays:
+declare -a list dict attr file dir obname obtype unknown
+
+## scan contents of object, store by type:
+for f in *; do 
+    if [ $f == ^ ]; then
+        true
+    elif [ ${f:0:1} == @ ]; then
+        list=(${list[@]} ${f:1})
+    elif [ ${f:0:1} == % ]; then
+        dict=(${dict[@]} ${f:1})
+    elif [ ! ${f#*=} == $f ]; then
+        attr=(${attr[@]} $f)
+    elif obclass=($(tob $f.isa 2>/dev/null)); then
+      # echo $f -- ${obclass[0]} object
+        obname=(${obname[@]} $f)
+        obtype=(${obtype[@]} ${obclass[0]})
+    elif [ -f $f ]; then
+        file=(${file[@]} $f)
+    elif [ -d $f ]; then
+        dir=(${dir[@]} $f)
+    else
+        unknown=(${unknown[@]} $f)
+    fi
+done
+
+## show elements of each type:
+
+type=(class list dict attr file dir ob unknown)
+for t in ${type[@]}; do
+
+    case $t in
+
+        class)
+            echo $tob_class class
+            ;;
+            
+        list)
+            for el in ${list[@]}; do
+                echo $el list
+            done
+            ;;
+            
+        dict)
+            for el in ${dict[@]}; do
+                echo $el dict
+            done
+            ;;
+            
+        attr)
+            for el in ${attr[@]}; do
+                echo $el attr
+            done
+            ;;
+            
+        file)
+            for el in ${file[@]}; do
+                echo $el file
+            done
+            ;;
+            
+        dir)
+            for el in ${dir[@]}; do
+                echo $el dir
+            done
+            ;;
+            
+        ob)
+            for (( i = 0 ; i < ${#obtype[@]} ; i++ )); do
+                echo ${obname[$i]} ${obtype[$i]}
+            done
+            ;;
+            
+        unknown)
+            for el in ${unknown[@]}; do
+                echo $el unknown
+            done
+            ;;
+
+    esac
+done

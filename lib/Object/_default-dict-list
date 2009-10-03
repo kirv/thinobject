@@ -1,0 +1,239 @@
+#!/usr/bin/perl -w
+use strict;
+use warnings;
+
+my $ob = shift;
+chdir $ENV{tob_path} || die $!;
+
+my $method = $ENV{tob_method};
+
+my $dictlist = shift;
+my @args = @ARGV;
+
+print "$ob.$method $dictlist @args\n";
+print "$0\n";
+
+my %set_key; # these keys will be changed
+my %del_key; # these keys will be deleted
+my @out_key; # these key values will be printed in this order
+my %out_key; # hashed output keys
+
+foreach my $key ( @ARGV ) {
+    if ( $key =~ m/^-/ ) { ## parse and handle options
+        if ( $key eq '--help' || $key eq '-h' ) {
+            exec "/usr/bin/pod2txt $0";
+            }
+        else {
+            die "$ob.$method: unknown option: $key\n";
+            }
+        }
+    elsif ( $key =~ m/^(.+)=(.*)$/ ) {
+        ## set or delete this key
+        if ( defined $2 ) {
+            $set_key{$1} = $2;
+            }
+        else {
+            $del_key{$1} = 1;
+            }
+        }
+    else {
+        ## show this key
+        push @out_key, $key;
+        $out_key{$key} = 1;
+        }
+    }
+
+open DICTLIST, '<', $dictlist or die $!;
+
+## read first line, which contains keys mapping to following lines
+chomp( my $keys = <> );
+my $newkeys = ''; # needed if keys are added or deleted 
+my @keys;
+my $mapline = 2;
+my %keymap;
+my %linemap;
+foreach my $key ( split / /, $keys ) {
+    $keymap{$key} = $mapline;
+    $linemap{$mapline} = $key;
+    $mapline += 1;
+    }
+
+## now process every line in the file:
+my $line = 2;
+my %output; # store so that output can be in specified order
+while ( <> ) {
+
+    my $key = $linemap{$line}; 
+    unless ( defined $key ) { ## insufficient keys were specified on line 1
+        $linemap{$line} = $line - 1;
+        die "shouldn't happen!" if exists $keymap{ $line - 1 };
+        $keymap{ $line - 1 };
+        }
+
+    $line += 1;
+    }
+
+
+
+
+
+
+=head1 NAME
+
+Object._default-dict-list -- handle files with prefix "%@"
+
+=head1 DESCRIPTION
+
+A file name beginning with "%@" is handled as a dictionary implemented as
+a list.  The first line contains a list of keys separated by spaces, each
+mapping to a following line in the file.  The value of a key is the entire
+content of the mapped line.
+
+=head1 SYNOPSIS
+
+=head1 OPTIONS
+
+=over
+
+=item * -h
+
+=item * --help
+
+display method manpage
+
+=back
+
+=head1 AUTHOR
+
+    Ken Irving <fnkci@uaf.edu> (c) 2008
+
+=cut
+
+
+__END__
+
+#!/bin/sh
+
+ob=$1; shift
+dict=$1; shift
+test -e $dict || exit 1
+
+# echo STUB _default-dict-list $ob $dict
+
+csv=0
+hdr=1
+strict=1
+verbose=0
+while [[ $1 =~ ^- ]]; do ## parse option
+    test $verbose == 1 && echo PARSING OPTION: $1
+    if [[  $1 == --key ]]; then
+        show_key=1
+    elif [[  $1 == --csv ]]; then
+        csv=","
+    elif [[  $1 == --tab ]]; then
+        csv="\t"
+    elif [[  $1 == --no-header || $1 == --no-hdr ]]; then
+        hdr=0
+    elif [[  $1 == --no-strict ]]; then
+        strict=0
+    elif [[  $1 == --verbose || $1 == -v ]]; then
+        verbose=1
+    elif [[  $1 == --help || $1 == -h ]]; then
+        exec tob $ob.manual $0
+        exit 0       
+    else
+        echo UNKNOWN OPTION: $1
+        exit 1
+    fi
+    shift
+done
+
+test $verbose == 1 && echo KEY LIST: $@
+
+exec /usr/bin/awk -vcsv=$csv -vhdr=$hdr -vstrict=$strict -vverbose=$verbose '
+    BEGIN { ## process optional keys list:
+        if ( ARGC > 1 ) {
+            okeys[1] = ARGV[1]
+            keyslist = ARGV[1]
+            for ( i=2; i<ARGC; i++ ) {
+                okeys[i] = ARGV[i]
+                keyslist = keyslist "|" ARGV[i]
+                }
+            delete ARGV
+            }
+        }
+    NR == 1 {
+        split($0, keyi)
+        next
+        }
+
+    !/^ *#/ && !/^[ \t]*$/ { ## process each non-comment, non-blank line...
+        keyindex++
+        thiskey = keyi[keyindex] ? keyi[keyindex] : keyindex
+        
+    
+        keycount[ thiskey ] += 1 # used for strict check...
+    
+        if ( keyslist == "" )
+            okeys[++okeys_i] = thiskey
+        else ## add key to okeys array
+            if ( thiskey !~ keyslist )
+                next
+        e += 1
+        key[e] = thiskey
+        val[e] = $0
+        }
+
+    END {
+
+    if ( strict ) 
+        for ( k in okeys )
+            if ( ! ( okeys[k] in keycount ) ) {
+                print "ERROR: NO KEY \"" okeys[k] "\" in dictionary property "
+                exit 2
+                }
+
+    for ( i=1; 1; i++ ) { ## loop through okeys array
+        if ( ! ( i in okeys ) ) ## done!
+            break
+        thiskey = okeys[i]
+        for (j in key) { ## loop through key array
+            if ( key[j] == thiskey ) {
+                if ( csv ) {
+                    keys = keys csv thiskey
+                    if ( match(val[j], csv) ) # quote val if delimiter is in it
+                        vals = vals csv "\"" val[j] "\""
+                    else
+                        vals = vals csv val[j]
+                    }
+                else if ( show_key )
+                    print thiskey " = " val[j]
+                else
+                    print val[j]
+                }
+            }
+        }
+    if ( ! csv ) exit 0
+    sub(csv, "", keys)
+    if ( hdr ) print keys
+    sub(csv, "", vals)
+    print vals
+    }' < $dict $@
+
+exit 35
+
+NAME
+  Object._default-dict-list -- default dictionary-list property accessor
+SYNOPSIS
+  _default-dict-list object dict-list_property OPTIONS key ...
+OPTIONS
+  --help, -h -- show help information
+MAYBE?
+  --csv -- output entries as comma-separated list
+  --tab -- output entries as tab-separated list
+  --no-header, --no-hdr -- suppress header line showing entry keys
+  --no-strict -- don't complain if specified key not present
+  --verbose, -v -- show arguments, etc.
+AUTHOR
+  (c) KIrving fnkci@uaf.edu 05nov2008
+ENDHELP

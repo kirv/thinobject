@@ -1,0 +1,8 @@
+#!/usr/bin/perl -w
+use strict;
+use ThinObject;
+my $ob = shift;
+my $prop = shift;
+die "no property given\n" unless defined $prop;
+$ob = ThinObject->new($ob);
+$ob->set_property($prop, "@ARGV");

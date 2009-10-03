@@ -1,0 +1,134 @@
+#!/bin/bash
+ob=$1 && shift
+self=$tob_path
+
+function show_help() {
+    cat <<ENDHELP
+NAME
+  Object.scan-arguments -- check/process given argument list
+SYNOPSIS
+  scan-arguments --proto 'Object ...' arg ...
+OPTIONS
+  --proto TYPESLIST -- specify 1:1 mapping of types to arguments
+  --verbose, -v -- show arguments, etc.
+  --help, -h -- show help information
+PROTOTYPES
+  The --proto option allows specifying a list of prototypes to be applied
+  to the argument list with a 1:1 mapping, except that prototype ... applies
+  the previous prototype to any remaining (0 or more) arguments.
+
+  A prototype with no associated argument is an error.
+
+  Prototypes may include:
+    .   -- any argument value (default) 
+    ... -- repeat previous prototype 0 or more times
+    -c  -- bash filetest operator; see following section or man bash
+    T   -- string T is a thinobject class
+  
+FILETEST OPERATORS
+  from bash(1) version 3.2.39(1)-release:
+       -a file -- file exists.
+       -b file -- file exists and is a block special file.
+       -c file -- file exists and is a character special file.
+       -d file -- file exists and is a directory.
+       -e file -- file exists.
+       -f file -- file exists and is a regular file.
+       -g file -- file exists and is set-group-id.
+       -h file -- file exists and is a symbolic link.
+       -k file -- file exists and its ``sticky'' bit is set.
+       -p file -- file exists and is a named pipe (FIFO).
+       -r file -- file exists and is readable.
+       -s file -- file exists and has a size greater than zero.
+       -t fd   -- file descriptor fd is open and refers to a terminal.
+       -u file -- file exists and its set-user-id bit is set.
+       -w file -- file exists and is writable.
+       -x file -- file exists and is executable.
+       -O file -- file exists and is owned by the effective user id.
+       -G file -- file exists and is owned by the effective group id.
+       -L file -- file exists and is a symbolic link.
+       -S file -- file exists and is a socket.
+       -N file -- file exists and has been modified since it was last read.
+
+AUTHOR
+  (c) KIrving fnkci@uaf.edu 2009
+ENDHELP
+    }
+
+while [ "${1:0:1}" == "-" ]; do # handle options ...
+    opt=$1 && shift
+    case $opt in
+    -h)
+        tob $ob.usage $0
+        exit 0
+        ;;
+    --help)
+        show_help && exit 0
+        exec tob $ob.manual
+        ;;
+    --verbose|-v)
+        VERBOSE=1
+        ;;
+    --proto)
+        prototype=($1) && shift
+        ;;
+    *)
+        echo unknown option: \"$opt\"
+        show_usage
+        exit 2
+        ;;
+    esac
+done
+
+# echo proto: ${prototype[*]}
+# echo args: $@
+
+type=.
+for p in ${prototype[*]}; do
+    test $p == ... && { # same type as previous, check all remaining args
+        echo type is still $type
+        while [ -n "$1" ]; do
+            arg=$1 && shift
+            if [ $type == . ]; then
+                test $VERBOSE && echo argument exists : $arg
+            else
+                test $VERBOSE && echo TYPECHECK $type : $arg
+                if [ "${type:0:1}" == "-" ]; then
+                    ## prototype assumed to be bash filetest operator...
+                    test $type $arg || 
+                        tob_error -V -x 1 filetest failed: $type $arg
+                else
+                    tob $arg.isa $type || 
+                        tob_error -V -x 1 $arg is not of class $type
+                fi
+            fi
+        done
+        continue
+        }
+    type=$p
+    echo type is $type
+    arg=$1 && shift
+    test -n "$arg" || tob_error -V -x 1 missing required argument of type $type
+    ## check that $arg is of type $type
+    if [ $type == . ]; then
+        test $VERBOSE && echo argument exists : $arg
+    else
+        test $VERBOSE && echo TYPECHECK $type : $arg
+        if [ "${type:0:1}" == "-" ]; then
+            ## prototype assumed to be bash filetest operator...
+            echo TESTING $type $arg
+            test $type $arg || 
+                tob_error -V -x 1 filetest failed: $type $arg
+        else
+            tob $arg.isa $type || 
+                tob_error -V -x 1 $arg is not of class $type
+        fi
+    fi
+done
+
+test -n "$1" && test -n "$prototype" &&
+    tob_error -V -x 1 argument remains after prototype list exhausted: $1
+
+## do something with arguments if they remain??
+for arg in $@; do
+    echo arg: $arg
+done

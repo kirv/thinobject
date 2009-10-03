@@ -1,0 +1,117 @@
+#!/bin/bash
+
+ob=$1 && shift
+cd $tob_path || exit 19
+
+## gather all the web page elements from object and classes in arrays:
+
+declare -a xhtml_css
+declare -a xhtml_javascript
+declare -a xhtml_body
+
+## also check for "hook" method(s):
+declare -a xml
+
+path='./'
+while test -n "$path"; do
+    test -e "$path/@xhtml-css" && 
+        xhtml_css=( ${xhtml_css[@]} "$path/@xhtml-css" )
+
+    test -e "$path/@xhtml-javascript" && 
+        xhtml_javascript=( ${xhtml_javascript[@]} "$path/@xhtml-javascript" )
+
+    test -e "$path/@xhtml-body" && 
+        xhtml_body=( ${xhtml_body[@]} "$path/@xhtml-body" )
+
+    test -d "$path/^" && test -x "$path/^/xml" &&
+        xml=( ${xml[@]} "$path/^/xml" )
+
+    path="$path/^"
+    test -d $path || unset path
+done
+
+## begin output of the web page...
+
+echo '<html>'
+echo '<head>'
+echo '<title>'
+
+## use object name for the title unless @xhtml-title exists:
+
+if [ -e @xhtml-title ]; then
+    cat @xhtml-title
+else
+    echo $ob
+fi
+
+echo '</title>'
+
+## now output css (if any)
+
+n=${#xhtml_css[@]}
+while (( $n > 0 )); do
+    n=$(($n - 1))
+    echo '<style type="text/css">'
+    cat ${xhtml_css[$n]}
+    echo '</style>'
+done
+
+## now output javascript (if any)
+
+n=${#xhtml_javascript[@]}
+while (( $n > 0 )); do
+    n=$(($n - 1))
+    echo '<script> language="javascript"'
+    cat ${xhtml_javascript[$n]}
+    echo '</script>'
+done
+
+echo '</head>'
+echo '<body>'
+
+## run @xhtml-body generator if defined and if anything has changed...
+test -n "$xml" && {
+    if [ -e \@xhtml-body ]; then
+        for f in *; do
+            test $f -nt \@xhtml-body && UPDATE_XHTML_BODY=1
+        done
+    else
+        ## @xhtml-body file does not exist, so create it
+        ## NOTE: must be done as a logon user, not via web server
+        UPDATE_XHTML_BODY=1
+        touch @xhtml-body
+        chmod ugo+w @xhtml-body
+    fi
+
+    test "$UPDATE_XHTML_BODY" == "1" && {
+        printf '<div id="%s@%s">' $ob $ob_path > @.xhtml-body
+        n=${#xml[@]}
+        while (( $n > 0 )); do
+            n=$(($n - 1))
+            ${xml[$n]} >> @.xhtml-body
+        done
+        echo '</div>' >> @.xhtml-body
+        mv -f @.xhtml-body @xhtml-body
+        }
+        
+    }
+
+## now output the xhtml page body, perhaps just the object name
+
+n=${#xhtml_body[@]}
+if (( $n == 0 )); then
+
+    echo $tob_object
+
+else
+
+    while (( $n > 0 )); do
+        n=$(($n - 1))
+        cat ${xhtml_body[$n]}
+    done
+
+fi
+
+echo '</body>'
+echo '</html>'
+

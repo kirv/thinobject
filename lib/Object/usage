@@ -1,0 +1,29 @@
+#!/bin/sh
+object=$1 && shift
+
+test ${1:0:1} == "-" && { # handle option ...
+    opt=$1 && shift
+    test $opt == -h     && tob $ob.usage $0 && exit 0
+    test $opt == --help && tob $ob.manual $0 && exit 0
+    test $opt == --pod && POD=1 && continue
+
+    test $opt == --grep && {
+        opt_arg=$1 && shift
+        continue
+        }
+
+    echo unknown option: \"$opt\"
+    show_usage
+    exit 2
+    }
+
+method=$1
+
+test -n $POD && exec pod2text $method
+test -n $GREP && exec grep $grep_arg $method
+
+grep -A1 ^SYNOPSIS $1
+
+    'h'             => sub { print "see --help\n"; exit 1 },
+    'help'          => sub { exec system "pod2text $0" },
+

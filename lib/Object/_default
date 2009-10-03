@@ -1,0 +1,32 @@
+#!/bin/sh
+
+echo "arglist: $@"
+
+object=$1
+shift
+method=$1
+shift
+
+# echo object: $object
+# echo tob_object: $tob_object
+# echo tob_ob: $tob_ob
+# echo tob_method: $tob_method
+# echo method: $method
+echo tob_tob: $tob_tob
+
+tob=$tob_tob
+
+echo "$object.$method $@"
+
+test "$method" == "ls" && {
+    if [ -z $NOCD ]; then
+        cd $tob
+        target="$@"
+    else
+        target="$tob/$@"
+    fi
+  # test $DEBUG -a $VERBOSE && echo exec /bin/ls -p $args $target
+    exec /bin/ls -p $args $target
+    }
+
+echo $object.$method not found, no, really...

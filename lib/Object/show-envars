@@ -1,0 +1,5 @@
+#!/bin/sh
+ob=$1 && shift
+prefix=tob_
+test -n "$1" && prefix=$1
+set|grep ^$prefix

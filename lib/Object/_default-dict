@@ -1,0 +1,114 @@
+#!/bin/sh
+
+ob=$1; shift
+dict=$1; shift
+test -e $dict || exit 1
+
+function show_help() {
+    cat <<ENDHELP
+NAME
+  Object._default-dict -- thinobject default dictionary property accessor
+SYNOPSIS
+  _default-dict object dict_property OPTIONS key ...
+OPTIONS
+  --csv -- output entries as comma-separated list
+  --tab -- output entries as tab-separated list
+  --no-header, --no-hdr -- suppress header line showing entry keys
+  --no-strict -- don't complain if specified key not present
+  --verbose, -v -- show arguments, etc.
+  --help, -h -- show help information
+AUTHOR
+  (c) KIrving fnkci@uaf.edu 13oct2008
+ENDHELP
+    }
+
+csv=0
+hdr=1
+strict=1
+verbose=0
+while [[ $1 =~ ^- ]]; do ## parse option
+    test $verbose == 1 && echo PARSING OPTION: $1
+    if [[  $1 == --csv ]]; then
+        csv=","
+    elif [[  $1 == --tab ]]; then
+        csv="\t"
+    elif [[  $1 == --no-header || $1 == --no-hdr ]]; then
+        hdr=0
+    elif [[  $1 == --no-strict ]]; then
+        strict=0
+    elif [[  $1 == --verbose || $1 == -v ]]; then
+        verbose=1
+    elif [[  $1 == --help || $1 == -h ]]; then
+        show_help
+        exit 0       
+    else
+        echo UNKNOWN OPTION: $1
+        exit 1
+    fi
+    shift
+done
+
+test $verbose == 1 && echo KEY LIST: $@
+
+exec /usr/bin/awk -vcsv=$csv -vhdr=$hdr -vstrict=$strict -vverbose=$verbose '
+    BEGIN { ## process optional keys list:
+        if ( ARGC > 1 ) {
+            okeys[1] = ARGV[1]
+            keyslist = ARGV[1]
+            for ( i=2; i<ARGC; i++ ) {
+                okeys[i] = ARGV[i]
+                keyslist = keyslist "|" ARGV[i]
+                }
+            delete ARGV
+            }
+        }
+    !/^ *#/ && !/^[ \t]*$/ { ## process each non-comment, non-blank line...
+    sub(/ *= */, "=") # reduce delimeter to a single character
+    p = match($0, /=/) # p is position of tag=val delimeter
+    thiskey = substr($0, 1, p-1)
+
+    keycount[ thiskey ] += 1 # used for strict check...
+
+    if ( keyslist == "" )
+        okeys[++okeys_i] = thiskey
+    else ## add key to okeys array
+        if ( thiskey !~ keyslist )
+            next
+    e += 1
+    key[e] = thiskey
+    val[e] = substr($0, p+1)
+    }
+    END {
+
+    if ( strict ) 
+        for ( k in okeys )
+            if ( ! ( okeys[k] in keycount ) ) {
+                print "ERROR: NO KEY \"" okeys[k] "\" in dictionary property "
+                exit 2
+                }
+
+    for ( i=1; 1; i++ ) { ## loop through okeys array
+        if ( ! ( i in okeys ) ) ## done!
+            break
+        thiskey = okeys[i]
+        for (j in key) { ## loop through key array
+            if ( key[j] == thiskey ) {
+                if ( csv ) {
+                    keys = keys csv thiskey
+                    if ( match(val[j], csv) ) # quote val if delimiter is in it
+                        vals = vals csv "\"" val[j] "\""
+                    else
+                        vals = vals csv val[j]
+                    }
+                else
+                    print thiskey " = " val[j]
+                }
+            }
+        }
+    if ( ! csv ) exit 0
+    sub(csv, "", keys)
+    if ( hdr ) print keys
+    sub(csv, "", vals)
+    print vals
+    }' < $dict $@
+

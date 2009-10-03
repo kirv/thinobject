@@ -1,0 +1,95 @@
+#!/bin/sh
+
+object=$1 && shift
+
+ob_path=$tob_path
+
+# echo object: $object
+# echo ob_path: $ob_path
+# echo method: $0
+
+test -z "$1" && exit 4
+
+## set default processing scheme:
+MANUAL_PAGE_SCHEME=--tail-from-pattern
+MANUAL_PAGE_ARG=^NAME
+
+test ${1:0:1} == "-" && { # handle option ...
+    opt=$1 && shift
+  # echo DEBUG Object.manual: option is $opt
+    case $opt in
+        -h)
+            exec tob $ob.usage $0
+            ;;
+        --help)
+            ## run this method on this method...
+            exec $0 $object $0
+            ;;
+        --pod)
+            exec pod2text $*
+            ;;
+        --tail)
+            MANUAL_PAGE_SCHEME=--tail-from-pattern
+            MANUAL_PAGE_ARG=^NAME
+            ;;
+        --tail-from-line)
+            MANUAL_PAGE_SCHEME=$opt
+            MANUAL_PAGE_ARG=$1 && shift
+            ;;
+        --tail-from-pattern)
+            MANUAL_PAGE_SCHEME=$opt
+            MANUAL_PAGE_ARG=$1 && shift
+            ;;
+        *)
+            echo unknown option: \"$opt\"
+            exit 2
+            ;;
+    esac
+    }
+
+## ASSERT: object and processing option is known
+
+method=$1
+test -e "$method" || {
+    echo ERROR Object.manual: method $method not found for $object
+    exit 1
+    }
+
+test -n "$MANUAL_PAGE_SCHEME" && {
+    case $MANUAL_PAGE_SCHEME in
+        --tail-from-line)
+            exec tail -n +$MANUAL_PAGE_ARG $method
+            ;;
+        --tail-from-pattern)
+            exec awk "/$MANUAL_PAGE_ARG/,0" < $method
+            ;;
+    esac
+    }
+
+echo ERROR Object.manual: no handler for $object . $method
+exit 3
+
+NAME
+    Object.manual -- display manual page of a method
+DESCRIPTION
+    The ``manual'' method (under development) should accept one argument,
+    the pathname of a thinobject method or a class directory.  The method
+    is processed to display an embedded manual page, either assuming a
+    default format or using an optional processing scheme.
+SYNOPSIS
+    manual [OPTION] method-path|class-path
+OPTIONS
+    --tail (default)
+        method should contain a text manual page, beginning with the word
+        ``NAME'' at the start of a line and continuing to file end
+    --tail-from-pattern PATTERN
+        method should contain a text manual page, beginning with the word
+        ``NAME'' at the start of a line and continuing to file end
+    --tail-from-line N
+        method should contain a text manual page, beginning with the word
+        ``NAME'' at the start of a line and continuing to file end
+    --pod 
+        method should embed manual page in the Perl POD format (see perlpod(1),
+        pod2text(1))
+AUTHOR    
+    ki fnkci@uaf.edu 2008 (c)
