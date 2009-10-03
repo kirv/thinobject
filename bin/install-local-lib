@@ -1,0 +1,7 @@
+#!/bin/sh
+
+source=lib
+library=/usr/local/lib/thinob
+
+rsync -azv --exclude=\*.swp $source/ $library
+
