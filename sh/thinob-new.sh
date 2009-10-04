@@ -255,7 +255,7 @@ test -e "$uri_source" && {
 ## lastly, execute the init method, if defined & specified:
 
 test -n "$init_method_path" && {
-    echo 1:$init_method_path 2:$tob 3:"$@"
+  # echo 1:$init_method_path 2:$tob 3:"$@"
     $init_method_path $tob "$@" ||
         bail init method failed: $init_method_path $tob "$@"
     }

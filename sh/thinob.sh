@@ -11,6 +11,9 @@ function manpage() { # print manpage at end of this script...
     exec /usr/bin/awk '/^NAME$/{ok=1}ok' $0
     }
 
+DEFAULT_CLASS_FILESYSTEM_FILE=/usr/local/lib/thinob/Filesystem/File
+DEFAULT_CLASS_FILESYSTEM_DIRECTORY=/usr/local/lib/thinob/Filesystem/Directory
+
 function check_class () {
     local class="$1"
     for lib in ${LIB[@]}; do
@@ -126,8 +129,7 @@ function tob_error () {
     }   
 export -f tob_error
 
-ob=$1
-shift
+ob=$1 && shift
 while [ -n "$ob" -a ${ob#-} != $ob ]; do # option detected by leading "-" ...
 
     if [ "$ob" == "-d" -o "$ob" == "--debug" ]; then
@@ -140,13 +142,11 @@ while [ -n "$ob" -a ${ob#-} != $ob ]; do # option detected by leading "-" ...
         opt="$opt -v"
 
     elif [ "$ob" == "-m" -o "$ob" == "--method" ]; then
-        method=$1
-        shift
+        method=$1 && shift
         test $method || bail "no method argument"
 
     elif [ "$ob" == "-a" -o "$ob" == "--arg" ]; then
-        args="$args $1"
-        shift
+        args="$args $1" && shift
 
     elif [ "$ob" == "-S" -o "$ob" == "--not-strict" ]; then
         NOT_STRICT=1
@@ -177,8 +177,7 @@ while [ -n "$ob" -a ${ob#-} != $ob ]; do # option detected by leading "-" ...
     else
         bail "unsupported option $ob"
     fi
-    ob=$1 # try again...
-    shift
+    ob=$1 && shift # try again...
 done
 
 test -z "$ob" && bail "no object specified"
@@ -191,8 +190,7 @@ test $method && { # iterate method on multiple objects (see -m, --method)
             test $VERBOSE && echo tob $opt $ob.$method $args
             tob $opt $ob.$method $args || bail "failed in $ob.$method"
         fi
-        ob=$1
-        shift
+        ob=$1 && shift
     done
     exit 0
     }
@@ -203,50 +201,73 @@ export tob_object=${ob%.*}
 # export tob_method=${ob##*.}
 
 
-function resolve_object_path () { # return object path in global var tob:
-  # tob="${1}__"
+function resolve_object_class_paths () { # set tob and classpath variables
     ob=$1
+    unset tob
+    unset classpath
+
     test -L $ob && ob=$(/bin/readlink -f $ob) # resolve symlinked/aliased ob
 
     ## ASSERT: $ob is NOT a symlink, so is either a file, directory, or null
 
-    test -d "$ob" && {
-        test -L "$ob/^" || test -L "$ob/.^" && {
-            ## $ob is a thinobject (but not checked)
-            tob=$ob
-            return
-            }
+    test -d "$ob" && { ## ob is a directory
+        if test -L "$ob/^"; then
+            classpath=$ob/^
+        elif test -L "$ob/.^"; then
+            classpath=$ob/.^
+        fi
+        test -n "$classpath" &&
+            tob=$ob &&
+                return
         }
     
     ## ASSERT: $ob itself is not a thinobject, so check the dot-object...
 
-    if [ "${ob/\/*/}" == "$ob" ]; then # no slash in ob
-        tob=.$ob
+    if test "${ob/\/*/}" == "$ob"; then # no slash in ob
+        dot_ob=.$ob
     else # ob has a slash in it
-        tob=${ob%\/*}/.${ob/*\//}
+        dot_ob=${ob%\/*}/.${ob/*\//}
     fi
+    test -L $dot_ob && dot_ob=$(/bin/readlink -f $dot_ob) # resolve symlinked/aliased ob
 
-    test -L "$ob/^" || test -L "$ob/.^" &&
-        return # tob is a thinobject
-    
+    test -d "$dot_ob" && { ## dot_ob is a directory
+        if test -L "$dot_ob/^"; then
+            classpath=$dot_ob/^
+        elif test -L "$dot_ob/.^"; then
+            classpath=$dot_ob/.^
+        fi
+        test -n "$classpath" &&
+            tob=$dot_ob &&
+                return
+        }
+
     ## object $ob not found, so check if instead it's a ThinObject class:
     class_as_object $ob && { # yes, it is a class
         tob=$classpath       # access the class (almost) as if it's an object
         return
         }
 
-    ## $ob is neither an object nor a class
+    ## $ob is neither an object nor a class, try an implicit class link:
     if test -d $ob; then
         echo $ob is a directory
         tob=$ob
-        classpath=/usr/local/lib/thinob/Filesystem/Directory
-        return
+        classpath=$DEFAULT_CLASS_FILESYSTEM_DIRECTORY
     elif test -f $ob; then
         echo $ob is a file
         tob=$ob
-        classpath=/usr/local/lib/thinob/Filesystem/File
-        return
+        classpath=$DEFAULT_CLASS_FILESYSTEM_FILE
+    elif test -d $dot_ob; then
+        echo $dot_ob is a directory
+        tob=$dot_ob
+        classpath=$DEFAULT_CLASS_FILESYSTEM_DIRECTORY
+    elif test -f $dot_ob; then
+        echo $dot_ob is a file
+        tob=$dot_ob
+        classpath=$DEFAULT_CLASS_FILESYSTEM_FILE
     fi
+    test -n "$classpath" &&
+        return
+
     bail_rtnval 2 "$1 ($ob) is not a thinobject or was not found"
     }
 
@@ -272,7 +293,7 @@ while [ ${ob/:/} != $ob ]; do
 
   # echo resolve $ob to tob
 
-    resolve_object_path $ob
+    resolve_object_class_paths $ob
 
     ob=$tob/$oblist
 
@@ -294,6 +315,7 @@ method=${ob##*.}
 ob=${ob%.*}
 
 export tob_ob=$ob
+export tob_object=$ob
 export tob_method=$method
 
 test -n "$DEBUG" && {
@@ -301,33 +323,39 @@ test -n "$DEBUG" && {
     echo DEBUG: method=$method
     }
 
-# echo .
-# echo OBJECT: $ob
-# echo METHOD: $method
+test -z "$ob" &&
+    bail "no object parsed, method $method"
 
-test -z $ob && bail "no object parsed, method $method"
-
-test -z $method && bail "no method parsed, object $ob"
+test -z "$method" &&
+    bail "no method parsed, object $ob"
 
 ####################
 ## ASSERT: ob and method have been parsed, but not checked
 ####################
 
-resolve_object_path $ob
-# echo ___TOB: $tob
+resolve_object_class_paths $ob
+
+test -n "$DEBUG" && {
+    echo DEBUG: object path=$tob
+    echo DEBUG: class path=$classpath
+    }
 
 export tob_tob=$tob
 export tob_path=$tob
+export tob_classpath=$classpath
 
 ###########################################################333
 
 ## ASSERT: $ob is a nominal object, $tob is the actual thinobject
 
-test -z "$ob" -o -z "$tob" && bail "no object was parsed"
+test -z "$ob" -o -z "$tob" &&
+    bail "no object was parsed"
 
-test ! -d $tob && bail "ERROR: $tob is not a directory"
+test ! -d $tob &&
+    bail "ERROR: $tob is not a directory"
 
-test -z "$method" && bail "no method specified for $ob"
+test -z "$method" &&
+    bail "no method specified for $ob"
 
 test -n "$DEBUG" && {
     echo DEBUG: nominal object=$ob
@@ -342,7 +370,7 @@ test -n "$DEBUG" && {
 
 ## SPECIAL CASES: tob and isa methods precede the normal method search
 
-test "$method" == "tob" && {
+test "$method" == "tob" -o "$method" == "path" && {
     test -z "$*" && echo $tob
     for arg in $*; do
         echo $tob/$arg
@@ -508,8 +536,7 @@ test "$method" == "cat" && {
     }
 
 test "$method" == "set" && {
-    prop="$1"
-    shift
+    prop="$1" && shift
     test ! -e $tob/$prop && bail "ERROR: no property $prop"
     if [ -n "$1" ]; then
         exec /bin/echo "$*" > $tob/$prop
@@ -519,10 +546,8 @@ test "$method" == "set" && {
     }
 
 test "$method" == "param" && {
-    tag="$1"
-    shift
-    value="$1"
-    shift
+    tag="$1" && shift
+    value="$1" && shift
     cd $tob
     test -z "$tag" && { # list all parameters
         for f in *\=*; do echo $f; done
@@ -538,10 +563,8 @@ test "$method" == "param" && {
     }
 
 test "$method" == "method" && {
-    tag="$1"
-    shift
-    value="$1"
-    shift 
+    tag="$1" && shift
+    value="$1" && shift 
     cd $tob
     test -z "$tag" && { # list all methods
         for f in *\=*; do echo $f; done
@@ -596,12 +619,10 @@ test "$method" == "touch" && {
 
 test "$method" == "grep" && {
     opts=''
-    pat=$1
-    shift
+    pat=$1 && shift
     while [ $pat != ${pat#-} ]; do # collect any grep options
         opts="$opts $pat"
-        pat=$1
-        shift
+        pat=$1 && shift
     done
     if [ -z $NOCD ]; then
         cd $tob
