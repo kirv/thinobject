@@ -235,6 +235,18 @@ function resolve_object_path () { # return object path in global var tob:
         return
         }
 
+    ## $ob is neither an object nor a class
+    if test -d $ob; then
+        echo $ob is a directory
+        tob=$ob
+        classpath=/usr/local/lib/thinob/Filesystem/Directory
+        return
+    elif test -f $ob; then
+        echo $ob is a file
+        tob=$ob
+        classpath=/usr/local/lib/thinob/Filesystem/File
+        return
+    fi
     bail_rtnval 2 "$1 ($ob) is not a thinobject or was not found"
     }
 
