@@ -11,8 +11,8 @@ function manpage() { # print manpage at end of this script...
     exec /usr/bin/awk '/^NAME$/{ok=1}ok' $0
     }
 
-DEFAULT_CLASS_FILESYSTEM_FILE=/usr/local/lib/thinob/Filesystem/File
-DEFAULT_CLASS_FILESYSTEM_DIRECTORY=/usr/local/lib/thinob/Filesystem/Directory
+DEFAULT_CLASS_FOR_FILE=/usr/local/lib/thinob/Filesystem/File
+DEFAULT_CLASS_FOR_DIRECTORY=/usr/local/lib/thinob/Filesystem/Directory
 
 function check_class () {
     local class="$1"
@@ -57,20 +57,16 @@ function class_as_object () {
 declare -a tob_classlinks
 export tob_classlinks      # NOTE: bash 3.2 arrays are not exportable!
 function follow_class_links () {
-    test -n "$tob_classlinks" &&
+    test -n "$tob_classlinks" && # short-circuit if already done!
         return 0
-    if test -L $tob/.^; then
-        class=$tob/.^
-    elif test -L $tob/^; then
-         class=$tob/^
-    fi
+    class=$1
     while [ -L $class ]; do
         classlink=$(/bin/readlink -f $class)
         tob_classlinks=($tob_classlinks $classlink)
-        if test -L $class/.^; then
-            class=$class/.^
-        elif test -L $class/^; then
+        if test -L $class/^; then
              class=$class/^
+        elif test -L $class/.^; then
+            class=$class/.^
         else
             return 0
         fi
@@ -83,7 +79,7 @@ function parse_class_names () {
     test -n "$tob_classnames" &&
         return 0
     test -n $tob_classlinks ||
-        follow_class_links
+        follow_class_links $classpath
     for classlink in ${tob_classlinks[@]}; do
         classname $classlink
         tob_classnames=($tob_classnames $classname)
@@ -251,19 +247,19 @@ function resolve_object_class_paths () { # set tob and classpath variables
     if test -d $ob; then
         echo $ob is a directory
         tob=$ob
-        classpath=$DEFAULT_CLASS_FILESYSTEM_DIRECTORY
+        classpath=$DEFAULT_CLASS_FOR_DIRECTORY
     elif test -f $ob; then
         echo $ob is a file
         tob=$ob
-        classpath=$DEFAULT_CLASS_FILESYSTEM_FILE
+        classpath=$DEFAULT_CLASS_FOR_FILE
     elif test -d $dot_ob; then
         echo $dot_ob is a directory
         tob=$dot_ob
-        classpath=$DEFAULT_CLASS_FILESYSTEM_DIRECTORY
+        classpath=$DEFAULT_CLASS_FOR_DIRECTORY
     elif test -f $dot_ob; then
         echo $dot_ob is a file
         tob=$dot_ob
-        classpath=$DEFAULT_CLASS_FILESYSTEM_FILE
+        classpath=$DEFAULT_CLASS_FOR_FILE
     fi
     test -n "$classpath" &&
         return
@@ -379,7 +375,7 @@ test "$method" == "tob" -o "$method" == "path" && {
     }
 
 test "$method" == "type" && {
-    follow_class_links
+    follow_class_links $classpath
     test -n "$VERBOSE" && {
         echo ${tob_classlinks[@]}
         exit 0
@@ -390,7 +386,7 @@ test "$method" == "type" && {
     }
 
 test "$method" == "isa" && {
-    follow_class_links
+    follow_class_links $classpath
     test -n "$VERBOSE" && {
         for classlink in ${tob_classlinks[@]}; do
             echo $classlink
@@ -406,7 +402,7 @@ test "$method" == "isa" && {
     exit 0
     }
 
-follow_class_links # initialize tob_classlinks array
+follow_class_links $classpath # initialize tob_classlinks array
 
 test -z $NOT_STRICT && { # safety check
     check_class $tob_classlinks ||
