@@ -1,5 +1,13 @@
 #!/bin/sh
 ob=$1 && shift
-for var in ${!tob_@}; do
-    echo $var=${!var}
-done
+
+prefix=$1
+test -z "$prefix" && prefix=tob_
+
+set | grep ^$prefix
+
+declare -F | awk "
+    \$3 ~ /^$prefix/ {
+        print \$3 \"()\"
+        }
+    "

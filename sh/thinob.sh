@@ -390,7 +390,8 @@ test -n "$DEBUG" && {
 ## ASSERT a method was passed
 ####################
 
-## SPECIAL CASES: tob and isa methods precede the normal method search
+tob_resolve_methodpath $method &&
+    exec $tob_methodpath $ob $args "$@"
 
 test "$method" == "tob" -o "$method" == "path" && {
     test -z "$*" && echo $tob
@@ -429,65 +430,66 @@ test "$method" == "isa" && {
     exit 0
     }
 
-follow_class_links $classpath # initialize tob_classlinks array
 
-test -z $NOT_STRICT && { # safety check
-    check_class $tob_classlinks ||
-        bail "invalid class/method handler location"
-    }
-
-parse_class_names # initialize tob_classnames array
-export tob_class=$tob_classnames
-
-## remove & count SUPER:: prefixes
-super=0
-while [ ${method:0:7} == "SUPER::" ]; do
-    method=${method:7}
-    super=$((super+1))
-  # echo $super $method
-done
-
-## search in class, parent class, parent of parent class, etc., 
-for isa in ${tob_classlinks[@]}; do
-    ## ASSERT: parent class exists
-    if [ -d $isa ]; then # parent class methods directory
-      # echo checking for $isa/$method...
-        test -e $isa/$method && { # method found!
-            
-            ## suspect this may also happen due to permissions...
-            ## ... so may need to rethink this simple bail-out
-            test -x $isa/$method ||
-                bail "ERROR: method $method in $isa/ not executable"
-
-            ## ASSERT: method is executable
-
-            if [ $super == 0 ]; then
-                # call object method handler, grab exitcode
-                $isa/$method $ob $args "$@"
-                exitcode=$?
-            else
-                super=$((super-1))
-              # echo skipping method to reach super method
-            fi
-
-            }
-    else ## monolithic parent class handler
-        if [ -x $isa ]; then ## handler is executable
-            # invoke handler, grab exitcode
-            $isa $method $ob $args "$@"
-            exitcode=$?
-        else
-            ## as noted above, not sure if this bail-out is right to do...
-            bail "ERROR: $isa handler not executable"
-        fi
-    fi
-    test -n "$exitcode" && { # method handler was run, and returned
-        ## continue only if special exit status value is returned
-        ## note that exit status of 0 will also apply here...
-        test $exitcode == $TOB_CONTINUE_SEARCH || exit $exitcode
-        }
-    ## ASSERT: method either not found or handler says to keep going...
-done
+# follow_class_links $classpath # initialize tob_classlinks array
+# 
+# test -z $NOT_STRICT && { # safety check
+#     check_class $tob_classlinks ||
+#         bail "invalid class/method handler location"
+#     }
+# 
+# parse_class_names # initialize tob_classnames array
+# export tob_class=$tob_classnames
+# 
+# ## remove & count SUPER:: prefixes
+# super=0
+# while [ ${method:0:7} == "SUPER::" ]; do
+#     method=${method:7}
+#     super=$((super+1))
+#   # echo $super $method
+# done
+# 
+# ## search in class, parent class, parent of parent class, etc., 
+# for isa in ${tob_classlinks[@]}; do
+#     ## ASSERT: parent class exists
+#     if [ -d $isa ]; then # parent class methods directory
+#       # echo checking for $isa/$method...
+#         test -e $isa/$method && { # method found!
+#             
+#             ## suspect this may also happen due to permissions...
+#             ## ... so may need to rethink this simple bail-out
+#             test -x $isa/$method ||
+#                 bail "ERROR: method $method in $isa/ not executable"
+# 
+#             ## ASSERT: method is executable
+# 
+#             if [ $super == 0 ]; then
+#                 # call object method handler, grab exitcode
+#                 $isa/$method $ob $args "$@"
+#                 exitcode=$?
+#             else
+#                 super=$((super-1))
+#               # echo skipping method to reach super method
+#             fi
+# 
+#             }
+#     else ## monolithic parent class handler
+#         if [ -x $isa ]; then ## handler is executable
+#             # invoke handler, grab exitcode
+#             $isa $method $ob $args "$@"
+#             exitcode=$?
+#         else
+#             ## as noted above, not sure if this bail-out is right to do...
+#             bail "ERROR: $isa handler not executable"
+#         fi
+#     fi
+#     test -n "$exitcode" && { # method handler was run, and returned
+#         ## continue only if special exit status value is returned
+#         ## note that exit status of 0 will also apply here...
+#         test $exitcode == $TOB_CONTINUE_SEARCH || exit $exitcode
+#         }
+#     ## ASSERT: method either not found or handler says to keep going...
+# done
 
 
 ####################
@@ -501,27 +503,27 @@ test "$method" == "exists" && {
     exit 0
     }
 
-test "$method" == "ls" && {
-    if [ -z $NOCD ]; then
-        cd $tob
-        target="$@"
-    else
-        target="$tob/$@"
-    fi
-  # test $DEBUG -a $VERBOSE && echo exec /bin/ls -p $args $target
-    exec /bin/ls -p $args $target
-    }
+# test "$method" == "ls" && {
+#     if [ -z $NOCD ]; then
+#         cd $tob
+#         target="$@"
+#     else
+#         target="$tob/$@"
+#     fi
+#   # test $DEBUG -a $VERBOSE && echo exec /bin/ls -p $args $target
+#     exec /bin/ls -p $args $target
+#     }
 
-test "$method" == "wc" && {
-    if [ -z $NOCD ]; then
-        cd $tob
-        target="$*"
-    else
-        target="$tob/$*"
-    fi
-  # test $DEBUG -a $VERBOSE && echo exec /bin/wc -p $args $target
-    exec /usr/bin/wc $args $target
-    }
+# test "$method" == "wc" && {
+#     if [ -z $NOCD ]; then
+#         cd $tob
+#         target="$*"
+#     else
+#         target="$tob/$*"
+#     fi
+#   # test $DEBUG -a $VERBOSE && echo exec /bin/wc -p $args $target
+#     exec /usr/bin/wc $args $target
+#     }
 
 test "$method" == "find" && {
     test -z "$NOCD" && {
