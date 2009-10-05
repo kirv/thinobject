@@ -125,6 +125,33 @@ function tob_error () {
     }   
 export -f tob_error
 
+tob_resolve_methodpath () {
+    local method=$1 && shift
+    local super=0
+    while test "${method:0:7}" == "SUPER::"; do
+        method=${method:7}
+        super=$(($super+1))
+    done
+    local searchpath=$tob_classpath
+    while [ -d $searchpath ]; do
+        test -x $searchpath/$method && {
+            test $super == 0 && {
+                tob_methodpath=$searchpath/$method
+                return 0
+                }
+            super=$(($super - 1))
+            }
+        if test -L $searchpath/^; then
+             searchpath=$searchpath/^
+        elif test -L $searchpath/.^; then
+            searchpath=$searchpath/.^
+        else
+            return 1
+        fi
+    done
+    }
+export -f tob_resolve_methodpath
+
 ob=$1 && shift
 while [ -n "$ob" -a ${ob#-} != $ob ]; do # option detected by leading "-" ...
 
@@ -360,7 +387,6 @@ test -n "$DEBUG" && {
     echo DEBUG: args1=\'$args\' args2=\'$*\'
     }
 
-####################
 ## ASSERT a method was passed
 ####################
 
