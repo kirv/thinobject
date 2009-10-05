@@ -41,8 +41,10 @@ elif test -L ^; then
      class=^
 fi
 
+class=$tob_classpath
+
 declare -a classlinks
-while [ -L $class ]; do
+while [ -d $class ]; do
     classlink=$(/bin/readlink -f $class)
     classlinks=($classlinks $classlink)
     if test -L $class/.^; then

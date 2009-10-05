@@ -60,7 +60,7 @@ function follow_class_links () {
     test -n "$tob_classlinks" && # short-circuit if already done!
         return 0
     class=$1
-    while [ -L $class ]; do
+    while [ -d $class ]; do
         classlink=$(/bin/readlink -f $class)
         tob_classlinks=($tob_classlinks $classlink)
         if test -L $class/^; then
@@ -245,19 +245,19 @@ function resolve_object_class_paths () { # set tob and classpath variables
 
     ## $ob is neither an object nor a class, try an implicit class link:
     if test -d $ob; then
-        echo $ob is a directory
+      # echo $ob is a directory
         tob=$ob
         classpath=$DEFAULT_CLASS_FOR_DIRECTORY
     elif test -f $ob; then
-        echo $ob is a file
+      # echo $ob is a file
         tob=$ob
         classpath=$DEFAULT_CLASS_FOR_FILE
     elif test -d $dot_ob; then
-        echo $dot_ob is a directory
+      # echo $dot_ob is a directory
         tob=$dot_ob
         classpath=$DEFAULT_CLASS_FOR_DIRECTORY
     elif test -f $dot_ob; then
-        echo $dot_ob is a file
+      # echo $dot_ob is a file
         tob=$dot_ob
         classpath=$DEFAULT_CLASS_FOR_FILE
     fi
@@ -347,8 +347,8 @@ export tob_classpath=$classpath
 test -z "$ob" -o -z "$tob" &&
     bail "no object was parsed"
 
-test ! -d $tob &&
-    bail "ERROR: $tob is not a directory"
+# test ! -d $tob &&
+#     bail "ERROR: $tob is not a directory"
 
 test -z "$method" &&
     bail "no method specified for $ob"
@@ -375,6 +375,7 @@ test "$method" == "tob" -o "$method" == "path" && {
     }
 
 test "$method" == "type" && {
+  # echo running method: type for $ob $tob $classpath
     follow_class_links $classpath
     test -n "$VERBOSE" && {
         echo ${tob_classlinks[@]}
