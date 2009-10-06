@@ -1,8 +1,5 @@
 #!/bin/bash
 
-test -e /etc/thinobject.conf &&
-    source /etc/thinobject.conf
-
 # require class handlers & methods to be under this path, unless --not-strict
 LIB=( ~/lib /usr/local/lib /home/.usr-local/lib /usr/lib )
 ROOT=( thinob tob ThinObject )
@@ -11,8 +8,8 @@ function manpage() { # print manpage at end of this script...
     exec /usr/bin/awk '/^NAME$/{ok=1}ok' $0
     }
 
-DEFAULT_CLASS_FOR_FILE=/usr/local/lib/thinob/Filesystem/File
-DEFAULT_CLASS_FOR_DIRECTORY=/usr/local/lib/thinob/Filesystem/Directory
+TOB_DEFAULT_CLASS_FOR_FILE=/usr/local/lib/thinob/Filesystem/File
+TOB_DEFAULT_CLASS_FOR_DIRECTORY=/usr/local/lib/thinob/Filesystem/Directory
 
 function check_class () {
     local class="$1"
@@ -274,19 +271,19 @@ function resolve_object_class_paths () { # set tob and classpath variables
     if test -d $ob; then
       # echo $ob is a directory
         tob=$ob
-        classpath=$DEFAULT_CLASS_FOR_DIRECTORY
-    elif test -f $ob; then
-      # echo $ob is a file
-        tob=$ob
-        classpath=$DEFAULT_CLASS_FOR_FILE
+        classpath=$TOB_DEFAULT_CLASS_FOR_DIRECTORY
     elif test -d $dot_ob; then
       # echo $dot_ob is a directory
         tob=$dot_ob
-        classpath=$DEFAULT_CLASS_FOR_DIRECTORY
+        classpath=$TOB_DEFAULT_CLASS_FOR_DIRECTORY
+    elif test -f $ob; then
+      # echo $ob is a file
+        tob=$ob
+        classpath=$TOB_DEFAULT_CLASS_FOR_FILE
     elif test -f $dot_ob; then
       # echo $dot_ob is a file
         tob=$dot_ob
-        classpath=$DEFAULT_CLASS_FOR_FILE
+        classpath=$TOB_DEFAULT_CLASS_FOR_FILE
     fi
     test -n "$classpath" &&
         return
