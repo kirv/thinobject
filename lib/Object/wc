@@ -1,0 +1,12 @@
+#!/bin/sh
+
+ob=$1 && shift
+
+if [ -z $NOCD ]; then
+    cd $tob
+    target="$*"
+else
+    target="$tob/$*"
+fi
+
+exec /usr/bin/wc $args $target

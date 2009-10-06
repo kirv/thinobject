@@ -1,0 +1,25 @@
+#!/bin/sh
+ob=$1 && shift
+
+opts=''
+pat=$1 && shift
+while [ $pat != ${pat#-} ]; do # collect any grep options
+    opts="$opts $pat"
+    pat=$1 && shift
+done
+if [ -z $NOCD ]; then
+    cd $tob_path
+    target=$@
+else
+    for f in $*; do
+        if [ $f == ${f#-} ]; then
+            target="$target $tob_path/$f"
+        else
+            opts="$opts $f"
+        fi
+    done
+fi
+test $VERBOSE &&
+    echo grep $opts $pat $target
+grep $opts $pat $target
+exit 0

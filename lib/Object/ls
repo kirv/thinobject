@@ -1,0 +1,13 @@
+#!/bin/sh
+
+ob=$1 && shift
+
+if [ -z $NOCD ]; then
+    cd $tob_path
+    target="$@"
+else
+    target="$tob_path/$@"
+fi
+
+exec /bin/ls -p $args $target
+

@@ -1,0 +1,19 @@
+#!/bin/sh
+ob=$1 && shift
+
+if [ -z "$1" ]; then target="%"; else target="$*"; fi
+if [ -z $NOCD ]; then
+    cd $tob_path
+else
+    for f in $*; do
+        ## non-option argument is the file to touch:
+        if [ $f == ${f#-} ]; then
+            target="$target $tob_path/$f"
+        else
+            target="$target $f"
+        fi
+    done
+fi
+test $VERBOSE && echo touch $target
+/usr/bin/touch $target
+exit 0

@@ -1,0 +1,19 @@
+#!/bin/sh
+ob=$1 && shift
+
+if [ -z $NOCD ]; then
+    cd $tob_path
+    target="$*"
+else
+    target="$tob_path/$*"
+fi
+for prop in $target; do
+    if [ -e $prop ]; then
+        test $VERBOSE &&
+             echo $prop:
+        /bin/cat $prop
+    else
+        bail "ERROR: no property $prop"
+    fi
+done
+exit 0

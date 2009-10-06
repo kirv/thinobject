@@ -1,0 +1,10 @@
+#!/bin/sh
+ob=$1 && shift
+
+prop="$1" && shift
+test ! -e $tob_path/$prop && bail "ERROR: no property $prop"
+if [ -n "$1" ]; then
+    exec /bin/echo "$*" > $tob_path/$prop
+else
+    exec /bin/cat > $tob_path/$prop
+fi

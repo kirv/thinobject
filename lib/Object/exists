@@ -1,0 +1,6 @@
+#!/bin/sh
+ob=$1 && shift
+
+test $VERBOSE &&
+    echo object $ob exists
+exit 0

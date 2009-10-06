@@ -4,10 +4,7 @@ function usage () {
     printf "SYNOPSIS: ob.method [-v|--verbose|-V|--no-verbose|-h|--help] [method]\n"
     }
 
-# ignore the object in argument $1:
-shift
-
-cd $tob_path || exit 1
+ob=$1 && shift
 
 ## if argument is specified, output only that method's full pathname
 
@@ -34,29 +31,10 @@ while test -n "$1"; do
     shift
 done
 
-# prepare to scan class directories through ^ or .^ symlinks:
-if test -L .^; then
-    class=.^
-elif test -L ^; then
-     class=^
-fi
-
 class=$tob_classpath
 
-declare -a classlinks
-while [ -d $class ]; do
-    classlink=$(/bin/readlink -f $class)
-    classlinks=($classlinks $classlink)
-    if test -L $class/.^; then
-        class=$class/.^
-    elif test -L $class/^; then
-         class=$class/^
-    else
-        break
-    fi
-done
-
-for class in ${classlinks[@]}; do
+while test -d $class/; do
+    echo looking in $class...
     for f in $class/*; do
         test -d $f && continue
         test -f $f && test -x $f && {
@@ -64,6 +42,13 @@ for class in ${classlinks[@]}; do
             echo $m $f
             }
     done
+    if test -L $class/.^; then
+        class=$class/.^
+    elif test -L $class/^; then
+         class=$class/^
+    else
+        break
+    fi
 done |
     awk -vmethod="$METHOD" -vverbose="$VERBOSE" -vquiet="$QUIET" '
         {
