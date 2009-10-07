@@ -34,7 +34,7 @@ done
 class=$tob_classpath
 
 while test -d $class/; do
-    echo looking in $class...
+  # echo "looking in $class..."
     for f in $class/*; do
         test -d $f && continue
         test -f $f && test -x $f && {

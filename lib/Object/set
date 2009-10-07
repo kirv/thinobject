@@ -2,7 +2,10 @@
 ob=$1 && shift
 
 prop="$1" && shift
-test ! -e $tob_path/$prop && bail "ERROR: no property $prop"
+test ! -e $tob_path/$prop && {
+    echo ERROR: no property $prop
+    exit 1
+    }
 if [ -n "$1" ]; then
     exec /bin/echo "$*" > $tob_path/$prop
 else

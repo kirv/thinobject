@@ -12,7 +12,7 @@ test -n "$1" && {
         VERBOSE=1
     }
 
-for prog in tob tob-new; do
+for prog in thinob.sh tob thinob-new.sh tob-new; do
     test $prog -nt $destination/$prog && {
         test "$VERBOSE" && 
             echo copying $prog to $destination

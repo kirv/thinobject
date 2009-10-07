@@ -13,7 +13,8 @@ for prop in $target; do
              echo $prop:
         /bin/cat $prop
     else
-        bail "ERROR: no property $prop"
+        echo ERROR: no property $prop
+        exit 1
     fi
 done
 exit 0
