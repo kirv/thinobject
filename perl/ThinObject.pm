@@ -33,14 +33,22 @@ sub new {
     my $class = shift;
     my $self = {};
     $self->{ob} = $self->{tob} = shift or die "no object specified\n";
+  # print "resolving object: $self->{ob}\n";
     if ( -d $self->{tob} && -e $self->{tob} . '/^' ) { # it's a thinobject
+      # print "this is an object: $self->{tob}\n";
         } 
     else {
+      # print "not an object: $self->{tob}...\n";
         $self->{tob} = _deref_symlink($self->{tob}) if -l $self->{tob};
+      # print "dereference symlinks: $self->{tob}...\n";
         $self->{tob} =~ s{([^/]+)$}{.$1}; # dot the object...
+      # print "testing dotted object: $self->{tob}...\n";
+        return undef unless ( -d $self->{tob} && -e $self->{tob} . '/^' );
+      # print "this is an object: $self->{tob}\n";
         }
     bless $self, $class;
     return undef unless $self->exists(); # not a thinobject
+  # print "object exists: $self->{tob}\n";
   # die qq(object "$self->{ob}" not found\n) unless $self->exists();
     ## _scandir() sets the following parameters:
     $self->{param} = {};
@@ -50,6 +58,13 @@ sub new {
   # $self->_scandir($self->{tob}); # recurse for parameters
     return $self;
     }
+
+sub defer_to_superclass { exit 100 } # exit with special return value 
+
+# sub defer_to_superclass { # exit with special return value 
+#     my $self = shift;
+#     exit 100;
+#     } 
 
 sub _deref_symlink { # call readlink() recursively...
     ## note that this is not an object method, just an ordinary function
@@ -169,6 +184,11 @@ sub show_methods { # list all methods
     return ( sort keys %{$self->{method}} );
     }
 
+sub attribute { # access to object attributes
+    my $self = shift;
+    return $self->param(@_);
+    }
+
 sub param { # access to object parameters
     my $self = shift;
     $self->_scandir($self->{tob}) unless @{$self->{scanned}};
@@ -243,9 +263,8 @@ sub hash { # return hash of tag=value entries (lines) from a property (file)
         $hash{$tag} = $value;
         }
     my $key = shift;
-    return sort keys %hash unless defined $key;
-  # return \%hash unless defined $key;
-    return $hash{$key};
+    return $hash{$key} if defined $key;
+    return ( %hash ); # return unordered list of key,value pairs
     }
 
 sub list { # return list of entries (lines) from a selected property (file)
@@ -297,7 +316,7 @@ sub list_properties { # read the value of a file named with leading '@'
 
 sub exists { 
     my $self = shift;
-    return -e $self->{ob} && -e $self->{tob} && -e $self->{tob} . '/^';
+    return -e $self->{tob} && -e $self->{tob} . '/^';
     }
 
 sub ob_type { 
