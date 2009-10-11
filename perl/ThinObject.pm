@@ -4,7 +4,7 @@ use 5.00;
 use strict;
 use warnings;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 use constant LIB => ( $ENV{HOME} . '/lib', '/usr/local/lib', '/usr/lib' );
 use constant ROOT => qw( tob thinob ThinObject );
@@ -17,7 +17,7 @@ foreach my $lib ( LIB ) {
     }
 my $libroot_pattern = '^(' . join('|', @libroot) . ')/';
 
-sub confirm_class { # NOT a method...
+sub _confirm_class { # NOT a method...
     my $class_path = shift; # absolute path, i.e., /libroot/class/path
     my $fatal = shift;
     $class_path =~ tr{/}{/}s; # squeeze any // to / in path
@@ -329,10 +329,7 @@ sub isa {
     return 'ThinObject' unless -e $isa;
     return 'unknown' unless -l $isa;
     my $class = _deref_symlink($isa);
-  # my $libroot = LIBROOT;
-  # warn "INVALID CLASS\n" unless $isa =~ s{$libroot_check_pattern}{};
-  # warn "INVALID CLASS\n" unless $isa = confirm_class($isa);
-    $isa = confirm_class($class);
+    $isa = _confirm_class($class);
     $self->{isa} = [ $isa ];
     $class .= '/^';
     while ( -e $class ) {
@@ -341,8 +338,7 @@ sub isa {
             last;
             }
         $class = _deref_symlink($class);
-        $isa = confirm_class($class);
-      # warn qq(INVALID CLASS "$isa"\n) unless $isa =~ s{$libroot}{};
+        $isa = _confirm_class($class);
         push @{$self->{isa}}, $isa;
         $class .= '/^';
         }
@@ -374,9 +370,7 @@ sub OLD_init_param { # read params from class & object "%<method>" file
     my ($method_classdir, $method) = $0 =~ m{(.+)/([^/]+)};
 
     my $method_class = readlink $method_classdir;
-  # my $libroot = LIBROOT;
-  # warn "INVALID CLASS\n" unless $method_class =~ s{$libroot}{};
-    $method_class = confirm_class($method_class);
+    $method_class = _confirm_class($method_class);
     $method_class =~ s{/}{::}g; # change class foo/bar to foo::bar
 
     $self->{option} = {};
