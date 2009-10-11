@@ -148,9 +148,10 @@ sub _scandir { # recursively scan object, class directories
       #     }
         }
     closedir DIR;
-    ## next, check for default parameter file '%' ...
-    if ( -e $dir . '/%' ) { # read default properties file
-        unless ( open PARAMS, '<', $dir . '/%' ) {
+    ## next, check for default parameter file '%' or '.%' ...
+    if ( -e "$dir/\%" || -e "$dir/.\%" ) { # read default properties file
+        unless ( open( PARAMS, '<', "$dir/\%" ) ||
+                 open( PARAMS, '<', "$dir/.\%" ) ) {
             warn qq(failed to open parameter file "$dir/\%"\n);
             }
         else {
