@@ -1,0 +1,177 @@
+#!/usr/bin/perl -w
+use strict;
+use warnings;
+
+use ThinObject;
+use Getopt::Long;
+
+
+my $agg = ThinObject->new( shift );
+
+die unless $agg->isa() ne 'Aggregate';
+
+# exec "/usr/bin/pod2text $0" if @ARGV && $ARGV[0] =~ m/^(-h|--help)$/;
+
+my $do_name;
+my $do_list_name = $agg->attribute('Aggregate-do-list') || 'do-in-order';
+my $verbose = $agg->attribute('verbose');
+my $verbose_fmt = $agg->attribute('verbose-printf-format');
+my $continue_on_error_value = $agg->attribute('continue-on-error-value');
+
+## process commandline options:
+use Getopt::Long qw(:config pass_through);
+GetOptions (
+    'h'             => sub { print "see --help\n"; exit 1 },
+    'help'          => sub { exec "pod2text $0" },
+    'do-name:s'  => \$do_name,
+    'verbose!'  => \$verbose,
+    'verbose-printf-format=s'  => \$verbose_fmt,
+    'continue-on-error-value=s'  => \$continue_on_error_value,
+    ) or die "$!\n";
+
+my $method = shift;
+my @args = @ARGV;
+
+$verbose_fmt = expand_escapes($verbose_fmt) if
+    $verbose_fmt && $verbose_fmt =~ m/\\/;
+
+my @order = $agg->get_property( $do_list_name );
+# die "Aggregate.do error: no order property defined\n" unless defined $order[0];
+
+my $tob = $agg->tob();
+chdir $agg->tob() or die $!;
+
+unless ( defined $order[0] ) {
+    @order = (); # kludge... there's something in there...
+    opendir CONTAINER, '.' or die $!;
+    foreach my $candidate ( sort readdir CONTAINER ) {
+        next if $candidate =~ m/^[\^\.]/;
+        push @order, $candidate;
+        }
+    }
+
+foreach my $ob ( @order ) {
+
+    ## skip if name doesn't match --do-name option value...
+  # defined $do_name && next unless $ob =~ m/$do_name/;
+    next if defined $do_name && $ob !~ m/$do_name/;
+    
+    ## skip if candidate is not a thinobject:
+    ## NOTE that this could be done using perl ThinObject module,
+    ##    but for now I want to do it at the shell level...
+    next if system("thinob $ob.tob >/dev/null 2>&1");
+
+    if ( $verbose ) {
+        if ( $verbose_fmt ) {
+            printf $verbose_fmt, $ob;
+            }
+        else {
+            print "$ob\n";
+            }
+        }
+
+    next unless $method;
+
+    my @ob_args = @args;
+    map s/%s/$ob/g, @ob_args;
+
+    # execute the method, and bail if succesful:
+    system("thinob $ob.$method @ob_args");
+    if ( $? != 0 ) {
+        my $error_value = $? >> 8;
+      # print "DEBUG error value is $error_value\n" if $error_value;
+        die qq(Aggregate.do failed: "tob $ob.$method @ob_args", $error_value\n)
+            unless $continue_on_error_value
+                && $error_value == $continue_on_error_value;
+        }
+
+    # otherwise, go on and do the same with the next object...
+    }
+
+sub expand_escapes {
+    my $fmt = shift;
+    $fmt =~ s/\\t/\t/g;
+    $fmt =~ s/\\n/\n/g;
+    return $fmt;
+    }
+
+=head1 NAME
+
+do -- Aggregate do method; apply method to contained objects
+
+=head1 SYNOPSIS
+
+    Aggregate.do [-h|--help] method args ...
+
+=head1 DESCRIPTION
+
+Invoke contained object's method with arguments, in order set by
+the 'do-in-order' property or perhaps by some other criteria.  Quit after
+one of the object method calls succeeds, according to the process
+return value.  If the return value is 1, then call the next object,
+etc.  If the return value is greater than 1, just bail due to the
+error.
+
+=head1 ATTRIBUTES
+
+=over
+
+=item verbose-printf-format = STRING
+
+show target object name using printf format, e.g., "\t%s\n"
+
+=item verbose = NUMBER
+
+show target object name if NUMBER=1
+
+=item Aggregate-do-list = NAME, default 'do-in-order'
+
+If present, operate in order only on listed objects.  If no property
+is found in the object, all contained thinobjects are targets.
+
+=item continue-on-error-value NUMBER
+
+If set, keep going to the next object if a container object method
+returns NUMBER on exit.  Execution always continues when the return
+value (also referred to as error status, return status, error value, etc.)
+is 0.
+
+=back
+
+=head1 EXAMPLES
+
+    Aggregate.do baz 
+
+=head1 SEE ALSO
+
+Aggregate.help overview method, Aggregate.order method.
+
+Manpage for printf or sprintf. 
+
+=head1 BUGS
+
+The do method uses subshells for object tests and for executing the
+methods on them.
+
+Escape sequences in printf format strings are expanded explicitly,
+but for now only \t and \n are handled.
+
+The verbose-printf-format attribute obviates the verbose attribute...
+there might be a more sensible way to handle this (like maybe dropping
+verbose?)
+
+=head1 TODO
+
+A means to exclude objects, and/or to include/exclude by regular expression
+(or other) pattern, could be added.
+
+A check for a specific object class could be added.
+
+The verbose option could maybe be a sprintf format...
+
+=head1 AUTHOR
+
+Ken Irving <fnkci@uaf.edu> (c) 2007
+
+Licensed under the GPL (Gnu Public Library)
+
