@@ -1,0 +1,24 @@
+#!/bin/sh
+
+destination=/usr/local/lib/site_perl
+
+VERBOSE=1
+
+test -n "$1" && {
+    opt=$1 && shift
+    test $opt == "--no-verbose" || test $opt == "-V" &&
+        unset VERBOSE
+    test $opt == "--verbose" || test $opt == "-v" &&
+        VERBOSE=1
+    }
+
+for module in ThinObject.pm; do
+    test $module -nt $destination/$module && {
+        test "$VERBOSE" && 
+            echo copying $module to $destination
+        cp $module $destination/$module ||
+            echo FAILED copying $module to $destination
+        }
+done
+
+exit 0

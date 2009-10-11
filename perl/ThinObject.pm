@@ -37,14 +37,20 @@ sub new {
     if ( -d $self->{tob} && -e $self->{tob} . '/^' ) { # it's a thinobject
       # print "this is an object: $self->{tob}\n";
         } 
+    elsif ( -d $self->{tob} && -e $self->{tob} . '/.^' ) { # it's a thinobject
+        # nothing needs to be done
+        } 
     else {
       # print "not an object: $self->{tob}...\n";
         $self->{tob} = _deref_symlink($self->{tob}) if -l $self->{tob};
       # print "dereference symlinks: $self->{tob}...\n";
         $self->{tob} =~ s{([^/]+)$}{.$1}; # dot the object...
       # print "testing dotted object: $self->{tob}...\n";
-        return undef unless ( -d $self->{tob} && -e $self->{tob} . '/^' );
-      # print "this is an object: $self->{tob}\n";
+        return undef unless
+            ( -d $self->{tob} &&
+                ( -e $self->{tob} . '/^' || -e $self->{tob} . '/.^' )
+            );
+      # print "DEBUG: this is an object: $self->{tob}\n";
         }
     bless $self, $class;
     return undef unless $self->exists(); # not a thinobject
@@ -163,9 +169,12 @@ sub _scandir { # recursively scan object, class directories
         close PARAMS;
         }
     ## last, recurse into class or superclass directories
-  # print "DEBUG: recursing into $dir/^/...\n";
+  # print "DEBUG: recursing into $dir/^ or $dir/.^ ...\n";
     if ( -e $dir . '/^' ) {
         $self->_scandir( $dir . '/^' );
+        }
+    elsif ( -e $dir . '/.^' ) {
+        $self->_scandir( $dir . '/.^' );
         }
   # print "DEBUG: ... done recursing\n";
     }
@@ -316,7 +325,8 @@ sub list_properties { # read the value of a file named with leading '@'
 
 sub exists { 
     my $self = shift;
-    return -e $self->{tob} && -e $self->{tob} . '/^';
+    return -e $self->{tob} &&
+        ( -e $self->{tob} . '/^' || -e $self->{tob} . '/.^' );
     }
 
 sub ob_type { 
@@ -344,14 +354,27 @@ sub tob {
 sub isa { 
     my $self = shift;
     return @{$self->{isa}} if defined $self->{isa};
+
     my $isa = "$self->{tob}/^";
+    $isa = "$self->{tob}/.^" unless $isa;
+
     return 'ThinObject' unless -e $isa;
     return 'unknown' unless -l $isa;
     my $class = _deref_symlink($isa);
     $isa = _confirm_class($class);
     $self->{isa} = [ $isa ];
-    $class .= '/^';
+
+    # now follow superclass ^ or .^ links:
     while ( -e $class ) {
+        if ( -e "$class/^" ) {
+            $class .= '/^';
+            }
+        elsif ( -e "$class/.^" ) {
+            $class .= '/.^';
+            }
+        else {
+            last;
+            }
         unless ( -l $class && -d $class ) {
             warn qq(INVALID SUPERCLASS "$class"\n);
             last;
@@ -359,8 +382,8 @@ sub isa {
         $class = _deref_symlink($class);
         $isa = _confirm_class($class);
         push @{$self->{isa}}, $isa;
-        $class .= '/^';
         }
+
     return @{$self->{isa}};
     }
 

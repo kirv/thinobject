@@ -11,7 +11,8 @@ die "thinobject enabler/executive not found\n"
 die "thinobject enabler/executive not executable\n"
     unless -x $tob_enabler;
 
-my $agg = ThinObject->new( shift );
+my $agg = ThinObject->new( shift ) ||
+    die "failed to create perl object of ThinObject class\n";
 
 die unless $agg->isa() ne 'Aggregate';
 
