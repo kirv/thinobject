@@ -5,6 +5,11 @@ use warnings;
 use ThinObject;
 use Getopt::Long;
 
+my $tob_enabler = "/usr/local/bin/tob";
+die "thinobject enabler/executive not found\n"
+    unless -e $tob_enabler;
+die "thinobject enabler/executive not executable\n"
+    unless -x $tob_enabler;
 
 my $agg = ThinObject->new( shift );
 
@@ -17,6 +22,7 @@ my $do_list_name = $agg->attribute('Aggregate-do-list') || 'do-in-order';
 my $verbose = $agg->attribute('verbose');
 my $verbose_fmt = $agg->attribute('verbose-printf-format');
 my $continue_on_error_value = $agg->attribute('continue-on-error-value');
+my $debug;
 
 ## process commandline options:
 use Getopt::Long qw(:config pass_through);
@@ -25,6 +31,7 @@ GetOptions (
     'help'          => sub { exec "pod2text $0" },
     'do-name:s'  => \$do_name,
     'verbose!'  => \$verbose,
+    'debug'  => \$debug,
     'verbose-printf-format=s'  => \$verbose_fmt,
     'continue-on-error-value=s'  => \$continue_on_error_value,
     ) or die "$!\n";
@@ -32,11 +39,23 @@ GetOptions (
 my $method = shift;
 my @args = @ARGV;
 
+if ( $debug ) {
+    print "DEBUG: in Aggregate.do method\n";
+    print "DEBUG: verbose_fmt: $verbose_fmt\n" if $verbose_fmt;
+    print "DEBUG: verbose: $verbose\n" if $verbose;
+    print "DEBUG: do-name: $do_name\n" if $do_name;
+    print "DEBUG: do-list-name: $do_list_name\n" if $do_list_name;
+    print "DEBUG: method: $method\n";
+    print "DEBUG: pass-thru args: @args\n";
+    }
+
 $verbose_fmt = expand_escapes($verbose_fmt) if
     $verbose_fmt && $verbose_fmt =~ m/\\/;
 
 my @order = $agg->get_property( $do_list_name );
 # die "Aggregate.do error: no order property defined\n" unless defined $order[0];
+
+print "DEBUG: order: @order\n" if $debug;
 
 my $tob = $agg->tob();
 chdir $agg->tob() or die $!;
@@ -52,14 +71,20 @@ unless ( defined $order[0] ) {
 
 foreach my $ob ( @order ) {
 
+    print "DEBUG:    processing $ob\n" if $debug;
+
     ## skip if name doesn't match --do-name option value...
   # defined $do_name && next unless $ob =~ m/$do_name/;
     next if defined $do_name && $ob !~ m/$do_name/;
     
+    print "DEBUG:    still going $ob\n" if $debug;
+
     ## skip if candidate is not a thinobject:
     ## NOTE that this could be done using perl ThinObject module,
     ##    but for now I want to do it at the shell level...
-    next if system("thinob $ob.tob >/dev/null 2>&1");
+    next if system("$tob_enabler $ob.tob >/dev/null 2>&1");
+
+    print "DEBUG:    survived so far $ob\n" if $debug;
 
     if ( $verbose ) {
         if ( $verbose_fmt ) {
@@ -76,7 +101,7 @@ foreach my $ob ( @order ) {
     map s/%s/$ob/g, @ob_args;
 
     # execute the method, and bail if succesful:
-    system("thinob $ob.$method @ob_args");
+    system("$tob_enabler $ob.$method @ob_args");
     if ( $? != 0 ) {
         my $error_value = $? >> 8;
       # print "DEBUG error value is $error_value\n" if $error_value;
