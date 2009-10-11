@@ -5,4 +5,7 @@ my $ob = shift;
 my $prop = shift;
 die "no property given\n" unless defined $prop;
 $ob = ThinObject->new($ob);
+
+die "SORRY! but this Object.set-prop method is too crude, so exiting...\n";
+
 $ob->set_property($prop, "@ARGV");
