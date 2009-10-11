@@ -8,15 +8,17 @@ my $agg = ThinObject->new( shift );
 
 die unless $agg->isa() ne 'Aggregate';
 
+my $do_list_name = $agg->attribute('Aggregate-do-list') || 'do-in-order';
+
 unless ( @ARGV ) {
-    print "$_\n" foreach $agg->get_property( 'order' );
+    print "$_\n" foreach $agg->get_property( $do_list_name );
     }
 else {
     foreach my $ob ( @ARGV ) {
         die "Aggregate:order error: no contained object $ob\n"
             unless -e $agg->tob() . "/$ob";
         }
-    $agg->set_property( 'order', @ARGV );
+    $agg->set_property( $do_list_name, @ARGV );
     }
 
 __END__

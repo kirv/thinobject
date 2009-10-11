@@ -72,20 +72,20 @@ unless ( defined $order[0] ) {
 
 foreach my $ob ( @order ) {
 
-    print "DEBUG:    processing $ob\n" if $debug;
+  # print "DEBUG:    processing $ob\n" if $debug;
 
     ## skip if name doesn't match --do-name option value...
   # defined $do_name && next unless $ob =~ m/$do_name/;
     next if defined $do_name && $ob !~ m/$do_name/;
     
-    print "DEBUG:    still going $ob\n" if $debug;
+  # print "DEBUG:    still going $ob\n" if $debug;
 
     ## skip if candidate is not a thinobject:
     ## NOTE that this could be done using perl ThinObject module,
     ##    but for now I want to do it at the shell level...
     next if system("$tob_enabler $ob.tob >/dev/null 2>&1");
 
-    print "DEBUG:    survived so far $ob\n" if $debug;
+  # print "DEBUG:    survived so far $ob\n" if $debug;
 
     if ( $verbose ) {
         if ( $verbose_fmt ) {
