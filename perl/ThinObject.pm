@@ -6,10 +6,28 @@ use warnings;
 
 our $VERSION = '0.02';
 
-# use constant LIBROOT => '/usr/local/lib/ThinObject/';
-use constant LIBROOT => '/usr/local/lib/thinob/';
-# use constant LIBROOT =>
-#     qw( /usr/lib/thinob/ /usr/local/lib/thinob/ $ENV{HOME}/lib/thinob/ );
+use constant LIB => ( $ENV{HOME} . '/lib', '/usr/local/lib', '/usr/lib' );
+use constant ROOT => qw( tob thinob ThinObject );
+
+my @libroot; # list of all possible valid class library path roots
+foreach my $lib ( LIB ) {
+    foreach my $root ( ROOT ) {
+        push @libroot, "$lib/$root";
+        }
+    }
+my $libroot_pattern = '^(' . join('|', @libroot) . ')/';
+
+sub confirm_class { # NOT a method...
+    my $class_path = shift; # absolute path, i.e., /libroot/class/path
+    my $fatal = shift;
+    $class_path =~ tr{/}{/}s; # squeeze any // to / in path
+    unless ( $class_path =~ s{$libroot_pattern}{} ) {
+        die "INVALID CLASS PATH: $class_path\n" if $fatal;
+        warn "INVALID CLASS PATH: $class_path\n";
+        return undef;
+        }
+    return $class_path; # NOTE: libroot has been removed
+    }
 
 sub new {
     my $class = shift;
@@ -30,7 +48,6 @@ sub new {
     $self->{listing} = []; # hidden directory listing
     $self->{scanned} = []; # list of directories scanned
   # $self->_scandir($self->{tob}); # recurse for parameters
-    print "DEBUG: $self\n";
     return $self;
     }
 
@@ -311,9 +328,11 @@ sub isa {
     my $isa = "$self->{tob}/^";
     return 'ThinObject' unless -e $isa;
     return 'unknown' unless -l $isa;
-    my $class = $isa = _deref_symlink($isa);
-    my $libroot = LIBROOT;
-    warn "INVALID CLASS\n" unless $isa =~ s{$libroot}{};
+    my $class = _deref_symlink($isa);
+  # my $libroot = LIBROOT;
+  # warn "INVALID CLASS\n" unless $isa =~ s{$libroot_check_pattern}{};
+  # warn "INVALID CLASS\n" unless $isa = confirm_class($isa);
+    $isa = confirm_class($class);
     $self->{isa} = [ $isa ];
     $class .= '/^';
     while ( -e $class ) {
@@ -321,8 +340,9 @@ sub isa {
             warn qq(INVALID SUPERCLASS "$class"\n);
             last;
             }
-        $class = $isa = _deref_symlink($class);
-        warn qq(INVALID CLASS "$isa"\n) unless $isa =~ s{$libroot}{};
+        $class = _deref_symlink($class);
+        $isa = confirm_class($class);
+      # warn qq(INVALID CLASS "$isa"\n) unless $isa =~ s{$libroot}{};
         push @{$self->{isa}}, $isa;
         $class .= '/^';
         }
@@ -354,8 +374,9 @@ sub OLD_init_param { # read params from class & object "%<method>" file
     my ($method_classdir, $method) = $0 =~ m{(.+)/([^/]+)};
 
     my $method_class = readlink $method_classdir;
-    my $libroot = LIBROOT;
-    warn "INVALID CLASS\n" unless $method_class =~ s{$libroot}{};
+  # my $libroot = LIBROOT;
+  # warn "INVALID CLASS\n" unless $method_class =~ s{$libroot}{};
+    $method_class = confirm_class($method_class);
     $method_class =~ s{/}{::}g; # change class foo/bar to foo::bar
 
     $self->{option} = {};
