@@ -10,7 +10,7 @@ DESCRIPTION
     crieria.
 
     Method calls on the contained object is done using the thinobject
-    enabler/dispatcher, so the object can be of different classes.
+    enabler/dispatcher, so contained objects can be of different classes.
 
 METHODS
     do    -- apply given method and argument to contained objects
