@@ -54,7 +54,11 @@ $verbose_fmt = expand_escapes($verbose_fmt) if
     $verbose_fmt && $verbose_fmt =~ m/\\/;
 
 my @order = $agg->get_property( $do_list_name );
-# die "Aggregate.do error: no order property defined\n" unless defined $order[0];
+
+unless ( defined $order[0] ) {
+    ## should handle this better, e.g., just use the system's 'natural' order
+    die "Aggregate.do error: no order property defined\n";
+    }
 
 print "DEBUG: order: @order\n" if $debug;
 

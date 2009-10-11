@@ -290,11 +290,13 @@ sub list { # return list of entries (lines) from a selected property (file)
     return \@list;
     }
 
-sub get_property { # read the value of a file named with leading '@'
+sub get_property { # read the value of a file named with leading '@' or '.@'
     my $self = shift;
     my $prop = shift; # argument w/o the '@'
     return $self->list_properties() unless defined $prop;
-    open PROP, "<", $self->{tob} . "/\@$prop" or return undef;
+    open PROP, "<", $self->{tob} . "/\@$prop" or
+        open PROP, "<", $self->{tob} . "/.\@$prop" or
+        return undef;
     chomp ( my @value = <PROP> );
     return @value;
     }
@@ -303,7 +305,9 @@ sub set_property { # write the value of a file
     my $self = shift;
     my $prop = shift;
     my @value = @_;
-    open PROP, ">", $self->{tob} . "/\@$prop" or return undef;
+    open PROP, ">", $self->{tob} . "/\@$prop" or
+        open PROP, ">", $self->{tob} . "/.\@$prop" or
+        return undef;
     return undef unless @value;
     foreach ( @value ) {
         print PROP "$_\n";
@@ -311,13 +315,13 @@ sub set_property { # write the value of a file
     return 1;
     }
 
-sub list_properties { # read the value of a file named with leading '@'
+sub list_properties { # list files named with leading '@' or '.@'
     my $self = shift;
     $self->_scandir($self->{tob}) unless @{$self->{scanned}};
     my @props;
     foreach my $d ( @{$self->{listing}} ) {
         foreach my $f ( @$d ) {
-            push @props, $f if $f =~ s/^\@//;
+            push @props, $f if $f =~ s/^\.?\@//;
             }
         }
     return @props;
