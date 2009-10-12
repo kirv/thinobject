@@ -363,11 +363,16 @@ test -n "$DEBUG" && {
     echo DEBUG: args1=\'$args\' args2=\'$*\'
     }
 
+####################
 ## ASSERT a method was passed
 ####################
 
 TOB_resolve_methodpath $method &&
     exec $TOB_methodpath $TOB_object $args "$@"
+
+####################
+## no method path was found, so continuing...
+####################
 
 test "$method" == "tob" -o "$method" == "path" && {
     test -z "$*" && echo $TOB_object_path
