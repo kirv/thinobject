@@ -2,10 +2,10 @@
 ob=$1 && shift
 
 if [ -z $NOCD ]; then
-    cd $TOB_path
+    cd $TOB_object_path
     target="$*"
 else
-    target="$TOB_path/$*"
+    target="$TOB_object_path/$*"
 fi
 for prop in $target; do
     if [ -e $prop ]; then

@@ -45,8 +45,8 @@ function classname () { # remove class library root from class link
 function class_as_object () {
     local class="$1"
     for path in ${lib_roots[@]}; do
-        classpath=$path/$class
-        test -d $classpath && return 0  # got it!
+        TOB_class_path=$path/$class
+        test -d $TOB_class_path && return 0  # got it!
     done
     return 1
     }
@@ -76,7 +76,7 @@ function parse_class_names () {
     test -n "$TOB_classnames" &&
         return 0
     test -n $TOB_classlinks ||
-        follow_class_links $classpath
+        follow_class_links $TOB_class_path
     for classlink in ${TOB_classlinks[@]}; do
         classname $classlink
         TOB_classnames=($TOB_classnames $classname)
@@ -123,7 +123,7 @@ TOB_resolve_methodpath () {
         method=${method:7}
         super=$(($super+1))
     done
-    local searchpath=$TOB_classpath
+    local searchpath=$TOB_class_path
     while [ -d $searchpath ]; do
         test -x $searchpath/$method && {
             test $super == 0 && {
@@ -143,11 +143,10 @@ TOB_resolve_methodpath () {
     }
 export -f TOB_resolve_methodpath
 
-function resolve_object_class_paths () { # set tob and classpath variables
+function resolve_object_path_class_path () { # set tob and TOB_class_path variables
     ob=$1
     unset tob
-    unset classpath
-    unset TOB_PATH
+    unset TOB_class_path
 
     # if ob is a symlink, resolve it to a real path:
     test -L $ob && ob=$(/bin/readlink -f $ob)
@@ -156,11 +155,11 @@ function resolve_object_class_paths () { # set tob and classpath variables
 
     test -d "$ob" && { ## ob is a directory
         if test -L "$ob/^"; then
-            classpath=$ob/^
+            TOB_class_path=$ob/^
         elif test -L "$ob/.^"; then
-            classpath=$ob/.^
+            TOB_class_path=$ob/.^
         fi
-        test -n "$classpath" &&
+        test -n "$TOB_class_path" &&
             tob=$ob &&
                 return
         }
@@ -176,18 +175,18 @@ function resolve_object_class_paths () { # set tob and classpath variables
 
     test -d "$dot_ob" && { ## dot_ob is a directory
         if test -L "$dot_ob/^"; then
-            classpath=$dot_ob/^
+            TOB_class_path=$dot_ob/^
         elif test -L "$dot_ob/.^"; then
-            classpath=$dot_ob/.^
+            TOB_class_path=$dot_ob/.^
         fi
-        test -n "$classpath" &&
+        test -n "$TOB_class_path" &&
             tob=$dot_ob &&
                 return
         }
 
     ## object $ob not found, so check if instead it's a ThinObject class:
     class_as_object $ob && { # yes, it is a class
-        tob=$classpath       # access the class (almost) as if it's an object
+        tob=$TOB_class_path       # access the class (almost) as if it's an object
         return
         }
 
@@ -195,21 +194,21 @@ function resolve_object_class_paths () { # set tob and classpath variables
     if test -d $ob; then
       # echo $ob is a directory
         tob=$ob
-        classpath=$TOB_DEFAULT_CLASS_FOR_DIRECTORY
+        TOB_class_path=$TOB_DEFAULT_CLASS_FOR_DIRECTORY
     elif test -d $dot_ob; then
       # echo $dot_ob is a directory
         tob=$dot_ob
-        classpath=$TOB_DEFAULT_CLASS_FOR_DIRECTORY
+        TOB_class_path=$TOB_DEFAULT_CLASS_FOR_DIRECTORY
     elif test -f $ob; then
       # echo $ob is a file
         tob=$ob
-        classpath=$TOB_DEFAULT_CLASS_FOR_FILE
+        TOB_class_path=$TOB_DEFAULT_CLASS_FOR_FILE
     elif test -f $dot_ob; then
       # echo $dot_ob is a file
         tob=$dot_ob
-        classpath=$TOB_DEFAULT_CLASS_FOR_FILE
+        TOB_class_path=$TOB_DEFAULT_CLASS_FOR_FILE
     fi
-    test -n "$classpath" &&
+    test -n "$TOB_class_path" &&
         return
 
     bail "$1 ($ob) is not a thinobject or was not found"
@@ -293,37 +292,20 @@ test $method && {
 ## check for & resolve colon-delimited (contained) objects to the final object:
 ####################
 
-# test ${ob/::} == $ob || bail double colons not supported... need to fix?
-
 ## replace any '::' sequences temporarily:
 ob=${ob//::/__2COLONS__}
 while [ ${ob/:/} != $ob ]; do
-  # echo .
     oball=$ob
     ob=${ob%%:*}
     oblist=${oball#*:}
 
-    # ## restore double colon in ob
-    # ob=${ob//__2COLONS__/::}
-   
-  # echo RESOLVE: $ob
-  # echo REMAINS: $oblist
-
-  # echo resolve $ob to tob
-
-    resolve_object_class_paths $ob
+    resolve_object_path_class_path $ob
 
     ob=$tob/$oblist
-
-    # ## encode double colon in ob
-    # ob=${ob//::/__2COLONS__}
-  # echo _TEST: $ob
 
     done
 
 ob=${ob//__2COLONS__/::}
-
-# echo _DONE: $ob
 
 ####################
 ## object still includes method, so parse method from object.method
@@ -350,15 +332,15 @@ test -z "$method" &&
 ## ASSERT: ob and method have been parsed, but not checked
 ####################
 
-resolve_object_class_paths $ob
+resolve_object_path_class_path $ob
 
 test -n "$DEBUG" && {
     echo DEBUG: object path=$tob
-    echo DEBUG: class path=$classpath
+    echo DEBUG: class path=$TOB_class_path
     }
 
 export TOB_object_path=$tob
-export TOB_classpath=$classpath
+export TOB_class_path=$TOB_class_path
 
 ###########################################################333
 
@@ -395,8 +377,8 @@ test "$method" == "tob" -o "$method" == "path" && {
     }
 
 test "$method" == "type" && {
-  # echo running method: type for $ob $tob $classpath
-    follow_class_links $classpath
+  # echo running method: type for $ob $tob $TOB_class_path
+    follow_class_links $TOB_class_path
     test -n "$VERBOSE" && {
         echo ${TOB_classlinks[@]}
         exit 0
@@ -407,7 +389,7 @@ test "$method" == "type" && {
     }
 
 test "$method" == "isa" && {
-    follow_class_links $classpath
+    follow_class_links $TOB_class_path
     test -n "$VERBOSE" && {
         for classlink in ${TOB_classlinks[@]}; do
             echo $classlink
