@@ -143,9 +143,10 @@ TOB_resolve_methodpath () {
     }
 export -f TOB_resolve_methodpath
 
-function resolve_object_path_class_path () { # set tob and TOB_class_path variables
+function resolve_object_path_class_path () { 
+    ## set TOB_object_path, TOB_class_path
     ob=$1
-    unset tob
+    unset TOB_object_path
     unset TOB_class_path
 
     # if ob is a symlink, resolve it to a real path:
@@ -160,7 +161,7 @@ function resolve_object_path_class_path () { # set tob and TOB_class_path variab
             TOB_class_path=$ob/.^
         fi
         test -n "$TOB_class_path" &&
-            tob=$ob &&
+            TOB_object_path=$ob &&
                 return
         }
     
@@ -180,32 +181,32 @@ function resolve_object_path_class_path () { # set tob and TOB_class_path variab
             TOB_class_path=$dot_ob/.^
         fi
         test -n "$TOB_class_path" &&
-            tob=$dot_ob &&
+            TOB_object_path=$dot_ob &&
                 return
         }
 
     ## object $ob not found, so check if instead it's a ThinObject class:
     class_as_object $ob && { # yes, it is a class
-        tob=$TOB_class_path       # access the class (almost) as if it's an object
+        TOB_object_path=$TOB_class_path       # access the class (almost) as if it's an object
         return
         }
 
     ## $ob is neither an object nor a class, try an implicit class link:
     if test -d $ob; then
       # echo $ob is a directory
-        tob=$ob
+        TOB_object_path=$ob
         TOB_class_path=$TOB_DEFAULT_CLASS_FOR_DIRECTORY
     elif test -d $dot_ob; then
       # echo $dot_ob is a directory
-        tob=$dot_ob
+        TOB_object_path=$dot_ob
         TOB_class_path=$TOB_DEFAULT_CLASS_FOR_DIRECTORY
     elif test -f $ob; then
       # echo $ob is a file
-        tob=$ob
+        TOB_object_path=$ob
         TOB_class_path=$TOB_DEFAULT_CLASS_FOR_FILE
     elif test -f $dot_ob; then
       # echo $dot_ob is a file
-        tob=$dot_ob
+        TOB_object_path=$dot_ob
         TOB_class_path=$TOB_DEFAULT_CLASS_FOR_FILE
     fi
     test -n "$TOB_class_path" &&
@@ -301,7 +302,7 @@ while [ ${ob/:/} != $ob ]; do
 
     resolve_object_path_class_path $ob
 
-    ob=$tob/$oblist
+    ob=$TOB_object_path/$oblist
 
     done
 
@@ -335,29 +336,29 @@ test -z "$method" &&
 resolve_object_path_class_path $ob
 
 test -n "$DEBUG" && {
-    echo DEBUG: object path=$tob
+    echo DEBUG: object path=$TOB_object_path
     echo DEBUG: class path=$TOB_class_path
     }
 
-export TOB_object_path=$tob
-export TOB_class_path=$TOB_class_path
+export TOB_object_path
+export TOB_class_path
 
 ###########################################################333
 
-## ASSERT: $ob is a nominal object, $tob is the actual thinobject
+## ASSERT: $ob is a nominal object, $TOB_object_path is the actual thinobject
 
-test -z "$ob" -o -z "$tob" &&
+test -z "$ob" -o -z "$TOB_object_path" &&
     bail "no object was parsed"
 
-# test ! -d $tob &&
-#     bail "ERROR: $tob is not a directory"
+# test ! -d $TOB_object_path &&
+#     bail "ERROR: $TOB_object_path is not a directory"
 
 test -z "$method" &&
     bail "no method specified for $ob"
 
 test -n "$DEBUG" && {
     echo DEBUG: nominal object=$ob
-    echo DEBUG: thinobject=$tob
+    echo DEBUG: thinobject=$TOB_object_path
     echo DEBUG: method=$method
     echo DEBUG: args1=\'$args\' args2=\'$*\'
     }
@@ -369,15 +370,15 @@ TOB_resolve_methodpath $method &&
     exec $TOB_methodpath $ob $args "$@"
 
 test "$method" == "tob" -o "$method" == "path" && {
-    test -z "$*" && echo $tob
+    test -z "$*" && echo $TOB_object_path
     for arg in $*; do
-        echo $tob/$arg
+        echo $TOB_object_path/$arg
     done
     exit 0
     }
 
 test "$method" == "type" && {
-  # echo running method: type for $ob $tob $TOB_class_path
+  # echo running method: type for $ob $TOB_object_path $TOB_class_path
     follow_class_links $TOB_class_path
     test -n "$VERBOSE" && {
         echo ${TOB_classlinks[@]}
@@ -412,7 +413,7 @@ test -n "$SHOWHEADER" && echo $ob:
 ####################
 
 unset property default_handler
-for isa in $tob $TOB_classlinks; do
+for isa in $TOB_object_path $TOB_classlinks; do
     test -e $isa/\@$method && { # found @method
         property=$isa/@$method
         default_handler=_default-list
