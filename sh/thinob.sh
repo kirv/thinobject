@@ -26,7 +26,8 @@ function manpage() { # print manpage at end of this script...
 function check_class () { # confirm that class begins with allowed root
     local class="$1"
     for path in ${lib_roots[@]}; do
-        test ${class#$path/} == $class || return 0 # got it!
+        test ${class#$path/} == $class ||
+            return
     done
     return 1
     }
@@ -36,7 +37,7 @@ function classname () { # remove class library root from class link
     for path in ${lib_roots[@]}; do
         test ${classname#$path/} == $classname || {
             classname=${classname#$path/}
-            return 0
+            return
             }
     done
     return 1
@@ -46,7 +47,8 @@ function class_as_object () {
     local class="$1"
     for path in ${lib_roots[@]}; do
         TOB_class_path=$path/$class
-        test -d $TOB_class_path && return 0  # got it!
+        test -d $TOB_class_path &&
+            return
     done
     return 1
     }
@@ -55,7 +57,7 @@ declare -a TOB_classlinks
 export TOB_classlinks      # NOTE: bash 3.2 arrays are not exportable!
 function follow_class_links () {
     test -n "$TOB_classlinks" && # short-circuit if already done!
-        return 0
+        return
     class=$1
     while [ -d $class ]; do
         classlink=$(/bin/readlink -f $class)
@@ -65,7 +67,7 @@ function follow_class_links () {
         elif test -L $class/.^; then
             class=$class/.^
         else
-            return 0
+            return
         fi
     done
     return 1
@@ -74,14 +76,14 @@ function follow_class_links () {
 declare -a TOB_classnames
 function parse_class_names () {
     test -n "$TOB_classnames" &&
-        return 0
+        return
     test -n $TOB_classlinks ||
         follow_class_links $TOB_class_path
     for classlink in ${TOB_classlinks[@]}; do
         classname $classlink
         TOB_classnames=($TOB_classnames $classname)
     done
-    return 0
+    return
     }
 
 function bail () {
@@ -116,6 +118,75 @@ function TOB_error () {
     }   
 export -f TOB_error
 
+function resolve_object_path () { ## set TOB_object_path
+    ob=$1
+    unset TOB_object_path
+
+    # if ob is a symlink, resolve it to a real path:
+    test -L $ob && ob=$(/bin/readlink -f $ob)
+
+    ## ASSERT: ob is a file, directory, or ?
+
+    # return directory if it contains a class link:
+    test -d $ob && ( test -L "$ob/^" || test -L "$ob/.^" ) &&
+        TOB_object_path=$ob &&
+            return
+
+    # check for dot-ob, so first create the name:
+    if test "${ob/\/*/}" == "$ob"; then # no slash in ob
+        dot_ob=.$ob
+    else # ob has a slash in it
+        dot_ob=${ob%\/*}/.${ob/*\//}
+    fi
+
+    # return dot-directory if it exists and contains a class link:
+    test -d $dot_ob && ( test -L "$dot_ob/^" || test -L "$dot_ob/.^" ) &&
+        TOB_object_path=$dot_ob &&
+            return
+  
+    ## ASSERT: neither ob nor dot_ob is an explicit thinobject
+
+    # return ob if it's a directory
+    test -d $ob &&
+        TOB_object_path=$ob &&
+            return
+
+    # return dot_ob if it's a directory
+    test -d $dot_ob &&
+        TOB_object_path=$dot_ob &&
+            return
+
+    # return ob in any case
+    TOB_object_path=$ob
+    return
+    }
+
+function resolve_class_path () { 
+    test -n "$TOB_object_path" ||
+        bail "resolve_class_path() called with TOB_object_path not set"
+
+    unset TOB_class_path
+
+    test -d $TOB_object_path && { ## object is a directory
+        test -L $TOB_object_path/^ && 
+            TOB_class_path=$TOB_object_path/^ &&
+                return
+
+        test -L $TOB_object_path/.^ && 
+            TOB_class_path=$TOB_object_path/.^ &&
+                return
+
+        TOB_class_path=$TOB_DEFAULT_CLASS_FOR_DIRECTORY 
+        return
+        }
+
+    test -f $TOB_object_path && 
+        TOB_class_path=$TOB_DEFAULT_CLASS_FOR_DIRECTORY &&
+            return
+
+    bail "$TOB_object is not a directory or file..."
+    }
+
 TOB_resolve_methodpath () {
     local method=$1 && shift
     local super=0
@@ -128,7 +199,7 @@ TOB_resolve_methodpath () {
         test -x $searchpath/$method && {
             test $super == 0 && {
                 TOB_methodpath=$searchpath/$method
-                return 0
+                return
                 }
             super=$(($super - 1))
             }
@@ -142,78 +213,6 @@ TOB_resolve_methodpath () {
     done
     }
 export -f TOB_resolve_methodpath
-
-function resolve_object_path_class_path () { 
-    ## set TOB_object_path, TOB_class_path
-    ob=$1
-    unset TOB_object_path
-    unset TOB_class_path
-
-    # if ob is a symlink, resolve it to a real path:
-    test -L $ob && ob=$(/bin/readlink -f $ob)
-
-    ## ASSERT: $ob is NOT a symlink, so is either a file, directory, or null
-
-    test -d "$ob" && { ## ob is a directory
-        if test -L "$ob/^"; then
-            TOB_class_path=$ob/^
-        elif test -L "$ob/.^"; then
-            TOB_class_path=$ob/.^
-        fi
-        test -n "$TOB_class_path" &&
-            TOB_object_path=$ob &&
-                return
-        }
-    
-    ## ASSERT: $ob itself is not a thinobject, so check the dot-object...
-
-    if test "${ob/\/*/}" == "$ob"; then # no slash in ob
-        dot_ob=.$ob
-    else # ob has a slash in it
-        dot_ob=${ob%\/*}/.${ob/*\//}
-    fi
-    test -L $dot_ob && dot_ob=$(/bin/readlink -f $dot_ob) # resolve symlinked/aliased ob
-
-    test -d "$dot_ob" && { ## dot_ob is a directory
-        if test -L "$dot_ob/^"; then
-            TOB_class_path=$dot_ob/^
-        elif test -L "$dot_ob/.^"; then
-            TOB_class_path=$dot_ob/.^
-        fi
-        test -n "$TOB_class_path" &&
-            TOB_object_path=$dot_ob &&
-                return
-        }
-
-    ## object $ob not found, so check if instead it's a ThinObject class:
-    class_as_object $ob && { # yes, it is a class
-        TOB_object_path=$TOB_class_path       # access the class (almost) as if it's an object
-        return
-        }
-
-    ## $ob is neither an object nor a class, try an implicit class link:
-    if test -d $ob; then
-      # echo $ob is a directory
-        TOB_object_path=$ob
-        TOB_class_path=$TOB_DEFAULT_CLASS_FOR_DIRECTORY
-    elif test -d $dot_ob; then
-      # echo $dot_ob is a directory
-        TOB_object_path=$dot_ob
-        TOB_class_path=$TOB_DEFAULT_CLASS_FOR_DIRECTORY
-    elif test -f $ob; then
-      # echo $ob is a file
-        TOB_object_path=$ob
-        TOB_class_path=$TOB_DEFAULT_CLASS_FOR_FILE
-    elif test -f $dot_ob; then
-      # echo $dot_ob is a file
-        TOB_object_path=$dot_ob
-        TOB_class_path=$TOB_DEFAULT_CLASS_FOR_FILE
-    fi
-    test -n "$TOB_class_path" &&
-        return
-
-    bail "$1 ($ob) is not a thinobject or was not found"
-    }
 
 ####################
 ## process argument list for any options:
