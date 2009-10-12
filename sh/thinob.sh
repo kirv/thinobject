@@ -313,27 +313,27 @@ ob=${ob//__2COLONS__/::}
 ####################
 
 method=${ob##*.}
-ob=${ob%.*}
+$TOB_object=${ob%.*}
 
-export TOB_object=$ob
+export TOB_object
 export TOB_method=$method
 
 test -n "$DEBUG" && {
-    echo DEBUG: object=$ob
+    echo DEBUG: object=$TOB_object
     echo DEBUG: method=$method
     }
 
-test -z "$ob" &&
+test -z "$TOB_object" &&
     bail "no object parsed, method $method"
 
 test -z "$method" &&
-    bail "no method parsed, object $ob"
+    bail "no method parsed, object $TOB_object"
 
 ####################
 ## ASSERT: ob and method have been parsed, but not checked
 ####################
 
-resolve_object_path_class_path $ob
+resolve_object_path_class_path $TOB_object
 
 test -n "$DEBUG" && {
     echo DEBUG: object path=$TOB_object_path
@@ -345,19 +345,19 @@ export TOB_class_path
 
 ###########################################################333
 
-## ASSERT: $ob is a nominal object, $TOB_object_path is the actual thinobject
+## ASSERT: $TOB_object is a nominal object, $TOB_object_path is the actual thinobject
 
-test -z "$ob" -o -z "$TOB_object_path" &&
+test -z "$TOB_object" -o -z "$TOB_object_path" &&
     bail "no object was parsed"
 
 # test ! -d $TOB_object_path &&
 #     bail "ERROR: $TOB_object_path is not a directory"
 
 test -z "$method" &&
-    bail "no method specified for $ob"
+    bail "no method specified for $TOB_object"
 
 test -n "$DEBUG" && {
-    echo DEBUG: nominal object=$ob
+    echo DEBUG: nominal object=$TOB_object
     echo DEBUG: thinobject=$TOB_object_path
     echo DEBUG: method=$method
     echo DEBUG: args1=\'$args\' args2=\'$*\'
@@ -367,7 +367,7 @@ test -n "$DEBUG" && {
 ####################
 
 TOB_resolve_methodpath $method &&
-    exec $TOB_methodpath $ob $args "$@"
+    exec $TOB_methodpath $TOB_object $args "$@"
 
 test "$method" == "tob" -o "$method" == "path" && {
     test -z "$*" && echo $TOB_object_path
@@ -378,7 +378,7 @@ test "$method" == "tob" -o "$method" == "path" && {
     }
 
 test "$method" == "type" && {
-  # echo running method: type for $ob $TOB_object_path $TOB_class_path
+  # echo running method: type for $TOB_object $TOB_object_path $TOB_class_path
     follow_class_links $TOB_class_path
     test -n "$VERBOSE" && {
         echo ${TOB_classlinks[@]}
@@ -406,7 +406,7 @@ test "$method" == "isa" && {
     exit 0
     }
 
-test -n "$SHOWHEADER" && echo $ob: 
+test -n "$SHOWHEADER" && echo $TOB_object: 
 
 ####################
 ## no ob.method found, so check for properties @method or %method
@@ -451,7 +451,7 @@ test -n "$property" && {
     for isa in $TOB_classlinks; do # search for _default-list or _default-dict
         test -e $isa/$default_handler && {
           # echo TODO: /bin/echo exec $isa/$default_handler $property $@
-            exec $isa/$default_handler $ob $property $@ # found & dispatched
+            exec $isa/$default_handler $TOB_object $property $@ # found & dispatched
             }
     done
 
@@ -497,8 +497,8 @@ for isa in $TOB_classlinks; do
     ## ASSERT: class exists
     test -e $isa/_default && {
         test -x $isa/_default && {
-          # echo DEBUG thinob: exec $isa/_default $ob $method $*
-            exec $isa/_default $ob $method $*
+          # echo DEBUG thinob: exec $isa/_default $TOB_object $method $*
+            exec $isa/_default $TOB_object $method $*
             }
         ## ASSERT: _default is not executable
         ## maybe it can contain a recipe to be executed?
