@@ -313,7 +313,7 @@ ob=${ob//__2COLONS__/::}
 ####################
 
 method=${ob##*.}
-$TOB_object=${ob%.*}
+TOB_object=${ob%.*}
 
 export TOB_object
 export TOB_method=$method
