@@ -187,7 +187,7 @@ function resolve_class_path () {
     bail "$TOB_object is not a directory or file..."
     }
 
-TOB_resolve_methodpath () {
+TOB_resolve_method_path () {
     local method=$1 && shift
     local super=0
     while test "${method:0:7}" == "SUPER::"; do
@@ -198,7 +198,7 @@ TOB_resolve_methodpath () {
     while [ -d $searchpath ]; do
         test -x $searchpath/$method && {
             test $super == 0 && {
-                TOB_methodpath=$searchpath/$method
+                TOB_method_path=$searchpath/$method
                 return
                 }
             super=$(($super - 1))
@@ -212,7 +212,7 @@ TOB_resolve_methodpath () {
         fi
     done
     }
-export -f TOB_resolve_methodpath
+export -f TOB_resolve_method_path
 
 ####################
 ## process argument list for any options:
@@ -299,8 +299,11 @@ while [ ${ob/:/} != $ob ]; do
     ob=${ob%%:*}
     oblist=${oball#*:}
 
-    resolve_object_path_class_path $ob
+    resolve_object_path $ob
 
+    test -d $TOB_object_path ||
+        bail "non-directory $TOB_object_path in colon-delimited object spec"
+    
     ob=$TOB_object_path/$oblist
 
     done
@@ -311,63 +314,60 @@ ob=${ob//__2COLONS__/::}
 ## object still includes method, so parse method from object.method
 ####################
 
-method=${ob##*.}
+TOB_method=${ob##*.}
 TOB_object=${ob%.*}
 
-export TOB_object
-export TOB_method=$method
-
 test -n "$DEBUG" && {
-    echo DEBUG: object=$TOB_object
-    echo DEBUG: method=$method
+    echo DEBUG: TOB_object=$TOB_object
+    echo DEBUG: TOB_method=$TOB_method
     }
 
-test -z "$TOB_object" &&
-    bail "no object parsed, method $method"
+test -n "$TOB_object" ||
+    bail "no object parsed with method $TOB_method"
 
-test -z "$method" &&
+test -n "$TOB_method" ||
     bail "no method parsed, object $TOB_object"
 
 ####################
 ## ASSERT: ob and method have been parsed, but not checked
 ####################
 
-resolve_object_path_class_path $TOB_object
+resolve_object_path $TOB_object
 
-test -n "$DEBUG" && {
-    echo DEBUG: object path=$TOB_object_path
-    echo DEBUG: class path=$TOB_class_path
-    }
+test -n "$DEBUG" && 
+    echo DEBUG: TOB_object_path=$TOB_object_path
 
-export TOB_object_path
-export TOB_class_path
+resolve_class_path
 
-###########################################################333
+test -n "$DEBUG" && 
+    echo DEBUG: TOB_class_path=$TOB_class_path
 
-## ASSERT: $TOB_object is a nominal object, $TOB_object_path is the actual thinobject
-
+## not sure this test is necessary at this point... leaving it just in case
 test -z "$TOB_object" -o -z "$TOB_object_path" &&
     bail "no object was parsed"
 
-# test ! -d $TOB_object_path &&
-#     bail "ERROR: $TOB_object_path is not a directory"
-
-test -z "$method" &&
-    bail "no method specified for $TOB_object"
-
-test -n "$DEBUG" && {
-    echo DEBUG: nominal object=$TOB_object
-    echo DEBUG: thinobject=$TOB_object_path
-    echo DEBUG: method=$method
+test -n "$DEBUG" &&
     echo DEBUG: args1=\'$args\' args2=\'$*\'
-    }
+    
 
 ####################
-## ASSERT a method was passed
+## now need to create TOB_PATH and TOB_ATTR_PATH
 ####################
 
-TOB_resolve_methodpath $method &&
-    exec $TOB_methodpath $TOB_object $args "$@"
+
+####################
+## export thinobject variables:
+####################
+export TOB_object
+export TOB_method
+export TOB_object_path
+export TOB_class_path
+export TOB_ATTR_PATH
+export TOB_PATH
+
+
+TOB_resolve_method_path $TOB_method &&
+    exec $TOB_method_path $TOB_object $args "$@"
 
 ####################
 ## no method path was found, so continuing...
