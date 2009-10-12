@@ -8,10 +8,12 @@ LIB=( ~/lib /usr/local/lib /home/.usr-local/lib /usr/lib )
 ROOT=( thinob tob ThinObject )
 
 # combine these into an ordered set of allowed root paths:
-declare -a lib_roots
+declare -a LIBROOTS
+i=0
 for lib in ${LIB[@]}; do
     for root in ${ROOT[@]}; do
-        lib_roots=( ${lib_roots[@]} $lib/$root )
+        ${LIBROOTS[$i]}=$lib/$root
+        i=$(($i + 1))
     done
 done
 
@@ -21,15 +23,6 @@ done
 
 function manpage() { # print manpage at end of this script...
     exec /usr/bin/awk '/^NAME$/{ok=1}ok' $0
-    }
-
-function check_class () { # confirm that class begins with allowed root
-    local class="$1"
-    for path in ${lib_roots[@]}; do
-        test ${class#$path/} == $class ||
-            return
-    done
-    return 1
     }
 
 function classname () { # remove class library root from class link
@@ -54,7 +47,6 @@ function class_as_object () {
     }
 
 declare -a TOB_classlinks
-export TOB_classlinks      # NOTE: bash 3.2 arrays are not exportable!
 function follow_class_links () {
     test -n "$TOB_classlinks" && # short-circuit if already done!
         return
@@ -116,7 +108,6 @@ function TOB_error () {
     test "$EXIT_VALUE" && exit $EXIT_VALUE
   # VERBOSE="$RESTORE_VERBOSE"
     }   
-export -f TOB_error
 
 function resolve_object_path () { ## set TOB_object_path
     ob=$1
@@ -187,6 +178,73 @@ function resolve_class_path () {
     bail "$TOB_object is not a directory or file..."
     }
 
+function resolve_attribute_search_path () {
+
+    # search starts with the object path, followed by its class path:
+    declare -a attr_paths=($TOB_object_path $TOB_class_path)
+
+    # declare index to last and next entries in path array
+    local last=1
+    local next=2
+
+    while test -d ${attr_paths[$last]}/; do
+
+        if test -L ${attr_paths[$last]}/^; then
+            ${attr_paths[$next]}=${attr_paths[$last]}/^
+        elif test -L ${attr_paths[$last]}/.^ && {
+            ${attr_paths[$next]}=${attr_paths[$last]}/.^
+        else
+            break
+        fi
+
+        last=$next
+        next=$(($next + 1))
+    done
+    }
+
+function check_and_parse_class () { # true if class begins with allowed root
+    local class=$(/bin/readlink -f $1)
+    for path in ${LIBROOTS[@]}; do
+        test ${class#$path/} == $class || {
+            classname=${class#$path/}  # note this side effect!!
+            return
+            }
+    done
+    return 1
+    }
+
+function resolve_method_search_path () {
+
+    # method search starts with object class, 2nd entry in attr_paths array:
+    attr_index=1
+
+    # check that attr_paths array has been initialized:
+    test -n "${attr_paths[$attr_index]}" ||
+        bail "call resolve_attribute_search_path() before resolve_method_search_path()"
+
+    # declare arrays and index 
+    declare -a search_paths
+    declare -a class_names
+    index=0
+
+    while test -n "${attr_paths[$attr_index]}; do
+        
+        test check_class ${attr_paths[$attr_index]} && {
+            ${search_paths[$index]}=${attr_paths[$attr_index]}
+            ${class_names[$index]}=$classname
+            index=$(($index + 1))
+            attr_index=$(($attr_index + 1))
+            continue
+            }
+        ## ASSERT: the class did not start with one of LIBROOTS list
+
+        test $index == 0 || 
+            bail non-method class cannot follow method class in search path
+
+        attr_index=$(($attr_index + 1))
+    done
+    }
+
 TOB_resolve_method_path () {
     local method=$1 && shift
     local super=0
@@ -212,7 +270,13 @@ TOB_resolve_method_path () {
         fi
     done
     }
+
+####################
+## export thinobject utility functions
+####################
+export -f TOB_error
 export -f TOB_resolve_method_path
+
 
 ####################
 ## process argument list for any options:
@@ -354,9 +418,10 @@ test -n "$DEBUG" &&
 ## now need to create TOB_PATH and TOB_ATTR_PATH
 ####################
 
+follow_search_paths $TOB_object_path $TOB_class_path
 
 ####################
-## export thinobject variables:
+## export thinobject variables
 ####################
 export TOB_object
 export TOB_method
@@ -364,7 +429,6 @@ export TOB_object_path
 export TOB_class_path
 export TOB_ATTR_PATH
 export TOB_PATH
-
 
 TOB_resolve_method_path $TOB_method &&
     exec $TOB_method_path $TOB_object $args "$@"
