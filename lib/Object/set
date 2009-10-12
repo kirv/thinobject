@@ -2,12 +2,12 @@
 ob=$1 && shift
 
 prop="$1" && shift
-test ! -e $tob_path/$prop && {
+test ! -e $TOB_object_path/$prop && {
     echo ERROR: no property $prop
     exit 1
     }
 if [ -n "$1" ]; then
-    exec /bin/echo "$*" > $tob_path/$prop
+    exec /bin/echo "$*" > $TOB_object_path/$prop
 else
-    exec /bin/cat > $tob_path/$prop
+    exec /bin/cat > $TOB_object_path/$prop
 fi

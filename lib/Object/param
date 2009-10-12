@@ -3,7 +3,7 @@ ob=$1 && shift
 
 tag="$1" && shift
 value="$1" && shift
-cd $tob_path
+cd $TOB_object_path
 test -z "$tag" && { # list all parameters
     for f in *\=*; do echo $f; done
     exit 0

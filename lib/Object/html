@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ob=$1 && shift
-cd $tob_path || exit 19
+cd $TOB_object_path || exit 19
 
 self=.
 tob=/usr/local/bin/tob
@@ -87,7 +87,7 @@ test -n "$xml" && {
     fi
 
     test "$UPDATE_HTML_BODY" == "1" && {
-        printf '<div id="%s">' $tob_path > @html-body
+        printf '<div id="%s">' $TOB_object_path > @html-body
       # $xml $self >> @html-body
         $tob $self.xml >> @html-body
         echo '</div>' >> @html-body
@@ -100,7 +100,7 @@ test -n "$xml" && {
 n=${#html_body[@]}
 if (( $n == 0 )); then
 
-    echo $tob_object
+    echo $TOB_object
 
 else
 

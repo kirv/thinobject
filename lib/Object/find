@@ -2,7 +2,7 @@
 ob=$1 && shift
 
 test -z "$NOCD" && {
-    cd $tob_path
+    cd $TOB_object_path
     if [ -n "$*" ]; then
         test "$DEBUG" -a "$VERBOSE" &&
             echo exec /usr/bin/find $*
@@ -14,5 +14,5 @@ test -z "$NOCD" && {
     fi
     }
 test "$DEBUG" -a "$VERBOSE" &&
-    echo exec /usr/bin/find $tob_path $*
-exec /usr/bin/find $tob_path $*
+    echo exec /usr/bin/find $TOB_object_path $*
+exec /usr/bin/find $TOB_object_path $*

@@ -8,12 +8,12 @@ while [ $pat != ${pat#-} ]; do # collect any grep options
     pat=$1 && shift
 done
 if [ -z $NOCD ]; then
-    cd $tob_path
+    cd $TOB_object_path
     target=$@
 else
     for f in $*; do
         if [ $f == ${f#-} ]; then
-            target="$target $tob_path/$f"
+            target="$target $TOB_object_path/$f"
         else
             opts="$opts $f"
         fi

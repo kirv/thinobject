@@ -1,6 +1,6 @@
 #!/bin/bash
 ob=$1 && shift
-cd $tob_path
+cd $TOB_object_path
 
 ## declare category or type arrays:
 declare -a list dict attr file dir obname obtype unknown
@@ -36,7 +36,7 @@ for t in ${type[@]}; do
     case $t in
 
         class)
-            echo $tob_class class
+            echo $TOB_class class
             ;;
             
         list)

@@ -31,7 +31,7 @@ while test -n "$1"; do
     shift
 done
 
-class=$tob_classpath
+class=$TOB_classpath
 
 while test -d $class/; do
   # echo "looking in $class..."

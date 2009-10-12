@@ -2,28 +2,23 @@
 
 echo "arglist: $@"
 
-object=$1
-shift
-method=$1
-shift
+object=$1 && shift
+method=$1 && shift
 
 # echo object: $object
-# echo tob_object: $tob_object
-# echo tob_ob: $tob_ob
-# echo tob_method: $tob_method
+# echo TOB_object: $TOB_object
+# echo TOB_method: $TOB_method
 # echo method: $method
-echo tob_tob: $tob_tob
-
-tob=$tob_tob
+echo TOB_object_path: $TOB_object_path
 
 echo "$object.$method $@"
 
 test "$method" == "ls" && {
     if [ -z $NOCD ]; then
-        cd $tob
+        cd $TOB_object_path
         target="$@"
     else
-        target="$tob/$@"
+        target="$TOB_object_path/$@"
     fi
   # test $DEBUG -a $VERBOSE && echo exec /bin/ls -p $args $target
     exec /bin/ls -p $args $target

@@ -8,12 +8,12 @@ else
 fi
 
 if [ -z $NOCD ]; then
-    cd $tob_path
+    cd $TOB_object_path
 else
     for f in $*; do
         ## non-option argument is the file/dir name to rmdir:
         if test $f == ${f#-}; then
-            target="$target $tob_path/$f"
+            target="$target $TOB_object_path/$f"
         else
             target="$target $f"
         fi

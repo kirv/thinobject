@@ -3,9 +3,9 @@ use strict;
 use warnings;
 
 my $ob = shift;
-chdir $ENV{tob_path} || die $!;
+chdir $ENV{TOB_object_path} || die $!;
 
-my $method = $ENV{tob_method};
+my $method = $ENV{TOB_method};
 
 my $dictlist = shift;
 my @args = @ARGV;

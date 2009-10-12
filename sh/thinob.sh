@@ -1,65 +1,65 @@
 #!/bin/bash
 
-# require class handlers & methods to be under this path, unless --not-strict
+TOB_DEFAULT_CLASS_FOR_FILE=/usr/local/lib/thinob/Filesystem/File
+TOB_DEFAULT_CLASS_FOR_DIRECTORY=/usr/local/lib/thinob/Filesystem/Directory
+
+# require class handlers & methods to be under one of these paths:
 LIB=( ~/lib /usr/local/lib /home/.usr-local/lib /usr/lib )
 ROOT=( thinob tob ThinObject )
+
+# combine these into an ordered set of allowed root paths:
+declare -a lib_roots
+for lib in ${LIB[@]}; do
+    for root in ${ROOT[@]}; do
+        lib_roots=( ${lib_roots[@]} $lib/$root )
+    done
+done
+
+####################
+## define fuctions and related variables:
+####################
 
 function manpage() { # print manpage at end of this script...
     exec /usr/bin/awk '/^NAME$/{ok=1}ok' $0
     }
 
-TOB_DEFAULT_CLASS_FOR_FILE=/usr/local/lib/thinob/Filesystem/File
-TOB_DEFAULT_CLASS_FOR_DIRECTORY=/usr/local/lib/thinob/Filesystem/Directory
-
-function check_class () {
+function check_class () { # confirm that class begins with allowed root
     local class="$1"
-    for lib in ${LIB[@]}; do
-        for root in ${ROOT[@]}; do
-            path=$lib/$root
-            test ${class#$path/} == $class || { # got it!
-                return 0
-                }
-        done
+    for path in ${lib_roots[@]}; do
+        test ${class#$path/} == $class || return 0 # got it!
     done
     return 1
     }
 
 function classname () { # remove class library root from class link
     classname=$1
-    for lib in ${LIB[@]}; do
-        for root in ${ROOT[@]}; do
-            path=$lib/$root
-            test ${classname#$path/} == $classname || {
-                classname=${classname#$path/}
-                return 0
-                }
-        done
+    for path in ${lib_roots[@]}; do
+        test ${classname#$path/} == $classname || {
+            classname=${classname#$path/}
+            return 0
+            }
     done
     return 1
     }
 
 function class_as_object () {
     local class="$1"
-    for lib in ${LIB[@]}; do
-        for root in ${ROOT[@]}; do
-            classpath=$lib/$root/$class
-            test -d $classpath && { # got it!
-                return 0
-                }
-        done
+    for path in ${lib_roots[@]}; do
+        classpath=$path/$class
+        test -d $classpath && return 0  # got it!
     done
     return 1
     }
 
-declare -a tob_classlinks
-export tob_classlinks      # NOTE: bash 3.2 arrays are not exportable!
+declare -a TOB_classlinks
+export TOB_classlinks      # NOTE: bash 3.2 arrays are not exportable!
 function follow_class_links () {
-    test -n "$tob_classlinks" && # short-circuit if already done!
+    test -n "$TOB_classlinks" && # short-circuit if already done!
         return 0
     class=$1
     while [ -d $class ]; do
         classlink=$(/bin/readlink -f $class)
-        tob_classlinks=($tob_classlinks $classlink)
+        TOB_classlinks=($TOB_classlinks $classlink)
         if test -L $class/^; then
              class=$class/^
         elif test -L $class/.^; then
@@ -71,15 +71,15 @@ function follow_class_links () {
     return 1
     }
 
-declare -a tob_classnames
+declare -a TOB_classnames
 function parse_class_names () {
-    test -n "$tob_classnames" &&
+    test -n "$TOB_classnames" &&
         return 0
-    test -n $tob_classlinks ||
+    test -n $TOB_classlinks ||
         follow_class_links $classpath
-    for classlink in ${tob_classlinks[@]}; do
+    for classlink in ${TOB_classlinks[@]}; do
         classname $classlink
-        tob_classnames=($tob_classnames $classname)
+        TOB_classnames=($TOB_classnames $classname)
     done
     return 0
     }
@@ -89,13 +89,7 @@ function bail () {
     exit 1
     }
 
-function bail_rtnval () {
-    rtnval="$1" && shift
-    test -z "$QUIET" && echo $* >&2
-    exit $rtnval
-    }
-
-function tob_error () {
+function TOB_error () {
     unset EXIT_VALUE
     while [ "${1:0:1}" == "-" ]; do # handle option ...
         opt=$1 && shift
@@ -104,36 +98,36 @@ function tob_error () {
         --exit|-x) EXIT_VALUE=$1 && shift ;;
         -v) VERBOSE=1 ;;
         -V) unset VERBOSE ;;
-        *)  echo "tob_error(): unknown option: \"$opt\"" 1>&2
-            echo "    SYNOPSIS: tob_error [--exit|-x N] [-v|V] args ..." 1>&2
+        *)  echo "TOB_error(): unknown option: \"$opt\"" 1>&2
+            echo "    SYNOPSIS: TOB_error [--exit|-x N] [-v|V] args ..." 1>&2
             ;;
         esac
     done
-    echo -e $tob_object.$tob_method: $* 1>&2
+    echo -e $TOB_object.$TOB_method: $* 1>&2
     test "$VERBOSE" && { PAD="    "
-        echo "${PAD}tob_object: $tob_object" 1>&2
-        echo "${PAD}tob_method: $tob_method" 1>&2
-        echo "${PAD}tob_path: $tob_path" 1>&2
+        echo "${PAD}TOB_object: $TOB_object" 1>&2
+        echo "${PAD}TOB_method: $TOB_method" 1>&2
+        echo "${PAD}TOB_object_path: $TOB_object_path" 1>&2
         echo "${PAD}method path: $0" 1>&2
         echo "${PAD}pwd: $(pwd)" 1>&2
         }
     test "$EXIT_VALUE" && exit $EXIT_VALUE
   # VERBOSE="$RESTORE_VERBOSE"
     }   
-export -f tob_error
+export -f TOB_error
 
-tob_resolve_methodpath () {
+TOB_resolve_methodpath () {
     local method=$1 && shift
     local super=0
     while test "${method:0:7}" == "SUPER::"; do
         method=${method:7}
         super=$(($super+1))
     done
-    local searchpath=$tob_classpath
+    local searchpath=$TOB_classpath
     while [ -d $searchpath ]; do
         test -x $searchpath/$method && {
             test $super == 0 && {
-                tob_methodpath=$searchpath/$method
+                TOB_methodpath=$searchpath/$method
                 return 0
                 }
             super=$(($super - 1))
@@ -147,86 +141,16 @@ tob_resolve_methodpath () {
         fi
     done
     }
-export -f tob_resolve_methodpath
-
-ob=$1 && shift
-while [ -n "$ob" -a ${ob#-} != $ob ]; do # option detected by leading "-" ...
-
-    if [ "$ob" == "-d" -o "$ob" == "--debug" ]; then
-        DEBUG=1
-        opt="$opt -d"
-
-    elif [ "$ob" == "-v" -o "$ob" == "--verbose" ]; then
-        VERBOSE=1
-        SHOWHEADER=1
-        opt="$opt -v"
-
-    elif [ "$ob" == "-m" -o "$ob" == "--method" ]; then
-        method=$1 && shift
-        test $method || bail "no method argument"
-
-    elif [ "$ob" == "-a" -o "$ob" == "--arg" ]; then
-        args="$args $1" && shift
-
-    elif [ "$ob" == "-S" -o "$ob" == "--not-strict" ]; then
-        NOT_STRICT=1
-        opt="$opt -S"
-
-    elif [ "$ob" == "--nocd" ]; then
-        NOCD=1
-        opt="$opt --nocd"
-
-    elif [ "$ob" == "-H" -o "$ob" == "--not-hidden" ]; then
-        ## with new or clone methods, create object directly, not dotted...
-        NOT_HIDDEN=1
-        opt="$opt --not-hidden"
-
-    elif [ "$ob" == "-T" -o "$ob" == "--no-touch" ]; then
-        ## with new or clone methods, create hidden ob, don't 'touch' nominal
-        NO_TOUCH=1
-        opt="$opt --no-touch"
-
-    elif [ "$ob" == "-q" -o "$ob" == "--quiet" ]; then
-        QUIET=1
-        opt="$opt --quiet"
-
-    elif [ "$ob" == "-h" -o "$ob" == "--help" ]; then
-        manpage
-        exit 0
-    
-    else
-        bail "unsupported option $ob"
-    fi
-    ob=$1 && shift # try again...
-done
-
-test -z "$ob" && bail "no object specified"
-
-test $method && { # iterate method on multiple objects (see -m, --method)
-    while [ $ob ]; do
-        if [ ${ob/=} != $ob ]; then # tag=value form detected
-            args="$args $ob"
-        else
-            test $VERBOSE && echo tob $opt $ob.$method $args
-            tob $opt $ob.$method $args || bail "failed in $ob.$method"
-        fi
-        ob=$1 && shift
-    done
-    exit 0
-    }
-
-# ASSERT: $ob contains object(s) and method
-# echo START: $ob
-export tob_object=${ob%.*}
-# export tob_method=${ob##*.}
-
+export -f TOB_resolve_methodpath
 
 function resolve_object_class_paths () { # set tob and classpath variables
     ob=$1
     unset tob
     unset classpath
+    unset TOB_PATH
 
-    test -L $ob && ob=$(/bin/readlink -f $ob) # resolve symlinked/aliased ob
+    # if ob is a symlink, resolve it to a real path:
+    test -L $ob && ob=$(/bin/readlink -f $ob)
 
     ## ASSERT: $ob is NOT a symlink, so is either a file, directory, or null
 
@@ -288,7 +212,81 @@ function resolve_object_class_paths () { # set tob and classpath variables
     test -n "$classpath" &&
         return
 
-    bail_rtnval 2 "$1 ($ob) is not a thinobject or was not found"
+    bail "$1 ($ob) is not a thinobject or was not found"
+    }
+
+####################
+## process argument list for any options:
+####################
+
+ob=$1 && shift
+unset method
+while [ -n "$ob" -a ${ob#-} != $ob ]; do # option detected by leading "-" ...
+
+    if [ "$ob" == "-d" -o "$ob" == "--debug" ]; then
+        DEBUG=1
+        opt="$opt -d"
+
+    elif [ "$ob" == "-v" -o "$ob" == "--verbose" ]; then
+        VERBOSE=1
+        SHOWHEADER=1
+        opt="$opt -v"
+
+    elif [ "$ob" == "-m" -o "$ob" == "--method" ]; then
+        method=$1 && shift
+        test $method || bail "no method argument"
+
+    elif [ "$ob" == "-a" -o "$ob" == "--arg" ]; then
+        args="$args $1" && shift
+
+    elif [ "$ob" == "-S" -o "$ob" == "--not-strict" ]; then
+        NOT_STRICT=1
+        opt="$opt -S"
+
+    elif [ "$ob" == "--nocd" ]; then
+        NOCD=1
+        opt="$opt --nocd"
+
+    elif [ "$ob" == "-H" -o "$ob" == "--not-hidden" ]; then
+        ## with new or clone methods, create object directly, not dotted...
+        NOT_HIDDEN=1
+        opt="$opt --not-hidden"
+
+    elif [ "$ob" == "-T" -o "$ob" == "--no-touch" ]; then
+        ## with new or clone methods, create hidden ob, don't 'touch' nominal
+        NO_TOUCH=1
+        opt="$opt --no-touch"
+
+    elif [ "$ob" == "-q" -o "$ob" == "--quiet" ]; then
+        QUIET=1
+        opt="$opt --quiet"
+
+    elif [ "$ob" == "-h" -o "$ob" == "--help" ]; then
+        manpage
+        exit 0
+    
+    else
+        bail "unsupported option $ob"
+    fi
+    ob=$1 && shift # try again...
+done
+
+test -z "$ob" && bail "no object specified"
+
+test $method && {
+    ####################
+    ## special case: dispatch method from -m or --method option on objects:
+    ####################
+    while [ $ob ]; do
+        if [ ${ob/=} != $ob ]; then # tag=value form detected
+            args="$args $ob"
+        else
+            test $VERBOSE && echo tob $opt $ob.$method $args
+            tob $opt $ob.$method $args || bail "failed in $ob.$method"
+        fi
+        ob=$1 && shift
+    done
+    exit 0
     }
 
 ####################
@@ -328,15 +326,14 @@ ob=${ob//__2COLONS__/::}
 # echo _DONE: $ob
 
 ####################
-## now parse method from object
+## object still includes method, so parse method from object.method
 ####################
 
 method=${ob##*.}
 ob=${ob%.*}
 
-export tob_ob=$ob
-export tob_object=$ob
-export tob_method=$method
+export TOB_object=$ob
+export TOB_method=$method
 
 test -n "$DEBUG" && {
     echo DEBUG: object=$ob
@@ -360,9 +357,8 @@ test -n "$DEBUG" && {
     echo DEBUG: class path=$classpath
     }
 
-export tob_tob=$tob
-export tob_path=$tob
-export tob_classpath=$classpath
+export TOB_object_path=$tob
+export TOB_classpath=$classpath
 
 ###########################################################333
 
@@ -387,8 +383,8 @@ test -n "$DEBUG" && {
 ## ASSERT a method was passed
 ####################
 
-tob_resolve_methodpath $method &&
-    exec $tob_methodpath $ob $args "$@"
+TOB_resolve_methodpath $method &&
+    exec $TOB_methodpath $ob $args "$@"
 
 test "$method" == "tob" -o "$method" == "path" && {
     test -z "$*" && echo $tob
@@ -402,25 +398,25 @@ test "$method" == "type" && {
   # echo running method: type for $ob $tob $classpath
     follow_class_links $classpath
     test -n "$VERBOSE" && {
-        echo ${tob_classlinks[@]}
+        echo ${TOB_classlinks[@]}
         exit 0
         }
     parse_class_names
-    echo ${tob_classnames[@]}
+    echo ${TOB_classnames[@]}
     exit 0
     }
 
 test "$method" == "isa" && {
     follow_class_links $classpath
     test -n "$VERBOSE" && {
-        for classlink in ${tob_classlinks[@]}; do
+        for classlink in ${TOB_classlinks[@]}; do
             echo $classlink
         done
         exit 0
         }
     parse_class_names
     pad=""
-    for classname in ${tob_classnames[@]}; do
+    for classname in ${TOB_classnames[@]}; do
         echo "$pad$classname"
         pad="  $pad"
     done
@@ -434,7 +430,7 @@ test -n "$SHOWHEADER" && echo $ob:
 ####################
 
 unset property default_handler
-for isa in $tob $tob_classlinks; do
+for isa in $tob $TOB_classlinks; do
     test -e $isa/\@$method && { # found @method
         property=$isa/@$method
         default_handler=_default-list
@@ -469,7 +465,7 @@ done
 
 test -n "$property" && {
   # echo FOUND $property, looking for $default_handler...
-    for isa in $tob_classlinks; do # search for _default-list or _default-dict
+    for isa in $TOB_classlinks; do # search for _default-list or _default-dict
         test -e $isa/$default_handler && {
           # echo TODO: /bin/echo exec $isa/$default_handler $property $@
             exec $isa/$default_handler $ob $property $@ # found & dispatched
@@ -514,7 +510,7 @@ test -n "$property" && {
 ## still no method found -- check for _default method...
 ####################
 
-for isa in $tob_classlinks; do
+for isa in $TOB_classlinks; do
     ## ASSERT: class exists
     test -e $isa/_default && {
         test -x $isa/_default && {
@@ -551,7 +547,6 @@ DESCRIPTION
 RETURN VALUE
     0   ok, no error
     1   some error occurred
-    2   object is not a thinobject
 OPTIONS
     -d
     --debug
@@ -675,25 +670,27 @@ PROPERTIES
     attribute 'foo' is assigned the value 'bar'.
 
 EXPORTED VARIABLES
-    tob_object -- the object name as passed to the thinob enabler
+    TOB_object -- the object name as passed to the thinob enabler
 
-    tob_method -- the invoked method
+    TOB_class -- the nominal class name
 
-    tob_path -- the fully resolved object name
+    TOB_class_path -- the class directory or handler path
 
-    tob_tob -- the fully resolved object name
+    TOB_object_path -- the fully resolved object name
 
-    tob_ob -- the nominal object name (may be partially resolved)
+    TOB_method -- the invoked method
+
+    TOB_PATH -- search path for object through class hierarchy
 
 EXPORTED FUNCTIONS
-    tob_error -- print message on STDERR
-        SYNOPSIS: tob_error [--exit|-x NUMBER] [-v|V] message ..."
+    TOB_error -- print message on STDERR
+        SYNOPSIS: TOB_error [--exit|-x NUMBER] [-v|V] message ..."
         OPTIONS:
             --exit N  -- specify exit status number
             -x N      -- specify exit status number
             -v        -- be verbose; show thinobject state variables
             -V        -- don't be verbose
-        output format is: $tob_object.$tob_method: ARGUMENTS...
+        output format is: $TOB_object.$TOB_method: ARGUMENTS...
 
 SEE ALSO
     Each thinobject class is *supposed to* provide a help method, and

@@ -3,10 +3,10 @@
 ob=$1 && shift
 
 if [ -z $NOCD ]; then
-    cd $tob
+    cd $TOB_object_path
     target="$*"
 else
-    target="$tob/$*"
+    target="$TOB_object_path/$*"
 fi
 
 exec /usr/bin/wc $args $target

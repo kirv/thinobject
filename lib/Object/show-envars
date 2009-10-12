@@ -2,7 +2,7 @@
 ob=$1 && shift
 
 prefix=$1
-test -z "$prefix" && prefix=tob_
+test -z "$prefix" && prefix=TOB_
 
 set | grep ^$prefix
 

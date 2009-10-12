@@ -3,10 +3,10 @@
 ob=$1 && shift
 
 if [ -z $NOCD ]; then
-    cd $tob_path
+    cd $TOB_object_path
     target="$@"
 else
-    target="$tob_path/$@"
+    target="$TOB_object_path/$@"
 fi
 
 exec /bin/ls -p $args $target
