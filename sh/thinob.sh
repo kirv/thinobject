@@ -469,11 +469,10 @@ TOB_resolve_method_path $TOB_method &&
     exec $TOB_method_path $TOB_object $args "$@"
 
 ####################
-## no method path was found, so continuing...
+## no executable method was resolved, so try some built-ins:
 ####################
-method=$TOB_method
 
-test "$method" == "tob" -o "$method" == "path" && {
+test $TOB_method == path && {
     test -z "$*" && echo $TOB_object_path
     for arg in $*; do
         echo $TOB_object_path/$arg
@@ -481,44 +480,23 @@ test "$method" == "tob" -o "$method" == "path" && {
     exit 0
     }
 
-test "$method" == "type" && {
+test "$TOB_method" == "type" && {
     echo $TOB_type
-    exit 0
-  # echo running method: type for $TOB_object $TOB_object_path $TOB_class_path
-  # follow_class_links $TOB_class_path
-    test -n "$VERBOSE" && {
-        echo ${TOB_classlinks[@]}
-        exit 0
-        }
-    parse_class_names
-    echo ${TOB_classnames[@]}
     exit 0
     }
 
-test "$method" == "isa" && {
+test "$TOB_method" == "isa" && {
     pad=""
-    for class in ${TOB_type//:/ }; do
+    for class in ${class_names[*]}; do
         echo "$pad$class"
         pad="  $pad"
     done
     exit 0
-    follow_class_links $TOB_class_path
-    test -n "$VERBOSE" && {
-        for classlink in ${TOB_classlinks[@]}; do
-            echo $classlink
-        done
-        exit 0
-        }
-    parse_class_names
-    pad=""
-    for classname in ${TOB_classnames[@]}; do
-        echo "$pad$classname"
-        pad="  $pad"
-    done
-    exit 0
     }
 
-test -n "$SHOWHEADER" && echo $TOB_object: 
+
+test -n "$SHOWHEADER" &&
+    echo $TOB_object: 
 
 ####################
 ## no ob.method found, so check for properties @method or %method
@@ -526,33 +504,33 @@ test -n "$SHOWHEADER" && echo $TOB_object:
 
 unset property default_handler
 for isa in $TOB_object_path $TOB_classlinks; do
-    test -e $isa/\@$method && { # found @method
-        property=$isa/@$method
+    test -e $isa/\@$TOB_method && { # found @method
+        property=$isa/@$TOB_method
         default_handler=_default-list
         break
         }
-    test -e $isa/.\@$method && { # found @method
-        property=$isa/.@$method
+    test -e $isa/.\@$TOB_method && { # found @method
+        property=$isa/.@$TOB_method
         default_handler=_default-list
         break
         }
-    test -e $isa/\%$method && { # found %method
-        property=$isa/%$method
+    test -e $isa/\%$TOB_method && { # found %method
+        property=$isa/%$TOB_method
         default_handler=_default-dict
         break
         }
-    test -e $isa/.\%$method && { # found %method
-        property=$isa/.%$method
+    test -e $isa/.\%$TOB_method && { # found %method
+        property=$isa/.%$TOB_method
         default_handler=_default-dict
         break
         }
-    test -e $isa/\%\@$method && { # found %@method
-        property=$isa/%@$method
+    test -e $isa/\%\@$TOB_method && { # found %@method
+        property=$isa/%@$TOB_method
         default_handler=_default-dict-list
         break
         }
-    test -e $isa/.\%\@$method && { # found %@method
-        property=$isa/.%@$method
+    test -e $isa/.\%\@$TOB_method && { # found %@method
+        property=$isa/.%@$TOB_method
         default_handler=_default-dict-list
         break
         }
@@ -612,8 +590,8 @@ for isa in $TOB_classlinks; do
     ## ASSERT: class exists
     test -e $isa/_default && {
         test -x $isa/_default && {
-          # echo DEBUG thinob: exec $isa/_default $TOB_object $method $*
-            exec $isa/_default $TOB_object $method $*
+          # echo DEBUG thinob: exec $isa/_default $TOB_object $TOB_method $*
+            exec $isa/_default $TOB_object $TOB_method $*
             }
         ## ASSERT: _default is not executable
         ## maybe it can contain a recipe to be executed?
@@ -621,8 +599,8 @@ for isa in $TOB_classlinks; do
         }
 done
 
-test $VERBOSE && echo no method $method found 
-bail "no method $method found"
+test $VERBOSE && echo no method $TOB_method found 
+bail "no method $TOB_method found"
 
 ##############
 ## manpage follows
