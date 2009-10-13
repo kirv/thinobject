@@ -25,59 +25,6 @@ function manpage() { # print manpage at end of this script...
     exec /usr/bin/awk '/^NAME$/{ok=1}ok' $0
     }
 
-function classname () { # remove class library root from class link
-    classname=$1
-    for path in ${lib_roots[@]}; do
-        test ${classname#$path/} == $classname || {
-            classname=${classname#$path/}
-            return
-            }
-    done
-    return 1
-    }
-
-function class_as_object () {
-    local class="$1"
-    for path in ${lib_roots[@]}; do
-        TOB_class_path=$path/$class
-        test -d $TOB_class_path &&
-            return
-    done
-    return 1
-    }
-
-declare -a TOB_classlinks
-function follow_class_links () {
-    test -n "$TOB_classlinks" && # short-circuit if already done!
-        return
-    class=$1
-    while [ -d $class ]; do
-        classlink=$(/bin/readlink -f $class)
-        TOB_classlinks=($TOB_classlinks $classlink)
-        if test -L $class/^; then
-             class=$class/^
-        elif test -L $class/.^; then
-            class=$class/.^
-        else
-            return
-        fi
-    done
-    return 1
-    }
-
-declare -a TOB_classnames
-function parse_class_names () {
-    test -n "$TOB_classnames" &&
-        return
-    test -n $TOB_classlinks ||
-        follow_class_links $TOB_class_path
-    for classlink in ${TOB_classlinks[@]}; do
-        classname $classlink
-        TOB_classnames=($TOB_classnames $classname)
-    done
-    return
-    }
-
 function bail () {
     test -z "$QUIET" && echo $* >&2
     exit 1
@@ -149,7 +96,6 @@ function resolve_object_path () { ## set TOB_object_path
 
     # nothing found to resolve object path, so check thinobject classes:
     for path in ${LIBROOTS[@]}; do
-        echo trying $path/$ob
         test -e $path/$ob && 
             TOB_object_path=$path/$ob &&
                 return
