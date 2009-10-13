@@ -196,15 +196,14 @@ function resolve_method_search_path () {
     done
     }
 
-TOB_resolve_method_path () {
+resolve_method_path () {
     local method=$1 && shift
     local super=0
     while test "${method:0:7}" == "SUPER::"; do
         method=${method:7}
         super=$(($super+1))
     done
-    local searchpath=$TOB_class_path
-    while [ -d $searchpath ]; do
+    for searchpath in ${search_paths[@]}; do
         test -x $searchpath/$method && {
             test $super == 0 && {
                 TOB_method_path=$searchpath/$method
@@ -212,14 +211,28 @@ TOB_resolve_method_path () {
                 }
             super=$(($super - 1))
             }
-        if test -L $searchpath/^; then
-             searchpath=$searchpath/^
-        elif test -L $searchpath/.^; then
-            searchpath=$searchpath/.^
-        else
-            return 1
-        fi
     done
+    return 1
+    }
+
+## this function is for export, and iterates on the :-delimited search list:
+TOB_resolve_method_path () {
+    local method=$1 && shift
+    local super=0
+    while test "${method:0:7}" == "SUPER::"; do
+        method=${method:7}
+        super=$(($super+1))
+    done
+    for searchpath in ${TOB_method_search_paths//:/ }; do
+        test -x $searchpath/$method && {
+            test $super == 0 && {
+                TOB_method_path=$searchpath/$method
+                return
+                }
+            super=$(($super - 1))
+            }
+    done
+    return 1
     }
 
 ####################
@@ -411,7 +424,7 @@ test -n "$DEBUG" && {
     echo DEBUG: TOB_type=$TOB_type
     }
 
-TOB_resolve_method_path $TOB_method &&
+resolve_method_path $TOB_method &&
     exec $TOB_method_path $TOB_object $args "$@"
 
 ####################
