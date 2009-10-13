@@ -12,7 +12,7 @@ declare -a LIBROOTS
 i=0
 for lib in ${LIB[@]}; do
     for root in ${ROOT[@]}; do
-        ${LIBROOTS[$i]}=$lib/$root
+        LIBROOTS[$i]=$lib/$root
         i=$(($i + 1))
     done
 done
@@ -181,7 +181,8 @@ function resolve_class_path () {
 function resolve_attribute_search_path () {
 
     # search starts with the object path, followed by its class path:
-    declare -a attr_paths=($TOB_object_path $TOB_class_path)
+  # declare -a attr_paths=($TOB_object_path $TOB_class_path)
+    attr_paths=($TOB_object_path $TOB_class_path)
 
     # declare index to last and next entries in path array
     local last=1
@@ -190,9 +191,9 @@ function resolve_attribute_search_path () {
     while test -d ${attr_paths[$last]}/; do
 
         if test -L ${attr_paths[$last]}/^; then
-            ${attr_paths[$next]}=${attr_paths[$last]}/^
-        elif test -L ${attr_paths[$last]}/.^ && {
-            ${attr_paths[$next]}=${attr_paths[$last]}/.^
+            attr_paths[$next]=${attr_paths[$last]}/^
+        elif test -L ${attr_paths[$last]}/.^; then
+            attr_paths[$next]=${attr_paths[$last]}/.^
         else
             break
         fi
@@ -222,16 +223,12 @@ function resolve_method_search_path () {
     test -n "${attr_paths[$attr_index]}" ||
         bail "call resolve_attribute_search_path() before resolve_method_search_path()"
 
-    # declare arrays and index 
-    declare -a search_paths
-    declare -a class_names
     index=0
-
-    while test -n "${attr_paths[$attr_index]}; do
+    while test -n "${attr_paths[$attr_index]}"; do
         
-        test check_class ${attr_paths[$attr_index]} && {
-            ${search_paths[$index]}=${attr_paths[$attr_index]}
-            ${class_names[$index]}=$classname
+        check_and_parse_class ${attr_paths[$attr_index]} && {
+            search_paths[$index]=${attr_paths[$attr_index]}
+            class_names[$index]=$classname
             index=$(($index + 1))
             attr_index=$(($attr_index + 1))
             continue
@@ -418,7 +415,20 @@ test -n "$DEBUG" &&
 ## now need to create TOB_PATH and TOB_ATTR_PATH
 ####################
 
-follow_search_paths $TOB_object_path $TOB_class_path
+declare -a attr_paths
+resolve_attribute_search_path ||
+    bail failure in resolve_attribute_search_path function
+
+# echo RESULTS:
+# printf "\t%s\n" "${attr_paths[*]}"
+
+declare -a search_paths
+declare -a class_names
+resolve_method_search_path ||
+    bail failure in resolve_method_search_path function
+
+# printf "\t%s\n" "${search_paths[*]}"
+# printf "\t%s\n" "${class_names[*]}"
 
 ####################
 ## export thinobject variables
@@ -427,8 +437,20 @@ export TOB_object
 export TOB_method
 export TOB_object_path
 export TOB_class_path
-export TOB_ATTR_PATH
-export TOB_PATH
+
+
+save_IFS="$IFS"
+IFS=:
+export TOB_attribute_search_paths="${attr_paths[*]}"
+export TOB_method_search_paths="${search_paths[*]}"
+export TOB_type="${class_names[*]}"
+IFS="$save_IFS"
+
+test -n "$DEBUG" && {
+    echo DEBUG: TOB_attribute_search_paths=$TOB_attribute_search_paths
+    echo DEBUG: TOB_method_search_paths=$TOB_method_search_paths
+    echo DEBUG: TOB_type=$TOB_type
+    }
 
 TOB_resolve_method_path $TOB_method &&
     exec $TOB_method_path $TOB_object $args "$@"
@@ -527,7 +549,8 @@ test -n "$property" && {
 
     test $default_handler == _default-list && { # called ob.foo, found @foo...
         lines="$1"
-        test -z $lines && exec /bin/cat $property
+        test -z "$lines" &&
+            exec /bin/cat $property
         exec /usr/bin/perl -e "\$[=1; @r=<>; print @r[$lines]" $property
         # leaving unreachable stub as documentation...
         exec STUB echo $property list accessor lines $lines
@@ -535,7 +558,8 @@ test -n "$property" && {
     
     test $default_handler == _default-dict && { # called ob.foo, found %foo...
         keys="$@"
-        test -z "$keys" && exec /bin/cat $property
+        test -z "$keys" &&
+            exec /bin/cat $property
         keys=${keys// /|}
         exec /usr/bin/awk -v IGNORECASE=1 "\$1~/$keys/" $property
         exec STUB echo $property dict accessor with keys $keys ${keys// /|}
@@ -543,7 +567,8 @@ test -n "$property" && {
 
     test $default_handler == _default-dict-list && { # ... found %@foo...
         keys="$@"
-        test -z "$keys" && exec /bin/cat $property
+        test -z "$keys" &&
+            exec /bin/cat $property
         keys=${keys// /|}
         exec /usr/bin/awk -v IGNORECASE=1 -v keys="$keys" '
             NR==1{
