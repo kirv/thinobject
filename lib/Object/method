@@ -31,9 +31,7 @@ while test -n "$1"; do
     shift
 done
 
-class=$TOB_classpath
-
-while test -d $class/; do
+for class in ${TOB_method_search_paths//:/ }; do
   # echo "looking in $class..."
     for f in $class/*; do
         test -d $f && continue
@@ -42,13 +40,6 @@ while test -d $class/; do
             echo $m $f
             }
     done
-    if test -L $class/.^; then
-        class=$class/.^
-    elif test -L $class/^; then
-         class=$class/^
-    else
-        break
-    fi
 done |
     awk -vmethod="$METHOD" -vverbose="$VERBOSE" -vquiet="$QUIET" '
         {
