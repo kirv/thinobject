@@ -147,9 +147,17 @@ function resolve_object_path () { ## set TOB_object_path
         TOB_object_path=$dot_ob &&
             return
 
-    # return ob in any case
-    TOB_object_path=$ob
-    return
+    # nothing found to resolve object path, so check thinobject classes:
+    for path in ${LIBROOTS[@]}; do
+        echo trying $path/$ob
+        test -e $path/$ob && 
+            TOB_object_path=$path/$ob &&
+                return
+    done
+
+    # no object path resolved
+
+    return 1
     }
 
 function resolve_class_path () { 
@@ -360,7 +368,8 @@ while [ ${ob/:/} != $ob ]; do
     ob=${ob%%:*}
     oblist=${oball#*:}
 
-    resolve_object_path $ob
+    resolve_object_path $ob ||
+        bail no object resolved from $ob
 
     test -d $TOB_object_path ||
         bail "non-directory $TOB_object_path in colon-delimited object spec"
@@ -378,6 +387,9 @@ ob=${ob//__2COLONS__/::}
 TOB_method=${ob##*.}
 TOB_object=${ob%.*}
 
+test $TOB_method == $ob && 
+    bail no method parsed from target $ob
+
 test -n "$DEBUG" && {
     echo DEBUG: TOB_object=$TOB_object
     echo DEBUG: TOB_method=$TOB_method
@@ -393,7 +405,8 @@ test -n "$TOB_method" ||
 ## ASSERT: ob and method have been parsed, but not checked
 ####################
 
-resolve_object_path $TOB_object
+resolve_object_path $TOB_object ||
+    bail no object path resolved from $TOB_object
 
 test -n "$DEBUG" && 
     echo DEBUG: TOB_object_path=$TOB_object_path
@@ -458,6 +471,7 @@ TOB_resolve_method_path $TOB_method &&
 ####################
 ## no method path was found, so continuing...
 ####################
+method=$TOB_method
 
 test "$method" == "tob" -o "$method" == "path" && {
     test -z "$*" && echo $TOB_object_path
@@ -468,8 +482,10 @@ test "$method" == "tob" -o "$method" == "path" && {
     }
 
 test "$method" == "type" && {
+    echo $TOB_type
+    exit 0
   # echo running method: type for $TOB_object $TOB_object_path $TOB_class_path
-    follow_class_links $TOB_class_path
+  # follow_class_links $TOB_class_path
     test -n "$VERBOSE" && {
         echo ${TOB_classlinks[@]}
         exit 0
@@ -480,6 +496,12 @@ test "$method" == "type" && {
     }
 
 test "$method" == "isa" && {
+    pad=""
+    for class in ${TOB_type//:/ }; do
+        echo "$pad$class"
+        pad="  $pad"
+    done
+    exit 0
     follow_class_links $TOB_class_path
     test -n "$VERBOSE" && {
         for classlink in ${TOB_classlinks[@]}; do
