@@ -101,7 +101,10 @@ exec /usr/bin/awk -vcsv=$csv -vhdr=$hdr -vstrict=$strict -vverbose=$verbose '
                         vals = vals csv val[j]
                     }
                 else
-                    print thiskey " = " val[j]
+                    if ( hdr ) 
+                        print thiskey " = " val[j]
+                    else
+                        print val[j]
                 }
             }
         }
