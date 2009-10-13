@@ -135,7 +135,6 @@ function resolve_class_path () {
 function resolve_attribute_search_path () {
 
     # search starts with the object path, followed by its class path:
-  # declare -a attr_paths=($TOB_object_path $TOB_class_path)
     attr_paths=($TOB_object_path $TOB_class_path)
 
     # declare index to last and next entries in path array
@@ -453,7 +452,7 @@ test "$TOB_method" == "isa" && {
     exit 0
     }
 
-
+## I think this SHOWHEADER thing was a workaround for aggregate objects...
 test -n "$SHOWHEADER" &&
     echo $TOB_object: 
 
@@ -462,45 +461,45 @@ test -n "$SHOWHEADER" &&
 ####################
 
 unset property default_handler
-for isa in $TOB_object_path $TOB_classlinks; do
-    test -e $isa/\@$TOB_method && { # found @method
-        property=$isa/@$TOB_method
+for path in ${attr_paths[@]}; do
+    test -e $path/\@$TOB_method && { # found @method
+        property=$path/@$TOB_method
         default_handler=_default-list
         break
         }
-    test -e $isa/.\@$TOB_method && { # found @method
-        property=$isa/.@$TOB_method
+    test -e $path/.\@$TOB_method && { # found @method
+        property=$path/.@$TOB_method
         default_handler=_default-list
         break
         }
-    test -e $isa/\%$TOB_method && { # found %method
-        property=$isa/%$TOB_method
+    test -e $path/\%$TOB_method && { # found %method
+        property=$path/%$TOB_method
         default_handler=_default-dict
         break
         }
-    test -e $isa/.\%$TOB_method && { # found %method
-        property=$isa/.%$TOB_method
+    test -e $path/.\%$TOB_method && { # found %method
+        property=$path/.%$TOB_method
         default_handler=_default-dict
         break
         }
-    test -e $isa/\%\@$TOB_method && { # found %@method
-        property=$isa/%@$TOB_method
+    test -e $path/\%\@$TOB_method && { # found %@method
+        property=$path/%@$TOB_method
         default_handler=_default-dict-list
         break
         }
-    test -e $isa/.\%\@$TOB_method && { # found %@method
-        property=$isa/.%@$TOB_method
+    test -e $path/.\%\@$TOB_method && { # found %@method
+        property=$path/.%@$TOB_method
         default_handler=_default-dict-list
         break
         }
 done
 
 test -n "$property" && {
-  # echo FOUND $property, looking for $default_handler...
-    for isa in $TOB_classlinks; do # search for _default-list or _default-dict
-        test -e $isa/$default_handler && {
-          # echo TODO: /bin/echo exec $isa/$default_handler $property $@
-            exec $isa/$default_handler $TOB_object $property $@ # found & dispatched
+    # search for _default-list or _default-dict method:
+    for path in ${search_paths[@]}; do
+        test -e $path/$default_handler && {
+          # echo TODO: /bin/echo exec $path/$default_handler $property $@
+            exec $path/$default_handler $TOB_object $property $@ # found & dispatched
             }
     done
 
@@ -545,12 +544,12 @@ test -n "$property" && {
 ## still no method found -- check for _default method...
 ####################
 
-for isa in $TOB_classlinks; do
+for path in ${search_paths[@]}; do
     ## ASSERT: class exists
-    test -e $isa/_default && {
-        test -x $isa/_default && {
-          # echo DEBUG thinob: exec $isa/_default $TOB_object $TOB_method $*
-            exec $isa/_default $TOB_object $TOB_method $*
+    test -e $path/_default && {
+        test -x $path/_default && {
+          # echo DEBUG thinob: exec $path/_default $TOB_object $TOB_method $*
+            exec $path/_default $TOB_object $TOB_method $*
             }
         ## ASSERT: _default is not executable
         ## maybe it can contain a recipe to be executed?
@@ -558,7 +557,6 @@ for isa in $TOB_classlinks; do
         }
 done
 
-test $VERBOSE && echo no method $TOB_method found 
 bail "no method $TOB_method found"
 
 ##############
@@ -618,8 +616,11 @@ OBJECT CREATION
     Use thinob-new or tob-new to create objects.
 
 BUILT-IN METHODS
-    tob
+    path
     output the object directory path
+
+    type
+    output the class hierarchy
 
     isa
     output the class hierarchy

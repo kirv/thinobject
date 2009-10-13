@@ -1,27 +1,12 @@
 #!/bin/sh
 
-echo "arglist: $@"
-
 object=$1 && shift
 method=$1 && shift
 
-# echo object: $object
-# echo TOB_object: $TOB_object
-# echo TOB_method: $TOB_method
-# echo method: $method
-echo TOB_object_path: $TOB_object_path
-
-echo "$object.$method $@"
-
-test "$method" == "ls" && {
-    if [ -z $NOCD ]; then
-        cd $TOB_object_path
-        target="$@"
-    else
-        target="$TOB_object_path/$@"
-    fi
-  # test $DEBUG -a $VERBOSE && echo exec /bin/ls -p $args $target
-    exec /bin/ls -p $args $target
+test "$method" == "_default-example" && {
+    echo this is an example of a default method handler
+    echo this code is at $0
+    exit 0
     }
 
-echo $object.$method not found, no, really...
+echo $object.$method not found
