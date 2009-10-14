@@ -1,0 +1,471 @@
+#!/usr/bin/python
+
+# (c) 2008 Ken Irving <fnkci@uaf.edu>
+# License: GNU General Public License, version 2 or any later version
+
+import sys, os, re, shutil
+
+
+manpage = '''NAME
+    TimeSeries.merge-objects -- merge datasets from several timeseries objects
+
+SYNOPSIS
+    timeseries.merge-objects [--help] timeseries_object ...
+
+DESCRIPTION
+    Data from each argument object will be merged with the object's data.
+
+    For interval datasets, the interval suffix must match between the
+    object and each argument object or the method will fail.
+
+OPTIONS
+    -l
+    --local
+        resolve objects from within object
+
+    -d DIR
+    --dir DIR
+        directory prefix for argument objects
+
+    -s
+    --simulate
+        show what would be done, but do not change object
+
+    --help
+        print this manpage
+
+AUTHOR
+    ki (c) 2008
+'''
+
+def bail(msg, exit=1):
+    print msg
+    sys.exit(exit)
+
+def help(): 
+    print manpage
+
+def resolve(ob):
+    "resolve given object, return thinbobject path"
+    if not os.path.exists(ob):
+        bail("object %s not found" % ob)
+    ob_path = os.path.realpath(ob)
+    if os.path.isdir(ob_path):
+        if os.path.exists(ob_path + '/^'):
+            return ob_path
+        ## ob_path is a directory, but not an object...
+        ## check to see if a "shadowed" object exists:
+        p, d = os.path.split(ob_path)
+        ob_path = os.path.join(p, '.' + d)
+        if os.path.exists(ob_path + '/^'):
+            return ob_path
+        bail("%s not a thinobject" % ob)
+    ## not a directory, but fully resolved... check for shadow object
+    p, f = os.path.split(ob_path)
+    ob_path = os.path.join(p, '.' + f)
+    if os.path.exists(ob_path + '/^'):
+        return ob_path
+    bail("%s not a thinobject" % ob)
+
+
+def datasets(ob, ob_path):
+    "scan given thinobject directory, return a list of datasets"
+    global suffix
+    datasets = {}
+    year = None
+    for tsdata in sorted(os.listdir(ob_path)):
+        m = ts_dataset_name_pattern.match(tsdata)
+        if not m:
+            continue
+        year, first, last, sfx = m.groups()
+      # print "file: ", tsdata, year, first, last, sfx
+        if sfx != suffix:
+            if not suffix:
+                suffix = sfx
+            else:
+                bail("object %s dataset interval mismatch: %s vs %s" %
+                     (ob, sfx, suffix))
+      # datasets.append( (year, first, last) )
+        if not year in datasets:
+            datasets[year] = []
+        datasets[year].append( (first, last) )
+    return datasets
+
+def scan_for_objects(dir):
+    "scan given directory, return sorted list of objects"
+    objects = []
+    for object in sorted(os.listdir(dir)):
+        if object[0] == '^':
+            continue
+        objects.append(object)
+    return objects
+
+def decode32(ysec32):
+    "decode time in ``code32'', return time in seconds" 
+    if ysec32 == None:
+        return None
+    code = '0123456789' + 'abcdefgh' + 'jk' + 'mn' + 'pqrst' + 'vwxyz'
+    assert len(code) == 32
+    uncode = {}
+    for i, c in enumerate(code):
+        uncode[c] = i
+    seconds = 0
+    for c in ysec32:
+        seconds = uncode[c] + seconds * 32
+    return seconds
+
+def encode32(ysec, width=5):
+    "encode time in seconds, return encoded ysec32 0-padded to 5 characters"
+    assert ysec != None
+    code = '0123456789' + 'abcdefgh' + 'jk' + 'mn' + 'pqrst' + 'vwxyz'
+    assert len(code) == 32
+    ysec32 = ''
+    while ysec > 0:
+        ysec32 = code[ ysec % 32 ] + ysec32
+        ysec = int( ysec / 32 )
+    return "%0*s" % (width,ysec32)
+
+def interval_seconds(itag):
+    "convert interval tag to (interval,offset) in seconds" 
+    # itag may be of the form: 1h-0s or 1h
+    if re.search('-', itag):
+        it,ot = re.split('-', itag)
+    else:
+        it,ot  = itag, None
+    def decode_tag(tag):
+        if tag == None:
+            return 0
+        value, unit = re.match('(\d+)([ytwdhms])$', tag).groups()
+        units = {
+           's' : 1,   # seconds
+           'm' : 60,   # ... in a minute
+           'h' : 3600,  # ... hour
+           'd' : 86400,  # ... day
+           'w' : 604800,  # ... week
+           't' : 2592000,  # ... month... really 30 days
+           'y' : 31536000,  # ... year... really 365 days
+            }
+      # units = {
+      #    's' : 1, # seconds
+      #    'm' : 60,   # ... in a minute
+      #    'h' : 60*60,  # ... hour
+      #    'd' : 60*60*24,  # ... day
+      #    'w' : 60*60*24*7,  # ... week
+      #    't' : 60*60*24*30,  # ... month... really 30 days
+      #    'y' : 60*60*24*365,  # ... year... really 365 days
+      #     }
+        seconds = int(value) * units[unit]
+        return (seconds)
+    return (decode_tag(it), decode_tag(ot))
+
+def year_datasets(year):
+    "scan given thinobject directory, return a list of datasets"
+    global ob_path
+    global suffix
+    datasets = []
+    for tsdata in sorted(os.listdir(ob_path)):
+        m = ts_dataset_name_pattern.match(tsdata)
+        if not m:
+            continue
+        y, first, last, sfx = m.groups()
+        if y != year:
+            continue
+        assert sfx == suffix
+        datasets.append( (first, last) )
+    return datasets
+
+def insert_dataset(ob_index, year, first32, last32, after32, before32):
+    "insert given dataset into object, expecting no collisions"
+    assert ob_index != 0
+    # the merge analysis via line sweep has identified that this
+    # dataset will fit.  It may "connect" with other datasets in
+    # the object, but will not overlap with them.
+
+    if debugmode:
+        print "insert_dataset(%s, %s, %s, %s, %s, %s)"% \
+            (objects[ob_index][0], year, first32, last32, after32, before32)
+
+    def build_dataset_name(y, f32, l32):
+        assert len(year) == 4 and len(f32) == len(l32) == 5
+        name = "@%s-%s-%s" % (y, f32, l32)
+        global suffix
+        name = "%s-%s" % (name, suffix)
+        return name
+
+    ## construct source dataset pathname:
+    source = os.path.join(objects[x][1],
+                          build_dataset_name(year, first32, last32))
+    if not os.path.exists(source):
+        bail("source dataset not found: %s" % source)
+
+    global interval # data interval 
+    
+    # determine target name
+    if after32 == before32 == None:
+        # use the entire file, and may as well just copy it:
+        if simulate:
+            print "copy(%s, %s)" % (source, ob_path)
+            return
+        shutil.copy(source, ob_path)
+        return
+
+    t = decode32(first32) # initialize value for read loop
+
+    if after32 == None:
+        first = t
+    else:
+        first = decode32(after32) + interval
+        first32 = encode32(first)
+
+    if before32 == None:
+        last = decode32(last32)
+    else:
+        last = decode32(before32) - interval
+        last32 = encode32(last)
+
+    if first > last:
+        # NOTE: this can happen if adjacent datasets exist, but we
+        #   can't know it until the interval is taken into account
+        return
+
+    name = build_dataset_name(year, first32, last32)
+    if simulate:
+        print "create", name
+        return
+    newfile = open('.' + name, 'w') # preface name with dot, rename later
+    srcfile = open(source, 'r')
+
+    for line in srcfile:
+        if t > last:
+            break
+        if t < first:
+            pass
+        else:
+            print >> newfile, line, # suppress extra newline
+        t += interval
+    srcfile.close
+    newfile.close
+
+    # rename the file and we're done...
+    os.rename('.' + name, name)
+
+
+## main program
+
+ob = sys.argv.pop(1)
+ob_path = os.environ["tob_path"]
+
+suffix = None
+ts_dataset_name_pattern = re.compile(r'@(\d{4})-(\w{5})-(\w{5})-(.+)')
+
+objects = [ ( ob, ob_path, datasets(ob, ob_path) ) ]
+
+dir = None # if set, apply to argument objects to merge
+
+debugmode = None
+simulate = None
+
+sys.argv.pop(0) # discard the program, then process args:
+while sys.argv:
+    arg = sys.argv.pop(0)
+    if arg[0] == '-': # parse option
+        if arg == '--help':
+            help()
+            sys.exit(0)
+        elif arg == '-d' or arg == '--dir':
+            dir = sys.argv.pop(0)
+          # print "directory prefix: ", dir
+        elif arg == '-s' or arg == '--simulate':
+            simulate = True
+        elif arg == '-l' or arg == '--local':
+          # print "chdir to object"
+            os.chdir(ob_path)
+            ob_path = './'
+        elif arg == '--debug':
+            debugmode = 1
+        else:
+            bail("unknown option: %s" % arg)
+        continue
+    if dir:
+        object = dir + '/' + arg
+    else:
+        object = arg
+    path = resolve(object)
+    objects.append( (arg, path, datasets(object, path) ) )
+
+if len(objects) == 1:
+    if not dir:
+        bail("no directory given to scan for objects")
+    for object in scan_for_objects(dir):
+        path = resolve(dir + '/' + object)
+        objects.append( (object, path, datasets(object, path) ) )
+    if len(objects) == 1:
+        bail("no objects given to merge")
+
+## now see what we've got...
+
+# print 'list objects and data sets:'
+# for o, p, s in objects:
+#   # print "%s (%s)" % (o, p)
+#     print "%s" % o
+#     for year in s:
+#         print "\t", year,
+#         for first, last in s[year]:
+#             print "\t", first, last,
+#         print
+#     print
+
+## identify years, which can be handled separately:
+years=set(y for o,p,s in objects for y in s)
+
+if debugmode:
+    print 'list objects and data sets by year:'
+    for year in years:
+        print
+        print year
+        for o, p, s in objects:
+            print "\t%8s" % o,
+            if not year in s:
+                print
+                continue
+            for first, last in s[year]:
+                print "\t%s-%s" % (first, last),
+            print
+
+if debugmode and False:
+    for year in years:
+        for ob in objects:
+            if year not in ob[2]:
+                continue
+          # print year, ob[0], ob[2][year], ob[2][year][0][0]
+            print year, ob[0], ob[2][year]
+        print
+
+recipie = {} # store resulting merge instructions by year
+for year in years:
+
+    ## run line sweep for this year, all objects 
+    t = ''    # time stamps are all 5-digit code32, so t='' will sort earlier
+    t1 = None
+    t2 = None
+    ob = 0
+    recipie[year] = []
+
+    while True:
+
+        ob = None
+        t1 = None
+        i = 0
+        while i < len(objects):
+
+            if year not in objects[i][2]:
+                # skip if no datasets at all, or none left:
+                i += 1
+              # print "no year, so next object:", i
+       
+            elif not len(objects[i][2][year]):
+                # skip if no datasets at all, or none left:
+                i += 1
+              # print "no datasets remaining, so next object:", i
+       
+            elif objects[i][2][year][0][1] <= t:
+                # segment ends before or at t, so discard it
+              # print "popping dataset from", i
+                objects[i][2][year].pop(0)
+
+            elif t1 == None or objects[i][2][year][0][0] < t1:
+                t1, t2 = objects[i][2][year][0]
+                ob = i
+              # print "dataset:", year, ob, t1, t2
+                if not t < t1:
+                    # this segment includes t, so select it!
+                    break
+                # else, carry on and look for earlier start time
+                i += 1
+
+            else:
+                assert t1 != None
+                assert objects[i][2][year][0][0] >= t1
+                # continue on to check the next object 
+                i += 1
+
+        if ob == None:
+            ## we found no segments at all, so we're done
+            break
+
+        ## the top (0th) entry in ob is the earliest segment
+
+      # print "after initial scan:", year, ob, t1, t2
+
+        ## We've identified the segment with the earliest start
+        ## now check for earliest start time above this object, if before t2
+        ## note: t2 is the end-point of the current segment
+
+        earlier = None
+        t3 = t2 # t3 will be effective end time of this segment
+        i = ob - 1
+        while not i < 0:
+
+            if year not in objects[i][2]:
+                # no datasets at this level for this year
+                pass
+            elif len(objects[i][2][year]) == 0:
+                # no (more) datasets at this level
+                pass
+            elif objects[i][2][year][0][0] > t3:
+                # this object does not start earlier than ob
+                pass
+            else:
+                # start time is at or before current segment end
+                # this will replace an "earlier" segment previously found
+                earlier = i
+                t3 = objects[i][2][year][0][0]
+            i -= 1
+
+        ## in the recipie structures the 2nd tuple is empty if 
+        if earlier < 0:
+            # no earlier segment was found, so ob segment is it!
+            objects[ob][2][year].pop(0)
+            if ob > 0: # skip ob 0; no need to merge target w/ itself
+                if t < t1:
+                    # use the entire segment...
+                    recipie[year].append((ob, (t1,t2), (None,None)))
+                else:
+                    # start the segment after t...
+                    recipie[year].append((ob, (t1,t2), (t,None)))
+
+        else:
+            # segment ends before earlier segment starts
+            t3 = objects[earlier][2][year][0][0] # start of earlier object
+            if ob > 0:
+                if t < t1:
+                    # use the entire segment...
+                    recipie[year].append((ob, (t1,t2), (None,t3)))
+                else:
+                    # start the segment after t...
+                    recipie[year].append((ob, (t1,t2), (t,t3)))
+
+        ## advance state variable t to end of this segment
+        t = t3
+      # print "end of first pass for", year, t
+
+interval, offset = interval_seconds(suffix)        
+
+if debugmode:
+    print "results:"
+    for year in recipie:
+        if len(recipie[year]) == 0:
+            continue
+        print year
+        for x in recipie[year]:
+            print "\t%s" % repr(x)
+        
+# now identify files to merge
+for year in recipie:
+    if len(recipie[year]) == 0:
+        # no datasets to merge for this year
+        continue
+    for (x, (first,last), (after,before)) in recipie[year]:
+        insert_dataset(x, year, first, last, after, before)
+
+

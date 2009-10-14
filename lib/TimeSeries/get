@@ -1,0 +1,317 @@
+#!/usr/bin/perl -w
+use strict;
+use warnings;
+
+use ThinObject;
+
+use LockFile::Simple;
+use Getopt::Long;
+use Time::Local qw(timegm);
+use TimeSeriesGetQueryParser;
+
+use Date::Format; # needed for get method
+
+# print qq(command line: $0 @ARGV\n);
+
+my $ob = ThinObject->new( shift );
+
+# print "DEBUG: class: (", join(' -> ', $ob->isa()), ")\n";
+
+## declare variables, reading values from the object if defined:
+my $tzofs = $ob->param('tzofs') || '0000';
+my $encode_newlines = $ob->param('encode-newlines');
+my $debug;
+
+$encode_newlines = 1 unless defined $encode_newlines;
+
+## settings & options for get() method:
+my $output_timestamp = $ob->param('output-timestamp');
+
+## process commandline options:
+use Getopt::Long;
+GetOptions (
+    'h'             => sub { print "see --help\n"; exit 1 },
+    'help'          => sub { exec "pod2text $0" },
+    'tzofs=s'  => \$tzofs, # time zone offset from UMT, hours
+    'ots|output-timestamp:s'  => \$output_timestamp,
+    'encode-newlines'  => \$encode_newlines,
+    'debug:1'  => \$debug,
+    ) or die "$!\n";
+
+# print "output timestamp format: $output_timestamp\n";
+
+my $tob = $ob->tob();
+
+my $chunkdir = '_'; # default internal directory for multiline "chunks"
+
+## translate timezone offset to seconds...
+if ( $tzofs =~ m/^(-)?(\d\d)(\d\d)$/ ) {
+    $tzofs = $2 + $3/60;
+    $tzofs = -$tzofs if defined $1;
+    }
+$tzofs *= 3600; # time zone offset was in hours, now in seconds
+## ASSERT: $tzofs is defined as seconds offset from UTC
+
+## parse the "get" query 
+
+# print "DEBUG tzofs: $tzofs seconds offset\n";
+# print "DEBUG query: @ARGV\n";
+
+my $parser = TimeSeriesGetQueryParser->new();
+$parser->tzofs_seconds($tzofs);
+my @query_result = $parser->parse( "@ARGV" );
+
+# print "DEBUG parsed query...\n";
+# foreach ( @query_result ) {
+#     print defined $_ ? $_ : '?', "\t";
+#     } print "\n";
+
+if ( scalar @query_result == 1 ) { ## error message was returned...
+    print "@query_result\n"; ## not sure if I should output to stdout AND stderr...
+    warn "@query_result\n";
+    exit 1;
+    }
+
+###########################
+## ASSERT query parsed, either 4-arg from-to or 3-arg from-count
+###########################
+
+if ( scalar @query_result == 3 ) { ## 3-arg form not yet supported...
+    print qq(for now, from and to times must both be specified\n);
+    exit 1;
+    }
+
+###########################
+## ASSERT query is 4-arg form
+###########################
+
+my ($year1, $time1, $year2, $time2) = @query_result;
+
+## ASSERT start and finish times are fully specified
+print qq($year1 $time1 --TO-- $year2 $time2\n) if $debug;
+
+###########################
+## find the starting file:
+###########################
+
+my ($file, $year, $first, $last); # already defined
+foreach my $f ( sort $ob->listfiles() ) {
+  # print scalar @files, " files left...\n";
+  # next unless ($year, $first, $last) = $f =~ m/^(\d{4})-(\d+)-(\d+)$/;
+    next unless ($year, $first, $last) = $f =~ m/^\@(\d{4})-(\w{5})-(\w{5})$/;
+
+    # skip to next file if last of file is before time1
+    next if $year < $year1;
+    next if $year1 == $year && $last < $time1;
+
+    # all done if first of file is after time2
+    last if $year > $year2;
+    last if $year2 == $year && $first > $time2;
+
+    ## ASSERT: time1 is in the file
+
+    open TS_DATA, "<", "$tob/$f" or die qq(failed to open "$f"; $!\n);
+    my ($t, $datum);
+    while ( <TS_DATA> ) {
+      # print "\nDEBUG:\t$_";
+        ($t, $datum) = m/^(\d+) (.*)/;
+        next if $t < $time1; # not there yet...
+        last if $year > $year2;
+        last if $year == $year2 && $t > $time2;
+        print format_timestamp($year1, $t) if $output_timestamp;
+        unless ( defined $datum ) {
+            print "\n"; # nothing there
+            }
+        elsif ( $datum =~ m{^$chunkdir/} ) { # indirect datum, data in file
+            print "\n";
+            open INDIRECT_DATA, "<", "$tob/$datum" 
+                or die qq(failed to open "$datum"; $!\n);
+            print $_ while <INDIRECT_DATA>;
+            close INDIRECT_DATA or die $!;
+            }
+        else { # 
+            if ( $encode_newlines && $datum =~ m/\r/ ) {
+                $datum =~ tr/\r/\n/;
+                }
+            print "$datum\n";
+            }
+        }
+    close DATA or die $!;
+    last if $year == $year2 && $t > $time2;
+    }
+
+sub format_timestamp { 
+    my $year = shift;
+    my $seconds = shift;
+    return time2str( $output_timestamp, timegm(0,0,0,1,0,$year) + $seconds);
+    }
+
+sub get_last_n {
+    my $n = shift || 1;
+  # print "DEBUG: SHOULD RETURN last $n entries\n";
+    my $file;
+    foreach ( sort $ob->listfiles() ) {
+        next unless m/^\@\d{4}-\w{5}-\w{5}$/;
+        $file = $_; # overwrite each time, to save the last file name
+        }
+    die "no data file found\n" unless defined $file;
+    ($year) = $file =~ m/^(\d{4})-\w{5}-\w{5}$/;
+    die "no year" unless defined $year;
+  # print "DEBUG: tail -n $n $tob/$file", "\n";
+    foreach ( `tail -n $n $tob/$file` ) {
+        my ($t, $datum) = m/^(\d+) (.*)/;
+        print format_timestamp($year, $t) if $output_timestamp;
+      # print "$t:-->:\n";
+        unless ( defined $datum ) {
+            print "\n"; # nothing there
+            }
+        elsif ( $datum =~ m{^$chunkdir/} ) { # indirect datum, data in file
+            print "\n";
+            open INDIRECT_DATA, "<", "$tob/$datum" 
+                or die qq(failed to open "$datum"; $!\n);
+            print $_ while <INDIRECT_DATA>;
+            close INDIRECT_DATA or die $!;
+            }
+        else { # 
+            if ( $encode_newlines && $datum =~ m/\r/ ) {
+                $datum =~ tr/\r/\n/;
+                }
+            print "$datum\n";
+            }
+        }
+    }
+
+__END__
+
+=head1 NAME
+
+get -- TimeSeries get method
+
+=head1 SYNOPSIS
+
+  $ thinob object.get [OPTIONS]
+  $ thinob object.get [OPTIONS] last [COUNT|TIMEINTERVAL]
+  $ thinob object.get [OPTIONS] from TIMESPEC to TIMESPEC
+  $ thinob object.get [OPTIONS] last [COUNT|TIMEINTERVAL] from TIMESPEC
+
+=head1 DESCRIPTION
+
+Retrieve stored data from a TimeSeries object. The following query forms
+are (*) supported (see also L<DEFINITIONS> section, below):
+
+=over
+
+=item get
+
+=item get last
+
+=item get last COUNT
+
+=item get last INTERVAL
+
+=item get last INTERVAL from TIMESPEC
+
+=item get from TIMESPEC to TIMESPEC
+
+=back
+
+
+=head1 OPTIONS
+
+=over
+
+=item --help
+
+=item --debug
+
+=item --output-timezone=TIMEZONE
+
+=item --otz=TIMEZONE
+
+Format timestamps for the specified timezone. S is - or +, and is required.
+If specified as an option or attribute, data is output with the specified timezone
+offset.
+
+=item --output-timestamp=DATE_FORMAT_STRING
+
+=item --ots=DATE_FORMAT_STRING
+
+See date(1) for date format options.  Some sample formats and results:
+
+    --ots=%Y-%j-%H:%M:%S  ==> 2007-352-11:30:45
+    ...
+
+=item --encode-newlines
+
+When this option is set in a store method, newline characters (\n) are converted
+to carriage returns (\r) so that the datum can be stored in a single line.
+
+=item --help
+
+=back
+
+
+=head1 GET METHOD
+
+The arguments to the get method are parsed as described below.  This
+is preliminary, and as simple as possible for that reason.  
+
+SYNOPSIS:
+
+    tob ob.get from [year] [day] [hh:mm][am|pm] [to] [year] [day] [hh:mm][am|pm]
+
+where, 
+
+=over
+
+=item year must have 4 digits
+
+=item day is the day of year, from 1 to 366
+
+=item time spec can be 8:00 or 08:00, am or pm optional
+
+=back
+
+=head1 EXAMPLES:
+
+   tob ob.get 2003 145 to 155 -- all hours in these days
+
+   tob ob.get 10:00 to 04:00pm -- data in this range, today
+
+   tob ob.get 16:45 -- only this time, today
+    
+=head1 DEFINITIONS
+
+=over
+
+=item COUNT
+
+A positive integer, e.g., 1 or 350.
+
+=item TIME_SPEC
+
+A string or strings specifying a certain moment in time, in one of the
+following forms:
+
+    now
+    year day hh:mm:ss
+    day hh:mm:ss
+    
+
+[year] [day] [hh:mm][am|pm] 
+
+=back
+
+=head1 BUGS
+
+The datum cannot start with "_/" since that pattern is used to indicate an
+indirectly stored ``chunk'' of data.  The one unambiguous solution to this 
+that I can see is to always store any datum with that pattern as a chunk,
+whether it would otherwise be done so or not. 
+
+=head1 AUTHOR
+
+Ken Irving <fnkci@uaf.edu> (c) 2006
+
+Licensed under the GPL (Gnu Public Library)
+

@@ -1,0 +1,297 @@
+#!/usr/bin/perl -w
+use strict;
+use warnings;
+
+use ThinObject;
+
+use Getopt::Long;
+use Time::Local qw(timegm);
+use TimeSeries; # non-OO utilities are auto-imported into namespace
+
+my $obname = shift;
+my $ob = ThinObject->new( $obname );
+
+## declare variables, reading values from the object if defined:
+my $tzofs = $ob->attribute('tzofs') || 0; # hours from UMT to local standard time
+my $debug;
+my $interval = $ob->attribute('interval');
+my $tag = $ob->attribute('tag');
+my $itag;
+my $show_all;
+my $epoch; # use the Unix epoch instead of the default "yearly" epochs
+my $normalize = 1;
+my $precision = 0;
+my $fsep = ",\t";
+my $show_header = 1;
+my $show_name;
+
+## process commandline options:
+use Getopt::Long;
+GetOptions (
+    'h'             => sub{ print "see --help\n"; exit 1 },
+    'help'          => sub{ exec "pod2text $0" },
+    'tzofs=s'  => \$tzofs, # time zone offset from UMT, hours
+    'debug:1'  => \$debug,
+    'interval=s'  => \$interval,
+    'tag=s'  => \$tag,
+    'all|show-all'      => \$show_all,
+    'epoch'  => \$epoch,
+    'normalize|n=s' =>
+        sub{ ($normalize, $precision) =
+              parse_normalize_and_precision_values($_[1])
+           },
+    'field-separator|fsep=s' => sub{ $fsep = convert_fsep($_[1]) },
+    'show-header|header|hdr!'  => \$show_header,
+    'show-name|name!'  => \$show_name,
+    ) or die "$!\n";
+
+ASSERT(defined $precision, '$precision is defined');
+
+my $tob = $ob->tob();
+
+$tzofs = tz_hhmm2sec( $tzofs ); # time zone offset was in hours, now in seconds
+
+if ( $interval ) {
+    $itag = $interval; # store symbolic representation of interval, offset
+    ($interval, undef) = itag_to_interval_seconds($itag);
+    }
+
+$tag = defined $tag ? $tag . '-' : '';
+$tag = '.*' if $show_all;
+
+my @columns;
+push @columns, 'year' unless $epoch;
+push @columns, qw( from to count interval tag );
+push @columns, 'name' if $show_name;
+print join($fsep, @columns), "\n" if $show_header;
+
+my $file;
+## find the right file:
+foreach ( sort $ob->listfiles() ) {
+    next unless m/^\@($tag)(\d{4})-(\w{5})-(\w{5})-(.+)$/;
+    my ($pfx, $year, $first32, $last32, $count) = ($1, $2, $3, $4, $5);
+    next if defined $itag && $count ne $itag && ! $show_all;
+    my ($from, $to) = ( decode($first32), decode($last32) );
+
+    my @output;
+    push @output, $year unless $epoch;
+    push @output, normalize($year, $from), normalize($year, $to);
+
+    $count = ($to - $from) / $interval + 1 if $interval;
+    push @output, $count;
+
+    push @output, $interval ? $itag : 'n/a';
+
+    $pfx =~ s/-$// unless $pfx eq '';
+    push @output, $pfx ne '' ? $pfx : 'n/a';
+
+    my $name = substr $_, 1; # omit leading ``@'' character
+    push @output, $name if $show_name;
+
+    print join($fsep, @output), "\n";
+    }
+
+# print "DEBUG: in superclass timeline method\n";
+
+sub normalize {
+    my $year = shift;
+    my $seconds = shift;
+    $seconds += timegm(0,0,0,1,0,$year) if $epoch; 
+    $seconds /= $normalize;
+    return sprintf "%.${precision}f", $seconds;
+    }
+
+sub parse_normalize_and_precision_values {
+    my $option = shift;
+    my %units = ( second => 's', minute => 'm', hour   => 'h', day    => 'd',
+                  week   => 'w', month  => 't', year   => 'y' );
+    die "invalid normalize option value: $option\n"
+        unless my ($n, $unit, undef, $prec) =
+            $option =~ m/^(\d*\.?\d*)(\w+[^s])s?(\.(\d+))?$/;
+    if ( $unit =~ m/^percent|pct$/ ) {
+        $unit = 'year';
+        $n = $n ? $n / 100 : 1 / 100;
+        $prec = 0 unless $prec;
+        }
+    $prec = $unit eq 'year' ? 2 : 0 unless defined $prec;
+  # print "DEBUG: $n, $unit, $prec\n";
+    die qq(invalid unit "$unit" in normalize option value "$option"\n)
+        unless exists $units{ $unit };
+    $unit = $units{ $unit }; # translate to 1-letter specifier
+    $n = 1 unless $n;
+
+  # print "DEBUG: n is now $n\n";
+    ($normalize) = itag_to_interval_seconds( '1' . $unit );
+    return ($normalize * $n, $prec);
+    }
+    
+
+sub convert_fsep {
+    my $fsep = shift;
+    # this is a kludge, but...
+    # ... try to convert ascii 2-character escapes to value ...
+    $fsep =~ s|\\a|\a|g;
+    $fsep =~ s|\\b|\b|g;
+    $fsep =~ s|\\t|\t|g;
+    $fsep =~ s|\\n|\n|g;
+    $fsep =~ s|\\f|\f|g;
+    $fsep =~ s|\\r|\r|g;
+    $fsep =~ s|\\e|\e|g;
+    # ... convert dotted metachars to value ...
+    $fsep =~ s|\.a\.|\a|g;
+    $fsep =~ s|\.b\.|\b|g;
+    $fsep =~ s|\.t\.|\t|g;
+    $fsep =~ s|\.n\.|\n|g;
+    $fsep =~ s|\.f\.|\f|g;
+    $fsep =~ s|\.r\.|\r|g;
+    $fsep =~ s|\.e\.|\e|g;
+    # ... I'm making this one up: \_ or ._. for space
+    $fsep =~ s|\\_| |g;
+    $fsep =~ s|\._\.| |g;
+    return $fsep;
+    }
+
+__END__
+
+=head1 NAME
+
+TimeSeries.timeline -- show time ranges of data stored in an object
+
+=head1 DESCRIPTION
+
+
+=head1 OPTIONS
+
+=over
+
+
+=item -n UNITS[.PRECISION]
+
+=item --norm UNITS[.PRECISION]
+
+=item --normalize UNITS[.PRECISION]
+
+By default, output of time-into-the-year is in seconds.  This options
+divides the seconds value by a factor representing the number of units
+in a year.
+
+The optional PRECISION is a number specifying how many decimal places
+to include in the output.
+
+UNITS is one of:
+
+=over
+
+=item * seconds
+
+=item * minutes
+
+=item * hours
+
+=item * days
+
+=item * weeks
+
+=item * months
+
+=item * years
+
+=item * 1
+
+=item * 100
+
+=back
+
+=item --tag STRING
+
+Select only data sets with matching tag.  See TimeSeries.store --help for
+interval option format.
+
+=item --interval INTERVALSPEC
+
+Select only data sets with matching interval.  See TimeSeries.store --help for
+interval option format.
+
+=item --show-all
+
+=item --all
+
+Include all data in the object, with any I<tag> and any I<interval>. 
+
+
+=item --tzofs [S]HHMM
+
+The option value will override the B<tzofs> attribute, if set, to 
+establish the timezone offset from UTC assumed for the given time
+in the store operation.
+
+NOT YET IMPLEMENTED! ALL OUTPUT IS IN THE DEFAULT UTC TIMEZONE!
+
+=item --fsep STRING (default: --fsep ,.t.)
+
+Specify the separator to go between fields in each output line.  STRING
+can be any arbitrary value, or the following special metacharacters
+can be included using either a backslash (may need to use two due to shell
+interpretation), or two dots:
+
+=over
+
+=item \t or .t. -- tab (horizontal tab)
+
+=item \_ or ._. -- space
+
+=back
+
+The use of underscore as a metacharacter for space is not standard, but
+perhaps should be.
+
+Most of the following are of questionable use...
+
+=over 
+
+=item \a or .a. -- bell
+
+=item \b or .b. -- backspace
+
+=item \n or .n. -- newline
+
+=item \f or .f. -- form feed
+
+=item \r or .r. -- carriage return
+
+=item \e or .e. -- escape
+
+=back
+
+=back
+
+=item --[no-]show-header (default)
+
+=item --[no-]header
+
+=item --[no-]hdr
+
+Output a column-header line identifying C<year>, C<from> and C<to> times,
+and the C<count> of entries in the data set.  No field header is provided
+for the C<tag> or C<tag-interval> column, which may or may not be
+present.
+
+=item --[no-]show-name (default is --no-show-name)
+
+=item --[no-]name
+
+Show the name of the data set file (except the leading ``@'' character is
+removed) as the last column in output.
+
+=head1 BUGS
+
+Timezone adjust is not done...
+
+Normalize to year (or 1) should consider leap years, but doesn't.
+
+=head1 AUTHOR
+
+Ken Irving <fnkci@uaf.edu> (c) 2008
+
+Licensed under the GPL (Gnu Public Library)
+

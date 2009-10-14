@@ -1,0 +1,249 @@
+#!/usr/bin/perl -w
+use strict;
+use warnings;
+
+use LockFile::Simple;
+use Getopt::Long;
+use Time::Local qw(timegm);
+
+use Date::Format; # needed for get method
+
+# print qq(command line: $0 @ARGV\n);
+
+my $object = shift;
+
+my $debug;
+my $tag;
+my $validate_only;
+my $t_first;
+my $t_last;
+
+## process commandline options:
+use Getopt::Long;
+GetOptions (
+    'h'             => sub { print "see --help\n"; exit 1 },
+    'help'          => sub { exec "pod2text $0" },
+    'debug'  => \$debug,
+    'validate-only'  => \$validate_only,
+    'tag=s'  => \$tag,
+    'from=s' => sub { $t_first = convert_time_option($_[1]); },
+    'to=s' => sub { $t_last = convert_time_option($_[1]); },
+    ) or die "$!\n";
+
+# warn "$t_first\n" if defined $t_first;
+# warn "$t_last\n" if defined $t_last;
+
+$tag = defined $tag ? "$tag-" : '';
+
+die "no thinobject path in tob_path envar\n" unless exists $ENV{tob_path};
+chdir $ENV{tob_path} or die "failed to chdir " . $ENV{tob_path} . "\n";
+
+## initialze code/decode structures:
+my @code = ( 0..9, 'a'..'h', 'j', 'k', 'm', 'n', 'p'..'t', 'v'..'z'); 
+my %decode;
+my $i = 0;
+$decode{$_} = $i++ foreach @code;
+
+my $chunkdir = '_'; # default internal directory for multiline "chunks"
+
+## parse the "get" query 
+
+opendir SELF, '.' or die "failed to open directory\n";
+
+my @dataset;
+my %details;
+my $suffix;
+while ( my $dataset = readdir SELF ) {
+  # print "$dataset\n";
+    next unless
+        my ($year, $from, $last, $suffix) = $dataset =~
+        m/^\@$tag(\d{4})-([0-9a-z]{5})-([0-9a-z]{5})-(\S+)$/;
+    push @dataset, $dataset;
+    $MAIN::suffix = $suffix unless defined $MAIN::suffix;
+    
+    ## may need to relax this criterion perhaps?:
+    die "suffix: $suffix differs from previous: $MAIN::suffix\n"
+        unless $suffix eq $MAIN::suffix;
+
+    my ($interval, $offset) = decode_suffix($suffix);
+    my $count = $suffix unless defined $interval;     # non-interval case
+    
+    $details{$dataset} = [
+        epoch_year($year),
+        decode_ysec($from),
+        decode_ysec($last),
+        $interval,
+        $offset,
+        $count,
+        ];
+    }
+
+## ASSERT: timeseries dataset filenames have been parsed; ready for output...
+
+foreach my $dataset ( sort @dataset ) { # note: lexical order == temporal order
+    my ($year_epoch, $from, $last, $interval, $offset, $count) =
+        @{$details{$dataset}};
+    if ( $debug ) {
+        $interval = -1 unless defined $interval;
+        $offset = -1 unless defined $offset;
+        $count = -1 unless defined $count;
+        printf "%s   %09d   %08d   %08d   %d   %d   %d\n", 
+            $dataset, $year_epoch, $from, $last, $interval, $offset, $count;
+        undef $interval if $interval == -1;
+        undef $offset if $offset == -1;
+        undef $count if $count == -1;
+        }
+    open DSET, '<', $dataset or die "failed to open $dataset, $!\n";
+    if ( defined $count ) { ## non-interval dataset, timestamp precedes record
+        my $n = 0;
+        while ( <DSET> ) {
+            my ($ysec, $datum) = m/^\d+ (.+)/; 
+            print $year_epoch + $ysec, ' ', $_
+                unless $validate_only;
+            $n += 1;
+            }
+        ## validat results::
+        die "$dataset had $n records, not $count\n" unless $n == $count;
+        close DSET or die $!;
+        }
+    elsif ( $t_first || $t_last ) { # limited interval dataset
+        my $t = $year_epoch + $from;
+        while ( defined $t_first && $t < $t_first && <DSET> ) { # too early...
+            $t += $interval;
+            }
+        ## ASSERT: next datum is ok if it exists, unless it's already too late
+        while ( <DSET> ) {
+            last if defined $t_last && $t > $t_last;
+            print $t + $offset, ' ', $_;
+            $t += $interval;
+            }
+        close DSET or die $!;
+        }
+    else { # interval dataset
+        my $t = $year_epoch + $from;
+        my $n = 0;
+        while ( <DSET> ) {
+            print $t + $offset, ' ', $_
+                unless $validate_only;
+            $t += $interval;
+            $n += 1;
+            }
+        ## validate results:
+        my $final = $t - $year_epoch - $interval;
+        die "$dataset, with $n records, ended at " . encode_ysec($final) . "\n"
+            unless $final == $last;
+        close DSET or die $!;
+        }
+    }
+
+## subroutines follow:
+sub epoch_year { # seconds from unix epoch for beginning of year
+    ## could cache the result, but probably not worth the bother/overhead
+    return timegm(0,0,0,1,0,$_[0]);
+    }
+
+sub encode_ysec { # encode number into base-32 character string
+    my $n = shift;
+    my $b32 = '';
+    while ( $n > 0 ) {
+        $b32 = $code[ $n % 32 ] . $b32;
+        $n = int( $n / 32 );
+        }
+    return $b32;
+    }
+
+sub decode_ysec { # return unencoded value
+    my $b32 = shift;
+    my $n = 0;
+    $n = $n * 32 + $decode{$_} foreach split '', $b32;
+    return $n;
+    }
+
+sub decode_n_units { # 1h, 0s, etc....
+    my ($multiplier, $unit) = $_[0] =~ m/^(\d+)(\S)$/
+        or return undef;
+
+    my %units = ( # factor to convert to seconds
+            s => 1,
+            m => 60,   # seconds in a minute
+            h => 3600,  # ... hour
+            d => 86400,  # ... day
+            w => 604800,  # ... week
+            t => 2592000,  # ... month... really 30 days
+            y => 31536000,  # ... year... really 365 days
+            );
+
+    die "unknown interval/offset unit: $unit from $_[0]\n"
+        unless exists $units{$unit};
+
+    ## ASSERT: units is one of the supported ones
+
+    return $units{$unit} * $multiplier;
+    }
+
+sub decode_suffix {
+    ## the following will be undefined if suffix is a non-interval count:
+    my ($interval, $offset) = $_[0] =~ m/^(\d+\S)-(\d+\S)$/;
+    $interval = decode_n_units($interval) if $interval;
+    $offset = decode_n_units($offset) if $offset;
+    $interval = -1 unless defined $interval;
+    $offset = -1 unless defined $offset;
+    return ($interval, $offset);
+    }
+
+sub convert_time_option {
+    chomp(my $epoch_sec = `/bin/date -d '$_[0]' +%s`);
+    if ( $? ) {
+        print "invalid date: $_[0]\n";
+        die "\n";
+        }
+  # print "$_[0] = $epoch_sec\n";
+    return $epoch_sec;
+    }
+
+=head1 NAME
+
+TimeSeries.get-stream -- stream timeseries data to stdout
+
+=head1 SYNOPSIS
+
+  timeseries.get-stream 
+
+=head1 DESCRIPTION
+
+Stream all timeseries data from a TimeSeries object.  Fails if any dataset
+is invalid, i.e., content does not match the dataset name.
+
+=head1 OPTIONS
+
+=over
+
+=item --help
+
+=item --tag STRING
+
+optional dataset prefix, an arbitrary string
+
+=item --validate-only
+
+don't print anything, but check that datasets are well-formed
+
+=item --debug
+
+=back
+
+=head1 BUGS
+
+Does not handle indirect datasets with datums stored under _/.
+
+No support for limiting time range of datasets.
+
+Use of the optional tag, an arbitrary string prefix to the dataset,
+has not been tested.
+
+=head1 AUTHOR
+
+Ken Irving <fnkci@uaf.edu> (c) 2008
+
+Licensed under the GPL (Gnu Public Library)
+

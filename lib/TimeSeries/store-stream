@@ -1,0 +1,264 @@
+#!/usr/bin/perl -w
+use strict;
+use warnings;
+
+use ThinObject;
+
+use LockFile::Simple;
+use Getopt::Long;
+use Time::Local qw(timegm);
+
+my $ob = ThinObject->new( shift );
+
+## declare variables, reading values from the object if defined:
+my $tzofs = $ob->param('TZOFS') || 0; # hrs from UMT to local standard time
+my $maxwidth = $ob->param('maxwidth'); # max line length
+my $save_as_file; 
+my $debug;
+
+## process commandline options:
+use Getopt::Long;
+GetOptions (
+    'h'             => sub { print "see --help\n"; exit 1 },
+    'help'          => sub { exec system "pod2text $0" },
+    'maxwidth=s'  => \$maxwidth,
+    'tzofs=s'  => \$tzofs, # time zone offset from UMT, hours
+    'save-as-file'  => \$save_as_file,
+    'debug:1'  => \$debug,
+    ) or die "$!\n";
+
+my $tob = $ob->tob();
+
+my $dir = '_'; # default internal directory for multiline "chunks"
+
+## translate timezone offset to seconds...
+if ( $tzofs =~ m/^(-)?(\d\d)(\d\d)$/ ) {
+    $tzofs = $2 + $3/60;
+    $tzofs = -$tzofs if defined $1;
+    }
+$tzofs *= 3600; # time zone offset was in hours, now in seconds
+
+## configure lock object ...
+my $locker = LockFile::Simple->make( 
+    -delay => 7, 
+    -autoclean => 1,
+    -warn => 0,
+    -wfunc => undef,
+    );
+
+my $eventlock = $locker->trylock("$tob/EVENT");
+unless ( $eventlock ) {
+    $eventlock->release() if $eventlock;
+    die "unable to aquire event lock\n"; # end this try, to maybe try again...
+    }
+
+## ASSERT: a lockfile is now set
+
+## now process the input stream, a line at a time
+## read lines of the format: year seconds datum
+
+my $n = 0;
+
+my @files; # set of possible timeseries files to match
+foreach ( sort $ob->listing() ) {
+    push @files, $_ if m/^\d{4}-\d{8}-\d{8}$/;
+    }
+
+INPUT_RECORD: while ( <> ) { 
+    chomp;
+    my ($year, $second, $datum) = m/^(\d{4})[,\s]\s*(\d+)[,\s]\s*(.*)/;
+
+    ## input timestamp assumed to be local timezone, so adjust to UMT:
+    $second -= $tzofs;
+    if ( $second < 0 ) { # need to adjust year
+        $second = timegm(0,0,0,1,0,$year) + $second;
+        $year -= 1;
+        $second -= timegm(0,0,0,1,0,$year);
+        }
+
+    ## ASSERT: timestamp is fully specified in $year, $second, timezone UTC
+
+    print "process:: $year: $second $datum\n";
+    
+    if ( defined $maxwidth && length $datum > $maxwidth ) { 
+        $save_as_file = 1;
+        }
+
+    if ( $save_as_file ) { ## format: YYYY/DDD/DAYSEC components from timestamp
+        my ($f_sec, $f_min, $f_hour, $f_day, $f_mon, $f_year) =
+            gmtime( timegm(0,0,0,1,0,$year) + $second + $tzofs);
+        $f_year += 1900; # 4-digit year
+        $f_mon++;
+        $f_year = sprintf "%4d", $f_year;
+        ( $f_mon, $f_day, $f_hour, $f_min, $f_sec)  = 
+            map sprintf("%02d", $_), $f_mon, $f_day, $f_hour, $f_min, $f_sec;
+    
+        my $chunkname = "$dir/$f_year-$f_mon/$f_day/$f_hour$f_min$f_sec";
+    
+        unless ( -d "$tob/$dir/$f_year-$f_mon/$f_day" ) {
+            my $d = "$tob";
+            foreach ( $dir, "$f_year-$f_mon", $f_day ) { 
+                $d .= '/' . $_;
+                next if -d $d;
+                mkdir $d or die qq(failed to mkdir "$d", $!\n);
+                }
+            }
+    
+        open FILE, ">", "$tob/$chunkname" or die $!;
+        print FILE $datum;
+        close FILE;
+        $datum = $chunkname;
+        }
+
+    ## find the right file to add/insert/... entry to:
+    my ($i, $file, $y, $first, $last);
+    for ( $i = 0; $i < @files; $i++ ) {
+        ($y, $first, $last) = $files[$i] =~ m/^\@(\d{4})-(\d{8})-(\d{8})$/;
+        next unless $y == $year;
+        ## ASSERT: the year matches, so this, the $i'th file, is it!
+        $file = $files[$i];
+        last;
+        }
+    
+    ## zero-pad each timestamp variable to 8 digits:
+    ($second, $first, $last) = map sprintf("%08d",$_), $second, $first, $last
+        if $file;
+    
+    unless ( defined $file ) { # no match, start a new file!
+      # print qq(DEBUG: creating new file: "$year-$second-$second"\n);
+        $file = "$year-$second-$second";
+        open FILE, ">", "$tob/$file"
+            or die qq(failed to create file "$file"\n);
+        print FILE "$second $datum\n";
+        close FILE;
+        push @files, $file;
+        }
+    elsif ( $second < $first ) { # new entry preceeds others
+        my $oldfile = $file;
+        $file = "$year-$second-$last";
+      # print qq(DEBUG: old: "$oldfile", new: "$file"\n);
+        open FILE, ">", "$tob/$file"
+            or die qq(failed to create file "$file"\n);
+        print FILE "$second $datum\n";
+        open OLDFILE, "<", "$tob/$oldfile"
+            or die qq(failed to open file "$oldfile" for reading\n);
+        print FILE (<OLDFILE>);
+        close OLDFILE;
+        close NEWFILE;
+        unlink "$tob/$oldfile" or die $!;
+        $files[$i] = $file; # replace oldfile in place
+        }
+    elsif ( $second > $last ) { # new entry follows others
+      # print "DEBUG: appending...\n";
+        my $oldfile = $file;
+        $file = "$year-$first-$second";
+      # print qq(DEBUG: old: "$oldfile", new: "$file"\n);
+        open FILE, ">>", "$tob/$oldfile"
+            or die qq(failed to open file "$tob/$oldfile" for appending, $!\n);
+        print FILE "$second $datum\n";
+        close FILE;
+        rename "$tob/$oldfile", "$file" or die $!;
+        $files[$i] = $file; # replace oldfile in place
+        }
+    elsif ( $second == $first ) { # timestamp matches first record
+        open FILE, "<", "$tob/$file" or die $!;
+        chomp (my $record = <FILE>);
+        close FILE;
+        if ( $record eq "$second $datum" ) {
+            print "DUPLICATE: $year,$second,$datum\n";
+            }
+        else {
+            print "DUPL_TIME: $year,$second,$datum\n";
+            }
+        }
+    elsif ( $second == $last ) { # timestamp matches last record
+        open FILE, "<", "$tob/$file" or die $!;
+        my $record;
+        while ( <FILE> ) { # seek to last line
+            $record = $_;
+            }
+        close FILE;
+        chomp $record;
+        if ( $record eq "$second $datum" ) {
+            print "DUPLICATE: $year,$second,$datum\n";
+            }
+        else {
+            print "DUPL_TIME: $year,$second,$datum\n";
+            }
+        }
+    elsif ( $second > $first && $second < $last ) { # insert entry 
+      # print qq(DEBUG: inserting entry into "$file"\n);
+        open NEWFILE, ">", "$tob/$file-NEW"
+            or die qq(failed to create file "$file-NEW"\n);
+        open OLDFILE, "<", "$tob/$file"
+            or die qq(failed to open file "$file"\n);
+        ## copy data until new entry slot is reached:
+        my $oldentry;
+        while ( $oldentry = <OLDFILE> ) {
+            my ($timestamp) = $oldentry =~ m/^(\d+)/;
+            last if $timestamp > $second; # new record goes here...
+
+            if ( $timestamp == $second ) {
+                chomp $oldentry;
+                if ( $oldentry eq "$second $datum" ) {
+                    print "DUPLICATE: $year,$second,$datum\n";
+                    }
+                else {
+                    print "DUPL_TIME: $year,$second,$datum\n";
+                    }
+                close OLDFILE;
+                close NEWFILE;
+                unlink "$tob/$file-NEW" or die $!;
+                next INPUT_RECORD;
+                }
+            print NEWFILE $oldentry;
+            }
+        die qq(shouldn't happen 1\n) unless defined $oldentry;
+        print NEWFILE "$second $datum\n", $oldentry, (<OLDFILE>); 
+        close OLDFILE;
+        close NEWFILE;
+        rename "$tob/$file-NEW", "$tob/$file"
+            or die qq(failed to rename "$file-NEW" to "$file"\n);
+        # @files list stays the same
+        }
+    else {
+        die qq(can't happen 2!\n);
+        }
+
+    } ## end of stream processing
+
+
+print "$n records added\n" if $debug;
+exit 0;
+
+
+__END__
+
+=head1 NAME
+
+store-stream -- store data from a stream or file to a TimeSeries object
+
+=head1 DESCRIPTION
+
+Where the store method is used to store a single datum, this store-stream
+method stores one or more data, with one datum per line.  Each line must
+begin with the timestamp, (for now) assumed to be in local standard time
+(or UMT if TZOFS property is not set), and (for now) expressed as year
+(4 digits) and the number of seconds since the start of the year.  E.g.,
+
+    2007,123456,datum 1...
+    2007,125555,datum 2...
+
+
+=head1 OPTIONS
+
+=over
+
+=back
+
+=head1 AUTHOR
+
+Ken Irving <fnkci@uaf.edu> (c) 2006
+
+Licensed under the GPL (Gnu Public Library)
+
