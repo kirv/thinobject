@@ -114,7 +114,7 @@ while ( <TIMELINE_PIPE> ) { # expecting: from to count interval tag name
     }
 close TIMELINE_PIPE or die $!;
 
-my $obname = $ENV{tob_object};
+my $obname = $ENV{TOB_object};
 # $obname =~ s{/home/site/}{};
 
 # if ( $obname =~ m{/home/site/} ) {

@@ -35,8 +35,10 @@ GetOptions (
 
 $tag = defined $tag ? "$tag-" : '';
 
-die "no thinobject path in tob_path envar\n" unless exists $ENV{tob_path};
-chdir $ENV{tob_path} or die "failed to chdir " . $ENV{tob_path} . "\n";
+die "no thinobject path in tob_path envar\n"
+    unless exists $ENV{TOB_object_path};
+chdir $ENV{TOB_object_path}
+    or die "failed to chdir " . $ENV{TOB_object_path} . "\n";
 
 ## initialze code/decode structures:
 my @code = ( 0..9, 'a'..'h', 'j', 'k', 'm', 'n', 'p'..'t', 'v'..'z'); 
