@@ -56,69 +56,74 @@ function TOB_error () {
   # VERBOSE="$RESTORE_VERBOSE"
     }   
 
-function resolve_object_path () { ## set TOB_object_path
+function cd_into_object () {
+    ob_path=$1
+    TOB_path_to_object=$TOB_path_to_object/$ob_path
+    cd $ob_path ||
+        bail failed to cd to $TOB_path_to_object
+    return
+    }
+
+function resolve_object () {
     ob=$1
-    unset TOB_object_path
+
+    # cd to directory if it contains a class link:
+    test -d $ob && ( test -L "$ob/^" || test -L "$ob/.^" ) &&
+        cd_into_object $ob &&
+            return
 
     # if ob is a symlink, resolve it to a real path:
-    test -L $ob && ob=$(/bin/readlink -f $ob)
+    test -L $ob &&
+        ob=$(/bin/readlink -f $ob)
 
-    ## ASSERT: ob is a file, directory, or ?
+    # cd into any non-object directories, just to be done with them:
+    dirs=${ob$/*}
+    test $dirs == $ob || {
+        cd_into_object $dirs
+        ob=${ob##*/}
+        }
 
-    # return directory if it contains a class link:
-    test -d $ob && ( test -L "$ob/^" || test -L "$ob/.^" ) &&
-        TOB_object_path=$ob &&
+    # we already know that ob is not a thinobject, so dot it and try again:
+    test -d .$ob && ( test -L ".$ob/^" || test -L ".$ob/.^" ) &&
+        cd_into_object .$ob &&
             return
 
-    # check for dot-ob, so first create the name:
-    if test "${ob/\/*/}" == "$ob"; then # no slash in ob
-        dot_ob=.$ob
-    else # ob has a slash in it
-        dot_ob=${ob%\/*}/.${ob/*\//}
-    fi
-
-    # return dot-directory if it exists and contains a class link:
-    test -d $dot_ob && ( test -L "$dot_ob/^" || test -L "$dot_ob/.^" ) &&
-        TOB_object_path=$dot_ob &&
-            return
-  
     ## ASSERT: neither ob nor dot_ob is an explicit thinobject
 
-    # return ob if it's a directory
-    test -d $ob &&
-        TOB_object_path=$ob &&
+    # cd into ob if it's a directory
+    test -d $ob && 
+        cd_into_object $ob &&
             return
 
-    # return dot_ob if it's a directory
-    test -d $dot_ob &&
-        TOB_object_path=$dot_ob &&
+    # or cd into dot_ob if it's a directory
+    test -d .$ob && 
+        cd_into_object .$ob &&
             return
 
     # nothing found to resolve object path, so check thinobject classes:
     for path in ${LIBROOTS[@]}; do
-        test -e $path/$ob && 
-            TOB_object_path=$path/$ob &&
-                return
+        test -e $path/$ob && {
+            test $TOB_path_to_object == . ||
+                bail failed to resolve object: $TOB_path_to_object/$ob
+            TOB_path_to_object=""
+            cd_into_object $path/$ob
+            return
+            }
     done
 
     # no object path resolved
-
     return 1
     }
 
 function resolve_class_path () { 
-    test -n "$TOB_object_path" ||
-        bail "resolve_class_path() called with TOB_object_path not set"
 
-    unset TOB_class_path
-
-    test -d $TOB_object_path && { ## object is a directory
-        test -L $TOB_object_path/^ && 
-            TOB_class_path=$TOB_object_path/^ &&
+    test -d . && { ## object is a directory
+        test -L ./^ && 
+            TOB_class_path=./^ &&
                 return
 
-        test -L $TOB_object_path/.^ && 
-            TOB_class_path=$TOB_object_path/.^ &&
+        test -L ./.^ && 
+            TOB_class_path=./.^ &&
                 return
 
         TOB_class_path=$TOB_DEFAULT_CLASS_FOR_DIRECTORY 
@@ -126,7 +131,7 @@ function resolve_class_path () {
         }
 
     test -f $TOB_object_path && 
-        TOB_class_path=$TOB_DEFAULT_CLASS_FOR_DIRECTORY &&
+        TOB_class_path=$TOB_DEFAULT_CLASS_FOR_FILE &&
             return
 
     bail "$TOB_object is not a directory or file..."
@@ -307,13 +312,18 @@ test $method && {
         if [ ${ob/=} != $ob ]; then # tag=value form detected
             args="$args $ob"
         else
-            test $VERBOSE && echo tob $opt $ob.$method $args
-            tob $opt $ob.$method $args || bail "failed in $ob.$method"
+            test $VERBOSE &&
+                echo tob $opt $ob.$method $args
+            tob $opt $ob.$method $args ||
+                bail "failed in $ob.$method"
         fi
         ob=$1 && shift
     done
     exit 0
     }
+
+## initialize path from caller to object starting from current directory:
+TOB_path_to_object=.
 
 ####################
 ## check for & resolve colon-delimited (contained) objects to the final object:
@@ -326,13 +336,10 @@ while [ ${ob/:/} != $ob ]; do
     ob=${ob%%:*}
     oblist=${oball#*:}
 
-    resolve_object_path $ob ||
-        bail no object resolved from $ob
+    resolve_object $ob ||
+        bail no object resolved from $TOB_path_to_object/$ob
 
-    test -d $TOB_object_path ||
-        bail "non-directory $TOB_object_path in colon-delimited object spec"
-    
-    ob=$TOB_object_path/$oblist
+    ob=$oblist
 
     done
 
@@ -363,20 +370,21 @@ test -n "$TOB_method" ||
 ## ASSERT: ob and method have been parsed, but not checked
 ####################
 
-resolve_object_path $TOB_object ||
+resolve_object $TOB_object &&
+    resolve_class_path
+
+test -n $TOB_class_path || {  ## check if object is a file:
+    test -f $TOB_object && 
+        TOB_class_path=$TOB_DEFAULT_CLASS_FOR_FILE
+    }
+
+test -n $TOB_class_path || 
     bail no object path resolved from $TOB_object
 
-test -n "$DEBUG" && 
-    echo DEBUG: TOB_object_path=$TOB_object_path
-
-resolve_class_path
-
-test -n "$DEBUG" && 
+test -n "$DEBUG" && {
+    echo DEBUG: TOB_path_to_object=$TOB_path_to_object
     echo DEBUG: TOB_class_path=$TOB_class_path
-
-## not sure this test is necessary at this point... leaving it just in case
-test -z "$TOB_object" -o -z "$TOB_object_path" &&
-    bail "no object was parsed"
+    }
 
 test -n "$DEBUG" &&
     echo DEBUG: args1=\'$args\' args2=\'$*\'
