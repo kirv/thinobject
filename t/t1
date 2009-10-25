@@ -13,7 +13,7 @@ test -n "$1" && {
 
 test "$SHOW" && {
     printf "\n"
-    echo test thinobject creation using tob-new and different options:
+    echo $0: test thinobject creation using tob-new and different options:
     }
 
 d=/tmp/tob-test1
@@ -23,9 +23,13 @@ ob=test-tob-new
 test -d $d &&
     rm -r $d
 
+## create test directory:
 mkdir $d &&
     cd $d ||
         exit 1
+
+## arrange to delete test directory on any exit:
+trap "rm -r $d" 0 1 2 3 13 15
 
 ## create visible object with classlink ^, then with classlink .^
 for visibility_option in --no-hide --no-shadow -S; do
@@ -145,8 +149,4 @@ for visibility_option in --hide --shadow -s; do
             }
     done
 done
-cd - > /dev/null
-
-rm -r $d
-
 

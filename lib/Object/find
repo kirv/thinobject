@@ -1,18 +1,1 @@
-#!/bin/sh
-ob=$1 && shift
-
-test -z "$NOCD" && {
-    cd $TOB_object_path
-    if [ -n "$*" ]; then
-        test "$DEBUG" -a "$VERBOSE" &&
-            echo exec /usr/bin/find $*
-        exec /usr/bin/find $*
-    else # by default, show output without leading "./"
-        test "$DEBUG" -a "$VERBOSE" &&
-            echo exec /usr/bin/find -not -type d -printf "%P\n"
-        exec /usr/bin/find -not -type d -printf "%P\n"
-    fi
-    }
-test "$DEBUG" -a "$VERBOSE" &&
-    echo exec /usr/bin/find $TOB_object_path $*
-exec /usr/bin/find $TOB_object_path $*
+/usr/bin/find

@@ -1,12 +1,1 @@
-#!/bin/sh
-
-ob=$1 && shift
-
-if [ -z $NOCD ]; then
-    cd $TOB_object_path
-    target="$*"
-else
-    target="$TOB_object_path/$*"
-fi
-
-exec /usr/bin/wc $args $target
+/usr/bin/wc

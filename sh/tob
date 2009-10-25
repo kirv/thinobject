@@ -124,7 +124,7 @@ function resolve_object_spec () {
         unset prefix
         for obentry in $prefix${direntry//./ }; do # split on dots
             test ${obentry: -1:1} == / && { # obentry is a directory, so cd or fail:
-                path_to_object=$path_to_object/$obentry
+                path_to_object=$path_to_object/${obentry%/} # ... omit slash
                 cd $obentry ||
                     bail failed to cd into directory: $path_to_object
                 continue
@@ -371,42 +371,8 @@ TOB_method=${ob##*.}
 ob=${ob%.*}
 TOB_object=$ob
 
-## initialize path from caller to object starting from current directory:
-TOB_path_to_object=.
-
-## ####################
-## ## split object spec first on / and then on . to resolve target object:
-## ####################
-
 resolve_object_spec $ob ||
     bail failed to resolve object specifier: $ob
-
-## ####################
-## ## check for & resolve colon-delimited (contained) objects to the final object:
-## ####################
-## 
-## ## replace any '::' sequences temporarily:
-## ob=${ob//::/__2COLONS__}
-## while [ ${ob/:/} != $ob ]; do
-##     oball=$ob
-##     ob=${ob%%:*}
-##     oblist=${oball#*:}
-## 
-##     resolve_object $ob ||
-##         bail no object resolved from $TOB_path_to_object/$ob
-## 
-##     ob=$oblist
-## 
-##     done
-## 
-## ob=${ob//__2COLONS__/::}
-## 
-## ####################
-## ## object still includes method, so parse method from object.method
-## ####################
-## 
-## TOB_method=${ob##*.}
-## TOB_object=${ob%.*}
 
 test $TOB_method == $ob && 
     bail no method parsed from target $ob
@@ -414,6 +380,7 @@ test $TOB_method == $ob &&
 test -n "$DEBUG" && {
     echo DEBUG: TOB_object=$TOB_object
     echo DEBUG: TOB_method=$TOB_method
+    echo DEBUG: path_to_object=$path_to_object
     }
 
 test -n "$TOB_object" ||
@@ -421,6 +388,8 @@ test -n "$TOB_object" ||
 
 test -n "$TOB_method" ||
     bail "no method parsed, object $TOB_object"
+
+exit 0
 
 ####################
 ## ASSERT: ob and method have been parsed, but not checked

@@ -1,0 +1,104 @@
+#!/bin/sh
+
+## test basic functionality of tob to resolve objects
+
+test -n "$1" && {
+    test $1 == --show || {
+        echo synopsis: $0 [--show]
+        exit 1
+        }
+    SHOW=1
+    }
+
+test "$SHOW" && {
+    printf "\n"
+    echo $0: test resolving thinobjects using tob
+    }
+
+d=/tmp/tob-test1
+ob=test-tob-new
+
+## ensure that the test directory (and hence also any objects) do not exist:
+test -d $d &&
+    rm -r $d
+
+## create test directory:
+mkdir $d &&
+    cd $d ||
+        exit 1
+
+## arrange to delete test directory on any exit:
+trap "rm -r $d" 1 2 3 13 15
+
+ob=foo
+class=/usr/local/lib/thinob/Object
+
+function create_object () {
+    local ob=$1
+    mkdir $ob
+    ln -s $class $ob/^
+    }
+
+
+echo .
+
+# create an object:
+create_object $ob
+tob --debug $ob.path
+ls -la $ob
+rm -r $ob
+ls -la $ob
+
+exit 0
+
+echo .
+
+# create a dotted object:
+tob-new --hide $ob
+tob --debug $ob.path
+rm -r .$ob
+
+echo .
+
+# create a symlinked object:
+tob-new mkdir link-$ob
+ln -s link-$ob l$ob
+tob --debug l$ob.path
+
+echo .
+
+# rename symlink to object:
+mv l$ob .l$ob
+tob --debug l$ob.path
+
+echo .
+
+# rename symlinked object to dotted name:
+mv link-$ob .link-$ob
+tob --debug l$ob.path
+rm -r .link-$ob .l$ob
+
+echo .
+
+# create an object beneath some directories:
+mkdir -p a/b/c/$ob && 
+    ln -s $class a/b/c/$ob/^
+tob --debug a/b/c/$ob.path
+
+echo .
+
+# create a dotted object beneath some directories:
+mkdir -p x/y/z/.$ob && 
+    ln -s $class x/y/z/.$ob/^
+tob --debug x/y/z/.$ob.path
+
+echo .
+
+# create an object inside another object
+mkdir -p .l$ob/x/y/z/.$ob && 
+    ln -s $class x/y/z/.$ob/^
+tob --debug l$ob/x/y/z.$ob.path
+
+
+
+

@@ -13,7 +13,7 @@ test -n "$1" && {
     }
 
 for prog in tob tob-new; do
-    test $prog -nt $destination/$prog && {
+    test $prog -nt $destination/$prog || test ! -e $destination/$prog && {
         test "$VERBOSE" && 
             echo copying $prog to $destination
         cp $prog $destination/$prog ||
