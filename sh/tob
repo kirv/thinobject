@@ -56,20 +56,12 @@ function TOB_error () {
   # VERBOSE="$RESTORE_VERBOSE"
     }   
 
-function cd_into_object () {
-    ob_path=$1
-    TOB_path_to_object=$TOB_path_to_object/$ob_path
-    cd $ob_path ||
-        bail failed to cd to $TOB_path_to_object
-    return
-    }
-
-function resolve_object () {
+function resolve_object_OLD () {  # set ob_path variable or return error 
     ob=$1
 
     # cd to directory if it contains a class link:
     test -d $ob && ( test -L "$ob/^" || test -L "$ob/.^" ) &&
-        cd_into_object $ob &&
+        ob_path=$ob &&
             return
 
     # if ob is a symlink, resolve it to a real path:
@@ -113,6 +105,58 @@ function resolve_object () {
 
     # no object path resolved
     return 1
+    }
+
+function resolve_object () {  # set ob_path variable or return error 
+    local ob=$1
+    test -d $ob && ( test -L "$ob/^" || test -L "$ob/.^" ) &&
+        ob_path=$ob &&
+            return
+    return 1
+    }
+
+function resolve_object_spec () {
+    local ob_spec="$1"
+    path_to_object=.
+    test ${ob_spec:0:1} == / &&
+        path_to_object=/
+    for direntry in ${ob_spec//\//\/ }; do # split on slash, leave trailing slash
+        unset prefix
+        for obentry in $prefix${direntry//./ }; do # split on dots
+            test ${obentry: -1:1} == / && { # obentry is a directory, so cd or fail:
+                path_to_object=$path_to_object/$obentry
+                cd $obentry ||
+                    bail failed to cd into directory: $path_to_object
+                continue
+                }
+            if resolve_object $obentry; then # ... case: foo
+                path_to_object=$path_to_object/$obentry
+                cd $obentry ||
+                    bail failed to cd into object: $path_to_object
+            elif resolve_object .$obentry; then # ... case: .foo
+                path_to_object=$path_to_object/.$obentry
+                cd .$obentry ||
+                    bail failed to cd into object: $path_to_object
+            elif test -L $obentry; then # ... case: foo -> /some/path
+                local save_path=$path_to_object
+                resolve_object_spec $(/bin/readlink -f $obentry)
+                test ${path_to_object:0:1} == / ||
+                    path_to_object=$save_path/$path_to_object
+            elif test -L .$obentry; then # ... case: .foo -> /some/path
+                local save_path=$path_to_object
+                resolve_object_spec $(/bin/readlink -f .$obentry)
+                test ${path_to_object:0:1} == / ||
+                    path_to_object=$save_path/$path_to_object
+            elif test $obentry == super; then
+                # prepend super back onto global method:
+                m=super.$m
+                # super should be right before method, but how to check for that?
+            else
+                # object was not resolved, so combine it with next element -- if any
+                prefix=${obentry}.
+            fi
+        done
+    done
     }
 
 function resolve_class_path () { 
@@ -322,35 +366,47 @@ test $method && {
     exit 0
     }
 
+## parse the method and object from the object.method specification:
+TOB_method=${ob##*.}
+ob=${ob%.*}
+TOB_object=$ob
+
 ## initialize path from caller to object starting from current directory:
 TOB_path_to_object=.
 
-####################
-## check for & resolve colon-delimited (contained) objects to the final object:
-####################
+## ####################
+## ## split object spec first on / and then on . to resolve target object:
+## ####################
 
-## replace any '::' sequences temporarily:
-ob=${ob//::/__2COLONS__}
-while [ ${ob/:/} != $ob ]; do
-    oball=$ob
-    ob=${ob%%:*}
-    oblist=${oball#*:}
+resolve_object_spec $ob ||
+    bail failed to resolve object specifier: $ob
 
-    resolve_object $ob ||
-        bail no object resolved from $TOB_path_to_object/$ob
-
-    ob=$oblist
-
-    done
-
-ob=${ob//__2COLONS__/::}
-
-####################
-## object still includes method, so parse method from object.method
-####################
-
-TOB_method=${ob##*.}
-TOB_object=${ob%.*}
+## ####################
+## ## check for & resolve colon-delimited (contained) objects to the final object:
+## ####################
+## 
+## ## replace any '::' sequences temporarily:
+## ob=${ob//::/__2COLONS__}
+## while [ ${ob/:/} != $ob ]; do
+##     oball=$ob
+##     ob=${ob%%:*}
+##     oblist=${oball#*:}
+## 
+##     resolve_object $ob ||
+##         bail no object resolved from $TOB_path_to_object/$ob
+## 
+##     ob=$oblist
+## 
+##     done
+## 
+## ob=${ob//__2COLONS__/::}
+## 
+## ####################
+## ## object still includes method, so parse method from object.method
+## ####################
+## 
+## TOB_method=${ob##*.}
+## TOB_object=${ob%.*}
 
 test $TOB_method == $ob && 
     bail no method parsed from target $ob

@@ -1,0 +1,152 @@
+#!/bin/sh
+
+## in this set of tests I want to check the various options for tob-new
+
+unset SHOW
+test -n "$1" && {
+    test $1 == --show || {
+        echo synopsis: $0 [--show]
+        exit 1
+        }
+    SHOW=1
+    }
+
+test "$SHOW" && {
+    printf "\n"
+    echo test thinobject creation using tob-new and different options:
+    }
+
+d=/tmp/tob-test1
+ob=test-tob-new
+
+## ensure that the test directory (and hence also any objects) do not exist:
+test -d $d &&
+    rm -r $d
+
+mkdir $d &&
+    cd $d ||
+        exit 1
+
+## create visible object with classlink ^, then with classlink .^
+for visibility_option in --no-hide --no-shadow -S; do
+    for attr_vis_option in --no-hide-attr -A; do
+
+        test "$SHOW" &&
+            printf "%s " tob-new $visibility_option $attr_vis_option $ob ...
+
+        tob-new $visibility_option $attr_vis_option $ob
+
+        # now test that object and class-link attributes are as expected:
+
+        test -d $ob &&
+            test -L $ob/^ || {
+                test "$SHOW" &&
+                    echo FAILED
+                exit 1
+                }
+
+        test "$SHOW" &&
+            echo OK
+
+        tob $ob.delete
+
+        test -d $ob && {
+            test "$SHOW" &&
+                echo failed to delete object
+            exit 1
+            }
+    done
+
+    for attr_vis_option in --hide-attr -a; do
+
+        test "$SHOW" &&
+            printf "%s " tob-new $visibility_option $attr_vis_option $ob ...
+
+        tob-new $visibility_option $attr_vis_option $ob
+
+        # now test that object and class-link attributes are as expected:
+
+        test -d $ob &&
+            test -L $ob/.^ || {
+                test "$SHOW" &&
+                    echo FAILED
+                exit 1
+                }
+
+        test "$SHOW" &&
+            echo OK
+
+        tob $ob.delete
+
+        test -d $ob && {
+            test "$SHOW" &&
+                echo failed to delete object
+            exit 1
+            }
+    done
+done
+
+
+## create hidden object with classlink ^, then with classlink .^
+for visibility_option in --hide --shadow -s; do
+    for attr_vis_option in --no-hide-attr -A; do
+
+        test "$SHOW" &&
+            printf "%s " tob-new $visibility_option $attr_vis_option $ob ...
+
+        tob-new $visibility_option $attr_vis_option $ob
+
+        # now test that object and class-link attributes are as expected:
+
+        test -d .$ob &&
+            test -L .$ob/^ || {
+                test "$SHOW" &&
+                    echo FAILED
+                exit 1
+                }
+
+        test "$SHOW" &&
+            echo OK
+
+        tob $ob.delete
+
+        test -d .$ob && {
+            test "$SHOW" &&
+                echo failed to delete object
+            exit 1
+            }
+    done
+
+    for attr_vis_option in --hide-attr -a; do
+
+        test "$SHOW" &&
+            printf "%s " tob-new $visibility_option $attr_vis_option $ob ...
+
+        tob-new $visibility_option $attr_vis_option $ob
+
+        # now test that object and class-link attributes are as expected:
+
+        test -d .$ob &&
+            test -L .$ob/.^ || {
+                test "$SHOW" &&
+                    echo FAILED
+                exit 1
+                }
+
+        test "$SHOW" &&
+            echo OK
+
+        tob $ob.delete
+
+        test -d .$ob && {
+            test "$SHOW" &&
+                echo failed to delete object
+            exit 1
+            }
+    done
+done
+cd - > /dev/null
+
+rm -r $d
+
+
