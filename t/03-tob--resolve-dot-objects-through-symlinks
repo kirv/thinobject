@@ -23,7 +23,7 @@ function create_object () {
     }
 
 # create an object:
-create_object $d1/$ob ^
+create_object $d1/.$ob ^
 tob $d1/$ob.path
 
 # create a local link to the object
