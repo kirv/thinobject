@@ -1,0 +1,75 @@
+#!/bin/sh
+
+d=/tmp/tob-test1
+test -d $d && {
+    echo test directory $d exists, must be manually deleted
+    exit 1
+    }
+mkdir $d &&
+    cd $d ||
+        exit 2
+
+## arrange to delete test directory on any exit:
+trap "rm -r $d" 0 1 2 3 13 15
+
+ob=foo
+class=/usr/local/lib/thinob/Object
+
+function create_object () {
+    local ob=$1
+    local link=$2
+    mkdir $ob
+    ln -s $class $ob/$link
+    }
+
+# create an object:
+create_object $ob ^
+test $(tob $ob.path) == ./foo || exit 1
+rm -r $ob
+
+# create a dotted object:
+create_object .$ob ^
+test $(tob $ob.path) == ./.foo || exit 1
+rm -r .$ob
+
+# create a symlinked object:
+create_object link-$ob ^
+ln -s link-$ob l$ob
+test $(tob l$ob.path) == ./lfoo || exit 1
+
+# rename symlink to object:
+mv l$ob .l$ob
+test $(tob l$ob.path) == ./.lfoo || exit 1
+
+# create an object beneath some directories:
+mkdir -p a/b/c/$ob && 
+    ln -s $class a/b/c/$ob/^
+test $(tob a/b/c/$ob.path) == ./a/b/c/foo || exit 1
+rm -r a
+
+# create a dotted object beneath some directories:
+mkdir -p x/y/z/.$ob && 
+    ln -s $class x/y/z/.$ob/^
+test $(tob x/y/z/$ob.path) == ./x/y/z/.foo || exit 1
+rm -r x
+
+# create an object inside another object
+mkdir -p a/b/p$ob/$ob &&
+    ln -s $class a/b/p$ob/^ &&
+    ln -s $class a/b/p$ob/$ob/.^
+test $(tob a/b/p$ob.$ob.path) == ./a/b/pfoo/foo || exit 1
+rm -r a
+
+# repeat with dot-objects
+mkdir -p a/b/.p$ob/.$ob &&
+    ln -s $class a/b/.p$ob/^ &&
+    ln -s $class a/b/.p$ob/.$ob/.^
+test $(tob a/b/p$ob.$ob.path) == ./a/b/.pfoo/.foo || exit 1
+rm -r a
+
+# create an 'image file' object inside another like object
+mkdir -p a/b/p$ob.jpg/$ob.jpg &&
+    ln -s $class a/b/p$ob.jpg/^ &&
+    ln -s $class a/b/p$ob.jpg/$ob.jpg/.^
+test $(tob a/b/p$ob.jpg.$ob.jpg.path) == ./a/b/pfoo.jpg/foo.jpg || exit 1
+rm -r a

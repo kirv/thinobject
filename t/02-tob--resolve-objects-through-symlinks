@@ -1,0 +1,40 @@
+#!/bin/sh
+
+d1=/tmp/tob-test1
+d2=/tmp/tob-test2
+test -d $d1 -o -d $d2 && {
+    echo test directory $d1 or $d2 exists, so exiting
+    exit 1
+    }
+mkdir $d1 $d2 ||
+    exit 2
+
+## arrange to delete test directories on any exit:
+trap "rm -r $d1 $d2" 0 1 2 3 13 15
+
+ob=foo
+class=/usr/local/lib/thinob/Object
+
+function create_object () {
+    local ob=$1
+    local classlink=$2
+    mkdir -p $d/$ob
+    ln -s $class $d/$ob/$classlink
+    }
+
+# create an object:
+create_object $d1/$ob ^
+tob $d1/$ob.path
+
+# create a local link to the object
+ln -s $ob $d1/l$ob
+tob $d1/l$ob.path
+
+# create an absolute link to the object from another directory
+ln -s $d1/$ob $d2/a$ob
+tob $d2/a$ob.path
+
+# create a relative link to the object from another directory
+ln -s ../../$d1/$ob $d2/r$ob
+tob $d2/r$ob.path
+
