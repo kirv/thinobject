@@ -343,7 +343,7 @@ test -n "$DEBUG" && {
     }
 
 resolve_method_path $TOB_method &&
-    exec $TOB_method_path $TOB_object $args "$@"
+    exec $TOB_method_path $args $@
 
 ## no executable method was resolved, so try some built-ins:
 
