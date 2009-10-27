@@ -1,5 +1,4 @@
 #!/bin/sh
-ob=$1 && shift
 
 prefix=$1
 test -z "$prefix" && prefix=TOB_

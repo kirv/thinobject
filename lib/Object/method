@@ -4,8 +4,6 @@ function usage () {
     printf "SYNOPSIS: ob.method [-v|--verbose|-V|--no-verbose|-h|--help] [method]\n"
     }
 
-ob=$1 && shift
-
 ## if argument is specified, output only that method's full pathname
 
 while test -n "$1"; do

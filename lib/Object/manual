@@ -1,9 +1,5 @@
 #!/bin/sh
 
-object=$1 && shift
-
-test -z "$1" && exit 4
-
 ## set default processing scheme:
 MANUAL_PAGE_SCHEME=--tail-from-pattern
 MANUAL_PAGE_ARG=^NAME
@@ -17,7 +13,7 @@ test ${1:0:1} == "-" && { # handle option ...
             ;;
         --help)
             ## run this method on this method...
-            exec $0 $object $0
+            exec $0 $0
             ;;
         --pod)
             exec pod2text $*
@@ -45,7 +41,7 @@ test ${1:0:1} == "-" && { # handle option ...
 
 method=$1
 test -e "$method" || {
-    echo ERROR Object.manual: method $method not found for $object
+    echo ERROR Object.manual: method $method not found
     exit 1
     }
 
@@ -60,7 +56,7 @@ test -n "$MANUAL_PAGE_SCHEME" && {
     esac
     }
 
-echo ERROR Object.manual: no handler for $object . $method
+echo ERROR Object.manual: no handler for $TOB_object . $method
 exit 3
 
 NAME
