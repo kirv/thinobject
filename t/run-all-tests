@@ -1,0 +1,2 @@
+#!/bin/sh
+run-parts --regex='[0-9]+-tob-.*' --exit-on-error --verbose t

@@ -1,8 +1,10 @@
 #!/bin/bash
 
-# require class handlers & methods to be under this path
-LIB=( ~/lib /usr/local/lib /home/.usr-local/lib /usr/lib )
-ROOT=( thinob tob ThinObject )
+# require class handlers & methods to be under one of these paths:
+libroots=( ~/lib/tob /usr/local/lib/tob /opt/lib/tob /usr/lib/tob /lib/tob )
+
+# the following is for a particular host where /usr/local/ is a symlink...
+libroots=( ${libroots[@]} /home/.usr-local/lib/tob )
 
 function manpage() { # print manpage at end of this script...
     exec /usr/bin/awk '/^NAME$/{ok=1}ok' $0
@@ -104,11 +106,9 @@ test -n "$class" || class=Object
 
 ## check that class can be resolved:
 
-for lib in ${LIB[@]}; do
-    for root in ${ROOT[@]}; do
-        classpath=$lib/$root/$class
-        test -d $classpath && break 2
-    done
+for lib in ${libroots[@]}; do
+    classpath=$lib/$class
+    test -d $classpath && break
 done
 
 test -d $classpath ||

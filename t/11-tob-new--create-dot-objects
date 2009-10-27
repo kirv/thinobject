@@ -31,8 +31,8 @@ mkdir $d &&
 ## arrange to delete test directory on any exit:
 trap "rm -r $d" 0 1 2 3 13 15
 
-## create visible object with classlink ^, then with classlink .^
-for visibility_option in --no-hide --no-shadow -S; do
+## create hidden object with classlink ^, then with classlink .^
+for visibility_option in --hide --shadow -s; do
     for attr_vis_option in --no-hide-attr -A; do
 
         test "$SHOW" &&
@@ -42,16 +42,16 @@ for visibility_option in --no-hide --no-shadow -S; do
 
         # now test that object and class-link attributes are as expected:
 
-        test -d $ob ||
+        test -d .$ob ||
             exit 2
 
-        test -L $ob/^ ||
+        test -L .$ob/^ ||
             exit 3
 
       # tob-del $ob
-        rm -r $ob
+        rm -r .$ob
 
-        test ! -d $ob ||
+        test ! -d .$ob ||
             exit 4
 
     done
@@ -65,16 +65,16 @@ for visibility_option in --no-hide --no-shadow -S; do
 
         # now test that object and class-link attributes are as expected:
 
-        test -d $ob ||
+        test -d .$ob ||
             exit 5
 
-        test -L $ob/.^ ||
+        test -L .$ob/.^ ||
             exit 6
 
       # tob-del $ob
-        rm -r $ob
+        rm -r .$ob
 
-        test ! -d $ob ||
+        test ! -d .$ob ||
             exit 7
 
     done

@@ -7,7 +7,7 @@ test -d $d1 -o -d $d2 && {
     exit 1
     }
 mkdir $d1 $d2 ||
-    exit 2
+    exit 1
 
 ## arrange to delete test directories on any exit:
 trap "rm -r $d1 $d2" 0 1 2 3 13 15
@@ -24,17 +24,20 @@ function create_object () {
 
 # create an object:
 create_object $d1/$ob ^
-tob $d1/$ob.path
+test $(tob $d1/$ob.path) == //tmp/tob-test1/foo ||
+    exit 2
 
 # create a local link to the object
 ln -s $ob $d1/l$ob
-tob $d1/l$ob.path
+test $(tob $d1/l$ob.path) == //tmp/tob-test1/lfoo ||
+    exit 3
 
 # create an absolute link to the object from another directory
 ln -s $d1/$ob $d2/a$ob
-tob $d2/a$ob.path
+test $(tob $d2/a$ob.path) == //tmp/tob-test2/afoo ||
+    exit 4
 
 # create a relative link to the object from another directory
 ln -s ../tob-test1/$ob $d2/r$ob
-tob $d2/r$ob.path
-
+test $(tob $d2/r$ob.path) == //tmp/tob-test2/rfoo ||
+    exit 5
