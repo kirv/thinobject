@@ -1,0 +1,43 @@
+#!/bin/sh
+
+d=/tmp/tob-test
+test -d $d &&
+    exit 1
+
+mkdir $d ||
+    exit 2
+
+## arrange to delete test directories on any exit:
+trap "rm -r $d" 0 1 2 3 13 15
+
+lib=/usr/local/lib/tob-bad
+
+test -d "$lib" && {
+    echo thinobject library $lib should not exist for this test...
+    exit 1
+    }
+
+class=$lib/Object
+
+ob=foo
+
+mkdir $d/$ob
+ln -s $class $d/$ob/^
+
+# we should get a failure, so exit with 42 if we don't:
+msg=$(tob $d/$ob.type 2>&1) &&
+    exit 42
+
+exit_code=$?
+
+test $exit_code == 1 ||
+    exit 43
+
+# there should be an error message ...
+test -n "$msg" ||
+    exit 44
+
+# error message should have the word 'fail' in it ...
+test "${msg/fail/}" != "$msg" ||
+    exit 45
+

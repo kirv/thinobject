@@ -37,9 +37,21 @@ function TOB_error () {
 
 function resolve_object () {  # set ob_path variable or return error 
     local ob=$1
-    test -d $ob && ( test -L "$ob/^" || test -L "$ob/.^" ) &&
-        ob_path=$ob &&
-            return
+  # test -d $ob && ( test -L "$ob/^" || test -L "$ob/.^" ) &&
+  #     ob_path=$ob &&
+  #         return
+
+    test -d $ob ||
+        return 1
+ 
+    ob_path=$ob
+
+    test -L $ob/.^ -a -d $ob/.^/ &&
+        return
+
+    test -L $ob/^ -a -d $ob/^/ &&
+        return
+
     return 1
     }
 
@@ -152,6 +164,8 @@ function resolve_method_search_path () {
             bail non-method class cannot follow method class in search path
         attr_index=$(($attr_index + 1))
     done
+    test -n "$search_paths" ||
+        return 1
     }
 
 ## the next function is for internal use, the following on is for export:
@@ -301,7 +315,7 @@ resolve_attribute_search_path ||
 declare -a search_paths
 declare -a class_names
 resolve_method_search_path ||
-    bail failure in resolve_method_search_path function
+    bail failed to resolve method search path
 
 ## export thinobject variables
 export TOB_object

@@ -13,7 +13,7 @@ mkdir $d1 $d2 ||
 trap "rm -r $d1 $d2" 0 1 2 3 13 15
 
 ob=foo
-class=/usr/local/lib/thinob/Object
+class=/usr/local/lib/tob/Object
 
 function create_object () {
     local ob=$1
