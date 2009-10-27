@@ -45,7 +45,6 @@ function resolve_object () {  # set ob_path variable or return error
 
 function resolve_and_chdir_into_object () {
     local ob_spec="$1"
-    echo OBSPEC: $ob_spec
     path_to_object=. # relative path
     test ${ob_spec:0:1} == / && {
         path_to_object="" # absolute path
@@ -55,15 +54,12 @@ function resolve_and_chdir_into_object () {
         unset prefix
         test ${ob_spec:0:1} == . && # special case: dir or ob begins with dot
             prefix=.
-        printf "   DIRENTRY: %s\n" $direntry
         for obentry in ${direntry//./ }; do # split on dots
             obentry=$prefix$obentry
-            printf "       OBENTRY: %s\n" $obentry
             if test ${obentry: -1:1} == /; then  # ... obentry is a directory
                 path_to_object=$path_to_object/${obentry%/} # ... omit slash
                 cd $obentry ||
                     bail failed to cd into directory: $path_to_object
-                printf "\t\t%s\t%s\n" $(pwd) $path_to_object
             elif resolve_object $obentry; then # ... case: foo
                 path_to_object=$path_to_object/$obentry
                 cd $obentry ||
@@ -306,9 +302,6 @@ declare -a search_paths
 declare -a class_names
 resolve_method_search_path ||
     bail failure in resolve_method_search_path function
-
-# printf "\t%s\n" "${search_paths[*]}"
-# printf "\t%s\n" "${class_names[*]}"
 
 ## export thinobject variables
 export TOB_object
