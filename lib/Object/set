@@ -1,5 +1,4 @@
 #!/bin/sh
-ob=$1 && shift
 
 prop=$1 && shift
 
@@ -22,7 +21,7 @@ test ${prop:0:1} == - && {
     fi
     }
 
-test -e $TOB_object_path/$prop || {
+test -e $prop || {
     test -n "$OK2CREATE" || {
         echo ERROR: no property $prop
         exit 1
@@ -30,9 +29,9 @@ test -e $TOB_object_path/$prop || {
     }
 
 test -n "$1" &&
-    exec /bin/echo $* > $TOB_object_path/$prop
+    exec /bin/echo $* > $prop
 
-exec /bin/cat > $TOB_object_path/$prop
+exec /bin/cat > $prop
 
 
 NAME

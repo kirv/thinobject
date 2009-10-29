@@ -1,8 +1,5 @@
 #!/bin/bash
 
-ob=$1 && shift
-cd $TOB_object_path || exit 19
-
 self=.
 tob=/usr/local/bin/tob
 
@@ -44,7 +41,7 @@ echo '<title>'
 if [ -e @html-title ]; then
     cat @html-title
 else
-    echo $ob
+    echo $TOB_object
 fi
 
 echo '</title>'

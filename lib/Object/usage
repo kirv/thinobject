@@ -1,5 +1,4 @@
 #!/bin/sh
-object=$1 && shift
 
 test ${1:0:1} == "-" && { # handle option ...
     opt=$1 && shift

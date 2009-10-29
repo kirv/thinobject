@@ -1,6 +1,4 @@
 #!/bin/bash
-ob=$1 && shift
-cd $TOB_object_path
 
 ## declare category or type arrays:
 declare -a list dict attr file dir obname obtype unknown

@@ -8,16 +8,16 @@ libroots=( ~/lib/tob /usr/local/lib/tob /opt/lib/tob /usr/lib/tob /lib/tob )
 # the following is for a particular host where /usr/local/ is a symlink...
 libroots=( ${libroots[@]} /home/.usr-local/lib/tob )
 
-function manpage() { # print manpage at end of this script...
+manpage() { # print manpage at end of this script...
     exec /usr/bin/awk '/^NAME$/{ok=1}ok' $0
     }
 
-function bail () {
+bail () {
     test -z "$QUIET" && echo $* >&2
     exit 1
     }
 
-function TOB_error () {
+TOB_error () {
     unset EXIT_VALUE
     while [ "${1:0:1}" == "-" ]; do # handle option ...
         opt=$1 && shift
@@ -35,67 +35,77 @@ function TOB_error () {
     test "$EXIT_VALUE" && exit $EXIT_VALUE
     }   
 
-function resolve_object () {  # set ob_path variable or return error 
-    local ob=$1
-  # test -d $ob && ( test -L "$ob/^" || test -L "$ob/.^" ) &&
-  #     ob_path=$ob &&
-  #         return
-
-    test -d $ob ||
-        return 1
- 
-    ob_path=$ob
-
-    test -L $ob/.^ -a -d $ob/.^/ &&
-        return
-
-    test -L $ob/^ -a -d $ob/^/ &&
-        return
-
-    return 1
+resolve_object () {  # set classlink to '^', '.^', or ''; or return 1
+    test -d $1 ||
+        return 1 # not a directory
+    test -L $1/.^ -a -d $1/.^/ &&
+        classlink='.^'
+    test -L $1/^ -a -d $1/^/ &&
+        classlink='^'
+    # just a directory, so return true but with classlink not set
     }
 
-function resolve_and_chdir_into_object () {
+resolve_and_chdir_into_object () {
     local ob_spec="$1"
-    path_to_object=. # relative path
-    test ${ob_spec:0:1} == / && {
-        path_to_object="" # absolute path
-      # ob_spec=${ob_spec#/}
-        }
-    for direntry in ${ob_spec//\//\/ }; do # split on slash, but leave slash
+    TOB_path_to_object=. # assume relative path
+    test ${ob_spec:0:1} == / &&
+        TOB_path_to_object="" # no, it's an absolute path
+    unset last_classlink # global variable, set from resolve_object() classlink
+    for direntry in ${ob_spec//\//\/ }; do # split on, and leave, slashes
         unset prefix
         test ${ob_spec:0:1} == . && # special case: dir or ob begins with dot
             prefix=.
         for obentry in ${direntry//./ }; do # split on dots
             obentry=$prefix$obentry
+            echo TRY TO RESOLVE $obentry
             if test ${obentry: -1:1} == /; then  # ... obentry is a directory
-                path_to_object=$path_to_object/${obentry%/} # ... omit slash
+                TOB_path_to_object=$TOB_path_to_object/${obentry%/} # ... omit slash
                 cd $obentry ||
-                    bail failed to cd into directory: $path_to_object
+                    return 1
+                unset last_classlink
             elif resolve_object $obentry; then # ... case: foo
-                path_to_object=$path_to_object/$obentry
+                TOB_path_to_object=$TOB_path_to_object/$obentry
                 cd $obentry ||
-                    bail failed to cd into object: $path_to_object
+                    return 1
+                last_classlink=classlink
             elif resolve_object .$obentry; then # ... case: .foo
-                path_to_object=$path_to_object/.$obentry
+                TOB_path_to_object=$TOB_path_to_object/.$obentry
                 cd .$obentry ||
-                    bail failed to cd into object: $path_to_object
+                    return 1
+                last_classlink=classlink
             elif test -L $obentry; then # ... case: foo -> /some/path
-                local save_path=$path_to_object
+                local save_path=$TOB_path_to_object
                 resolve_and_chdir_into_object $(/bin/readlink -f $obentry)
-                test ${path_to_object:0:1} == / ||
-                    path_to_object=$save_path/$path_to_object
+                test ${TOB_path_to_object:0:1} == / ||
+                    TOB_path_to_object=$save_path/$TOB_path_to_object
             elif test -L .$obentry; then # ... case: .foo -> /some/path
-                local save_path=$path_to_object
+                local save_path=$TOB_path_to_object
                 resolve_and_chdir_into_object $(/bin/readlink -f .$obentry)
-                test ${path_to_object:0:1} == / ||
-                    path_to_object=$save_path/$path_to_object
+                test ${TOB_path_to_object:0:1} == / ||
+                    TOB_path_to_object=$save_path/$TOB_path_to_object
+            elif test -d $obentry; then
+                TOB_path_to_object=$TOB_path_to_object/$obentry
+                unset last_classlink
+                cd $obentry ||
+                    return 1
+            elif test -d .$obentry; then
+                TOB_path_to_object=$TOB_path_to_object/.$obentry
+                unset last_classlink
+                cd .$obentry ||
+                    return 1
+            elif test -f $obentry; then
+                unset last_classlink
+                return 2
+            elif test -f .$obentry; then
+                unset last_classlink
+                return 2
             elif test $obentry == super; then
-                # how to (or should we) check that super comes only at the end?
+                # should we check that super comes only at the end?
                 super=$(($super + 1))
             else
                 # combine this obentry with next one, separated by a dot
                 prefix=${obentry}.
+                unset last_classlink
                 continue
             fi
             unset prefix
@@ -103,7 +113,7 @@ function resolve_and_chdir_into_object () {
     done
     }
 
-function resolve_class_path () { 
+resolve_class_path () { 
     if test -L ./.^; then
         TOB_class_path=./.^
     elif test -L ./^; then
@@ -113,7 +123,7 @@ function resolve_class_path () {
     fi
     }
 
-function resolve_attribute_search_path () {
+resolve_attribute_search_path () {
     # search starts with the object path, followed by its class path:
     attr_paths=(. $TOB_class_path)
     # declare index to last and next entries in path array
@@ -132,7 +142,7 @@ function resolve_attribute_search_path () {
     done
     }
 
-function check_and_parse_class () { # true if class begins with allowed root
+check_and_parse_class () { # true if class begins with allowed root
     local class=$1
     test -L $class &&
          class=$(/bin/readlink -f $class)
@@ -145,7 +155,7 @@ function check_and_parse_class () { # true if class begins with allowed root
     return 1
     }
 
-function resolve_method_search_path () {
+resolve_method_search_path () {
     # method search starts with object class, 2nd entry in attr_paths array:
     local attr_index=1
     test -n "${attr_paths[$attr_index]}" ||
@@ -277,15 +287,27 @@ super=0
 ## the next method will change directories, so store caller's location:
 TOB_caller_path=$PWD
 
-resolve_and_chdir_into_object $TOB_object ||
+resolve_and_chdir_into_object $TOB_object
+return_code=$?
+if test $return_code == 1; then
     bail failed to resolve object: $TOB_object
+elif test $return_code == 2; then
+    bail $TOB_object resolved to a file ... how to handle it...
+fi
 
-TOB_caller_path_to_object=$path_to_object
+
+# echo called resolve_and_chdir_into_object $TOB_object
+# echo current directory is now: $PWD
+# if test -n "$last_classlink"; then
+#     echo object is a thinobject
+# else
+#     echo object is a directory
+# fi
 
 test -n "$DEBUG" && {
     echo DEBUG: TOB_object=$TOB_object
     echo DEBUG: TOB_method=$TOB_method
-    echo DEBUG: TOB_caller_path_to_object=$TOB_caller_path_to_object
+    echo DEBUG: TOB_path_to_object=$TOB_path_to_object
     echo DEBUG: TOB_caller_path=$TOB_caller_path
     }
 
@@ -322,7 +344,7 @@ export TOB_object
 export TOB_method
 export TOB_class_path
 export TOB_caller_path
-export TOB_caller_path_to_object
+export TOB_path_to_object
 
 ## export thinobject utility functions
 export -f TOB_error
@@ -348,9 +370,9 @@ resolve_method_path $TOB_method &&
 ## no executable method was resolved, so try some built-ins:
 
 test $TOB_method == path && {
-    test -z "$*" && echo $TOB_caller_path_to_object
+    test -z "$*" && echo $TOB_path_to_object
     for arg in $*; do
-        echo $TOB_caller_path_to_object/$arg
+        echo $TOB_path_to_object/$arg
     done
     exit
     }
@@ -359,7 +381,7 @@ test "$TOB_method" == "type" &&
     echo $TOB_type &&
         exit
 
-## no ob.method found, so check for properties @method or %method
+## no ob.method found, so check for @method or %method properties
 
 unset property default_handler
 for path in ${attr_paths[@]}; do
