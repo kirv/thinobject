@@ -1,12 +1,87 @@
 #!/bin/sh
 
-object=$1 && shift
 method=$1 && shift
 
-test "$method" == "_default-example" && {
-    echo this is an example of a default method handler
-    echo this code is at $0
-    exit 0
+## no ob.method found, so check for @method or %method properties
+
+unset property default_handler
+for path in ${TOB_attribute_search_paths//:/ }; do
+    test -e $path/\@$method && { # found @method
+        property=$path/@$method
+        default_handler=_default-list
+        break
+        }
+    test -e $path/.\@$method && { # found .@method
+        property=$path/.@$method
+        default_handler=_default-list
+        break
+        }
+    test -e $path/\%$method && { # found %method
+        property=$path/%$method
+        default_handler=_default-dict
+        break
+        }
+    test -e $path/.\%$method && { # found .%method
+        property=$path/.%$method
+        default_handler=_default-dict
+        break
+        }
+    test -e $path/\%\@$method && { # found %@method
+        property=$path/%@$method
+        default_handler=_default-dict-list
+        break
+        }
+    test -e $path/.\%\@$method && { # found .%@method
+        property=$path/.%@$method
+        default_handler=_default-dict-list
+        break
+        }
+done
+
+test -n "$property" && {
+    # search for _default-list or _default-dict method:
+    for path in ${TOB_method_search_paths//:/ }; do
+        test -e $path/$default_handler && {
+          # echo TODO: /bin/echo exec $path/$default_handler $property $@
+            exec $path/$default_handler $property $@ # found & dispatched
+            }
+    done
+
+    ## ASSERT: property was found, but no default handler, so handle inline:
+
+    test $default_handler == _default-list && { # called ob.foo, found @foo...
+        lines="$1"
+        test -z "$lines" &&
+            exec /bin/cat $property
+        exec /usr/bin/perl -e "\$[=1; @r=<>; print @r[$lines]" $property
+        # leaving unreachable stub as documentation...
+        exec STUB echo $property list accessor lines $lines
+        }
+    
+    test $default_handler == _default-dict && { # called ob.foo, found %foo...
+        keys="$@"
+        test -z "$keys" &&
+            exec /bin/cat $property
+        keys=${keys// /|}
+        exec /usr/bin/awk -v IGNORECASE=1 "\$1~/$keys/" $property
+        exec STUB echo $property dict accessor with keys $keys ${keys// /|}
+        }
+
+    test $default_handler == _default-dict-list && { # ... found %@foo...
+        keys="$@"
+        test -z "$keys" &&
+            exec /bin/cat $property
+        keys=${keys// /|}
+        exec /usr/bin/awk -v IGNORECASE=1 -v keys="$keys" '
+            NR==1{
+                while(++i<=NF){
+                    sub($i,"^" i+1 "$",keys)
+                    k[i+1] = $i
+                    }
+                }
+            NR ~ keys {print k[NR]" = "$0}' $property
+        exec STUB echo $property dict-list accessor with keys $keys ${keys// /|}
+        }
     }
 
 echo $object.$method not found
