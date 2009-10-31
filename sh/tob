@@ -46,6 +46,9 @@ resolve_object () {  # set classlink to '^', '.^', or ''; or return 1
     }
 
 resolve_and_chdir_into_object () {
+    # returns 0 and with last_classlink set if object, not set if directory
+    # returns 1 on any error
+    # returns 2 if target is a file
     local ob_spec="$1"
     TOB_path_to_object=. # assume relative path
     test ${ob_spec:0:1} == / &&
@@ -67,12 +70,12 @@ resolve_and_chdir_into_object () {
                 TOB_path_to_object=$TOB_path_to_object/$obentry
                 cd $obentry ||
                     return 1
-                last_classlink=classlink
+                last_classlink=$classlink
             elif resolve_object .$obentry; then # ... case: .foo
                 TOB_path_to_object=$TOB_path_to_object/.$obentry
                 cd .$obentry ||
                     return 1
-                last_classlink=classlink
+                last_classlink=$classlink
             elif test -L $obentry; then # ... case: foo -> /some/path
                 local save_path=$TOB_path_to_object
                 resolve_and_chdir_into_object $(/bin/readlink -f $obentry)
@@ -95,9 +98,11 @@ resolve_and_chdir_into_object () {
                     return 1
             elif test -f $obentry; then
                 unset last_classlink
+                TOB_file_object=$obentry
                 return 2
             elif test -f .$obentry; then
                 unset last_classlink
+                TOB_file_object=$obentry
                 return 2
             elif test $obentry == super; then
                 # should we check that super comes only at the end?
@@ -111,16 +116,6 @@ resolve_and_chdir_into_object () {
             unset prefix
         done
     done
-    }
-
-resolve_class_path () { 
-    if test -L ./.^; then
-        TOB_class_path=./.^
-    elif test -L ./^; then
-        TOB_class_path=./^
-    else
-        TOB_class_path=$TOB_DEFAULT_CLASS_FOR_DIRECTORY 
-    fi
     }
 
 resolve_attribute_search_path () {
@@ -289,34 +284,31 @@ TOB_caller_path=$PWD
 
 resolve_and_chdir_into_object $TOB_object
 return_code=$?
+
 if test $return_code == 1; then
     bail failed to resolve object: $TOB_object
+
 elif test $return_code == 2; then
-    bail $TOB_object resolved to a file ... how to handle it...
+    TOB_class_path=$TOB_DEFAULT_CLASS_FOR_FILE
+    echo pwd is $PWD
+    echo query object was $TOB_object
+    echo file object is $TOB_file_object
+    bail $TOB_object resolved to a file ... how to handle it?
+
+elif test -n "$last_classlink"; then
+    echo object $TOB_object is a thinobject
+    echo last_classlink is $last_classlink
+    TOB_class_path=./$classlink
+else
+    echo object $TOB_object is a directory
+    TOB_class_path=$TOB_DEFAULT_CLASS_FOR_DIRECTORY
 fi
-
-
-# echo called resolve_and_chdir_into_object $TOB_object
-# echo current directory is now: $PWD
-# if test -n "$last_classlink"; then
-#     echo object is a thinobject
-# else
-#     echo object is a directory
-# fi
 
 test -n "$DEBUG" && {
     echo DEBUG: TOB_object=$TOB_object
     echo DEBUG: TOB_method=$TOB_method
     echo DEBUG: TOB_path_to_object=$TOB_path_to_object
     echo DEBUG: TOB_caller_path=$TOB_caller_path
-    }
-
-resolve_class_path ||
-    bail $TOB_object is not a directory or file...
-
-test -n $TOB_class_path || {  ## check if object is a file:
-    test -f $TOB_object && 
-        TOB_class_path=$TOB_DEFAULT_CLASS_FOR_FILE
     }
 
 test -n $TOB_class_path || 
