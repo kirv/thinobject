@@ -5,7 +5,7 @@ if test -n "$TOB_LIBROOT"; then
     libroots=${TOB_LIBROOT//:/ } 
 else
     libroots=( ~/lib/tob /usr/local/lib/tob /opt/lib/tob /usr/lib/tob /lib/tob )
-    }
+fi
 
 test -n "$TOB_DIRECTORY_CLASS" || 
     TOB_DIRECTORY_CLASS=/usr/local/lib/tob/Directory
@@ -17,7 +17,7 @@ check_classroot () {
     # return true if class begins with allowed root
     # return false if class does not exist or does not begin at TOB_LIBROOT
     # variable classname is set on return if ^ or .^ is found
-    local class=$(/bin/readlink -fe $class) ||
+    local class=$(/bin/readlink -fe $1) ||
         return 1
     for path in ${libroots[@]}; do
         test ${class#$path/} == $class || {
@@ -58,47 +58,47 @@ resolve_and_chdir_into_object () {
             prefix=.
         for obentry in ${direntry//./ }; do # split on dots
             obentry=$prefix$obentry
-            echo TRY TO RESOLVE $obentry
-            if test ${obentry: -1:1} == /; then  # ... obentry is a directory
-                TOB_path_to_object=$TOB_path_to_object/${obentry%/} # ... omit slash
+          # echo TRY TO RESOLVE $obentry
+            if test ${obentry: -1:1} == /; then  # foo/explicitly
+                TOB_path_to_object=$TOB_path_to_object/${obentry%/}
                 cd $obentry ||
                     return 1
                 unset last_classlink
-            elif resolve_object $obentry; then # ... case: foo
+            elif resolve_object $obentry; then # foo/^ is found
                 TOB_path_to_object=$TOB_path_to_object/$obentry
                 cd $obentry ||
                     return 1
                 last_classlink=$classlink
-            elif resolve_object .$obentry; then # ... case: .foo
+            elif resolve_object .$obentry; then # .foo/^ is found
                 TOB_path_to_object=$TOB_path_to_object/.$obentry
                 cd .$obentry ||
                     return 1
                 last_classlink=$classlink
-            elif test -L $obentry; then # ... case: foo -> /some/path
+            elif test -L $obentry; then # foo -> resolves bar, .bar/^ exists
                 local save_path=$TOB_path_to_object
                 resolve_and_chdir_into_object $(/bin/readlink -f $obentry)
                 test ${TOB_path_to_object:0:1} == / ||
                     TOB_path_to_object=$save_path/$TOB_path_to_object
-            elif test -L .$obentry; then # ... case: .foo -> /some/path
+            elif test -L .$obentry; then # .foo resolves bar, .bar/^ exists
                 local save_path=$TOB_path_to_object
                 resolve_and_chdir_into_object $(/bin/readlink -f .$obentry)
                 test ${TOB_path_to_object:0:1} == / ||
                     TOB_path_to_object=$save_path/$TOB_path_to_object
-            elif test -d $obentry; then
+            elif test -d $obentry; then  # foo/
                 TOB_path_to_object=$TOB_path_to_object/$obentry
                 unset last_classlink
                 cd $obentry ||
                     return 1
-            elif test -d .$obentry; then
+            elif test -d .$obentry; then # .foo/
                 TOB_path_to_object=$TOB_path_to_object/.$obentry
                 unset last_classlink
                 cd .$obentry ||
                     return 1
-            elif test -f $obentry; then
+            elif test -f $obentry; then # foo is a file
                 unset last_classlink
                 TOB_file_object=$obentry
                 return 2
-            elif test -f .$obentry; then
+            elif test -f .$obentry; then # .foo is a file
                 unset last_classlink
                 TOB_file_object=.$obentry
                 return 2
