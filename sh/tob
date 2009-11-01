@@ -13,11 +13,6 @@ test -n "$TOB_DIRECTORY_CLASS" ||
 test -n "$TOB_FILE_CLASS" || 
     TOB_FILE_CLASS=/usr/local/lib/tob/File
 
-bail () {
-    test -z "$QUIET" && echo $* >&2
-    exit 1
-    }
-
 check_classroot () {
     # return true if class begins with allowed root
     # return false if class does not exist or does not begin at TOB_LIBROOT
@@ -140,11 +135,16 @@ resolve_attribute_search_path () {
     done
     }
 
+error () {
+    test -z "$QUIET" && echo $* >&2
+    exit 1
+    }
+
 resolve_method_search_path () {
     # method search starts with object class, 2nd entry in attr_paths array:
     local attr_index=1
     test -n "${attr_paths[$attr_index]}" ||
-        bail attr_paths array not initialized
+        error attr_paths array not initialized
     local index=0
     while test -n "${attr_paths[$attr_index]}"; do
         check_classroot ${attr_paths[$attr_index]} && {
@@ -156,7 +156,7 @@ resolve_method_search_path () {
             }
         ## the class did not start with one of libroots list
         test $index == 0 || 
-            bail non-method class cannot follow method class in search path
+            error non-method class cannot follow method class in search path
         attr_index=$(($attr_index + 1))
     done
     test -n "$search_paths" ||
@@ -213,7 +213,7 @@ while [ -n "$arg" -a "${arg:0:1}" == "-" ]; do # handle option ...
 
     elif [ "$arg" == "-m" -o "$arg" == "--method" ]; then
         method=$1 && shift
-        test $method || bail "no method argument"
+        test $method || error "no method argument"
 
     elif [ "$arg" == "-a" -o "$arg" == "--arg" ]; then
         args="$args $1" && shift
@@ -230,12 +230,12 @@ while [ -n "$arg" -a "${arg:0:1}" == "-" ]; do # handle option ...
         exec /usr/bin/awk '/^NAME$/{ok=1}ok' $0
     
     else
-        bail "unsupported option $arg"
+        error "unsupported option $arg"
     fi
     arg=$1 && shift # try again...
 done
 
-test -z "$arg" && bail "no object specified"
+test -z "$arg" && error "no object specified"
 
 test $method && { ## dispatch method from -m or --method option on objects:
     while [ $arg ]; do
@@ -245,7 +245,7 @@ test $method && { ## dispatch method from -m or --method option on objects:
             test $VERBOSE &&
                 echo $0 $opt $arg.$method $args
             $0 $opt $ob.$method $args ||
-                bail "failed in $arg.$method"
+                error "failed in $arg.$method"
         fi
         arg=$1 && shift
     done
@@ -253,17 +253,17 @@ test $method && { ## dispatch method from -m or --method option on objects:
     }
 
 test ${arg/.//} == $arg && ## could/should provide a default method?
-    bail no dot in object.method specifier $arg
+    error no dot in object.method specifier $arg
 
 ## parse the method and object from the object.method specification:
 TOB_method=${arg##*.}
 TOB_object=${arg%.*}
 
 test -n "$TOB_object" ||
-    bail "no object parsed from $arg with method $TOB_method"
+    error "no object parsed from $arg with method $TOB_method"
 
 test -n "$TOB_method" ||
-    bail "no method parsed from $arg, object $TOB_object"
+    error "no method parsed from $arg, object $TOB_object"
 
 ## initialize method superizer:
 super=0
@@ -275,14 +275,14 @@ resolve_and_chdir_into_object $TOB_object
 return_code=$?
 
 if test $return_code == 1; then
-    bail failed to resolve object: $TOB_object
+    error failed to resolve object: $TOB_object
 
 elif test $return_code == 2; then
     TOB_class_path=$TOB_FILE_CLASS
     echo pwd is $PWD
     echo query object was $TOB_object
     echo file object is $TOB_file_object
-    bail $TOB_object resolved to a file ... how to handle it?
+    error $TOB_object resolved to a file ... how to handle it?
 
 elif test -n "$last_classlink"; then
     echo object $TOB_object is a thinobject
@@ -301,7 +301,7 @@ test -n "$DEBUG" && {
     }
 
 test -n $TOB_class_path || 
-    bail no object path resolved from $TOB_object
+    error no object path resolved from $TOB_object
 
 test -n "$DEBUG" && {
     echo DEBUG: TOB_path_to_object=$TOB_path_to_object
@@ -313,12 +313,12 @@ test -n "$DEBUG" &&
     
 declare -a attr_paths
 resolve_attribute_search_path ||
-    bail failure in resolve_attribute_search_path function
+    error failure in resolve_attribute_search_path function
 
 declare -a search_paths
 declare -a class_names
 resolve_method_search_path ||
-    bail failed to resolve method search path
+    error failed to resolve method search path
 
 ## export thinobject variables
 export TOB_object
@@ -372,11 +372,11 @@ for path in ${search_paths[@]}; do
             }
         ## ASSERT: _default is not executable
         ## maybe it can contain a recipe to be executed?
-        bail 'non-executable _default "method" found'
+        error 'non-executable _default "method" found'
         }
 done
 
-bail "no method $TOB_method found"
+error "no method $TOB_method found"
 
 ## manpage follows
 NAME
