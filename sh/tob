@@ -17,18 +17,22 @@ check_classroot () {
     # return true if class begins with allowed root
     # return false if class does not exist or does not begin at TOB_LIBROOT
     # variable classname is set on return if ^ or .^ is found
+    printf "\t\t\tcheck_classroot $1 ...\n"
+  # test -n "$NOT_STRICT" && return 0
     local class=$(/bin/readlink -fe $1) ||
         return 1
+    printf "\t\t\t\t... $class\n"
     for path in ${libroots[@]}; do
         test ${class#$path/} == $class || {
             classname=${class#$path/}
-            return
+            return 0
             }
     done
     return 1
     }
 
 resolve_object () {  # set classlink to '^', '.^', or ''; or return 1
+    printf "\t\tresolve_object $1 ...\n"
     test -d $1 ||
         return 1 # not a directory
     unset classlink 
@@ -37,10 +41,11 @@ resolve_object () {  # set classlink to '^', '.^', or ''; or return 1
     elif test -L $1/^ -a -d $1/^/; then
         classlink='^'
     fi
-    test -n "$classlink" &&
-        test -z "$NOT_STRICT" &&
-            check_classroot $classlink ||
-                return 1
+    test -n "$classlink" -a -z "$NOT_STRICT" && {
+        check_classroot $1/$classlink ||
+            return 1
+        }
+    return 0
     }
 
 resolve_and_chdir_into_object () {
@@ -58,55 +63,66 @@ resolve_and_chdir_into_object () {
             prefix=.
         for obentry in ${direntry//./ }; do # split on dots
             obentry=$prefix$obentry
-          # echo TRY TO RESOLVE $obentry
-            if test ${obentry: -1:1} == /; then  # foo/explicitly
+            echo TRY TO RESOLVE $obentry
+            if test ${obentry: -1:1} == /; then  # foo/ explicitly
+                printf "\tfoo/ explicitly\n"
                 TOB_path_to_object=$TOB_path_to_object/${obentry%/}
                 cd $obentry ||
                     return 1
                 unset last_classlink
-            elif resolve_object $obentry; then # foo/^ is found
+            elif resolve_object $obentry; then # foo/^
+                printf "\tfoo/^\n"
                 TOB_path_to_object=$TOB_path_to_object/$obentry
                 cd $obentry ||
                     return 1
                 last_classlink=$classlink
-            elif resolve_object .$obentry; then # .foo/^ is found
+            elif test -z "$NO_HIDDEN" && resolve_object .$obentry; then # .foo/^
+                printf "\t.foo/^\n"
                 TOB_path_to_object=$TOB_path_to_object/.$obentry
                 cd .$obentry ||
                     return 1
                 last_classlink=$classlink
-            elif test -L $obentry; then # foo -> resolves bar, .bar/^ exists
+            elif test -z "$NO_HIDDEN" && test -L $obentry; then # foo->bar->.bar/^
+                printf "\tfoo -> bar -> .bar/^\n"
                 local save_path=$TOB_path_to_object
                 resolve_and_chdir_into_object $(/bin/readlink -f $obentry)
                 test ${TOB_path_to_object:0:1} == / ||
                     TOB_path_to_object=$save_path/$TOB_path_to_object
-            elif test -L .$obentry; then # .foo resolves bar, .bar/^ exists
+            elif test -z "$NO_HIDDEN" && test -L .$obentry; then # .foo->bar->.bar/^
+                printf "\t.foo -> bar -> .bar/^\n"
                 local save_path=$TOB_path_to_object
                 resolve_and_chdir_into_object $(/bin/readlink -f .$obentry)
                 test ${TOB_path_to_object:0:1} == / ||
                     TOB_path_to_object=$save_path/$TOB_path_to_object
             elif test -d $obentry; then  # foo/
+                printf "\tfoo/\n"
                 TOB_path_to_object=$TOB_path_to_object/$obentry
                 unset last_classlink
                 cd $obentry ||
                     return 1
-            elif test -d .$obentry; then # .foo/
+            elif test -z "$NO_HIDDEN" -a -d .$obentry; then # .foo/
+                printf "\t.foo/\n"
                 TOB_path_to_object=$TOB_path_to_object/.$obentry
                 unset last_classlink
                 cd .$obentry ||
                     return 1
-            elif test -f $obentry; then # foo is a file
+            elif test -f $obentry; then # foo
+                printf "\tfoo\n"
                 unset last_classlink
                 TOB_file_object=$obentry
                 return 2
-            elif test -f .$obentry; then # .foo is a file
+            elif test -z "$NO_HIDDEN" -a -f .$obentry; then # .foo
+                printf "\t.foo\n"
                 unset last_classlink
                 TOB_file_object=.$obentry
                 return 2
-            elif test $obentry == super; then
+            elif test $obentry == super; then # method resolution operator
+                printf "\tsuper\n"
                 # should we check that super comes only at the end?
                 super=$(($super + 1))
             else
                 # combine this obentry with next one, separated by a dot
+                printf "\tprefix=${obentry}.\n"
                 prefix=${obentry}.
                 unset last_classlink
                 continue
@@ -217,6 +233,10 @@ while [ -n "$arg" -a "${arg:0:1}" == "-" ]; do # handle option ...
 
     elif [ "$arg" == "-a" -o "$arg" == "--arg" ]; then
         args="$args $1" && shift
+
+    elif [ "$arg" == "-H" -o "$arg" == "--no-hidden" ]; then
+        NO_HIDDEN=1
+        opt="$opt -H"
 
     elif [ "$arg" == "-S" -o "$arg" == "--not-strict" ]; then
         NOT_STRICT=1
