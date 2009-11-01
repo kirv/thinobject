@@ -1,48 +1,51 @@
 #!/bin/bash
 
-TOB_DEFAULT_CLASS_FOR_DIRECTORY=/usr/local/lib/thinob/Filesystem/Directory
-
 # require class handlers & methods to be under one of these paths:
-libroots=( ~/lib/tob /usr/local/lib/tob /opt/lib/tob /usr/lib/tob /lib/tob )
-
-# the following is for a particular host where /usr/local/ is a symlink...
-libroots=( ${libroots[@]} /home/.usr-local/lib/tob )
-
-manpage() { # print manpage at end of this script...
-    exec /usr/bin/awk '/^NAME$/{ok=1}ok' $0
+if test -n "$TOB_LIBROOT"; then
+    libroots=${TOB_LIBROOT//:/ } 
+else
+    libroots=( ~/lib/tob /usr/local/lib/tob /opt/lib/tob /usr/lib/tob /lib/tob )
     }
+
+test -n "$TOB_DIRECTORY_CLASS" || 
+    TOB_DIRECTORY_CLASS=/usr/local/lib/tob/Directory
+
+test -n "$TOB_FILE_CLASS" || 
+    TOB_FILE_CLASS=/usr/local/lib/tob/File
 
 bail () {
     test -z "$QUIET" && echo $* >&2
     exit 1
     }
 
-TOB_error () {
-    unset EXIT_VALUE
-    while [ "${1:0:1}" == "-" ]; do # handle option ...
-        opt=$1 && shift
-        case $opt in
-        --exit|-x) EXIT_VALUE=$1 && shift ;;
-        -v) VERBOSE=1 ;;
-        -V) unset VERBOSE ;;
-        *)  echo "TOB_error(): unknown option: \"$opt\"" 1>&2
-            echo "    SYNOPSIS: TOB_error [--exit|-x N] [-v|V] args ..." 1>&2
-            ;;
-        esac
+check_classroot () {
+    # return true if class begins with allowed root
+    # return false if class does not exist or does not begin at TOB_LIBROOT
+    # variable classname is set on return if ^ or .^ is found
+    local class=$(/bin/readlink -fe $class) ||
+        return 1
+    for path in ${libroots[@]}; do
+        test ${class#$path/} == $class || {
+            classname=${class#$path/}
+            return
+            }
     done
-    echo -e $TOB_object.$TOB_method: $* 1>&2
-    set | grep ^TOB_ 1>&2
-    test "$EXIT_VALUE" && exit $EXIT_VALUE
-    }   
+    return 1
+    }
 
 resolve_object () {  # set classlink to '^', '.^', or ''; or return 1
     test -d $1 ||
         return 1 # not a directory
-    test -L $1/.^ -a -d $1/.^/ &&
+    unset classlink 
+    if test -L $1/.^ -a -d $1/.^/; then
         classlink='.^'
-    test -L $1/^ -a -d $1/^/ &&
+    elif test -L $1/^ -a -d $1/^/; then
         classlink='^'
-    # just a directory, so return true but with classlink not set
+    fi
+    test -n "$classlink" &&
+        test -z "$NOT_STRICT" &&
+            check_classroot $classlink ||
+                return 1
     }
 
 resolve_and_chdir_into_object () {
@@ -137,19 +140,6 @@ resolve_attribute_search_path () {
     done
     }
 
-check_and_parse_class () { # true if class begins with allowed root
-    local class=$1
-    test -L $class &&
-         class=$(/bin/readlink -f $class)
-    for path in ${libroots[@]}; do
-        test ${class#$path/} == $class || {
-            classname=${class#$path/}  # note: classname var set as side effect
-            return
-            }
-    done
-    return 1
-    }
-
 resolve_method_search_path () {
     # method search starts with object class, 2nd entry in attr_paths array:
     local attr_index=1
@@ -157,7 +147,7 @@ resolve_method_search_path () {
         bail attr_paths array not initialized
     local index=0
     while test -n "${attr_paths[$attr_index]}"; do
-        check_and_parse_class ${attr_paths[$attr_index]} && {
+        check_classroot ${attr_paths[$attr_index]} && {
             search_paths[$index]=${attr_paths[$attr_index]}
             class_names[$index]=$classname
             index=$(($index + 1))
@@ -236,9 +226,8 @@ while [ -n "$arg" -a "${arg:0:1}" == "-" ]; do # handle option ...
         QUIET=1
         opt="$opt --quiet"
 
-    elif [ "$arg" == "-h" -o "$arg" == "--help" ]; then
-        manpage
-        exit
+    elif [ "$arg" == "-h" -o "$arg" == "--help" ]; then # show manpage:
+        exec /usr/bin/awk '/^NAME$/{ok=1}ok' $0
     
     else
         bail "unsupported option $arg"
@@ -289,7 +278,7 @@ if test $return_code == 1; then
     bail failed to resolve object: $TOB_object
 
 elif test $return_code == 2; then
-    TOB_class_path=$TOB_DEFAULT_CLASS_FOR_FILE
+    TOB_class_path=$TOB_FILE_CLASS
     echo pwd is $PWD
     echo query object was $TOB_object
     echo file object is $TOB_file_object
@@ -301,7 +290,7 @@ elif test -n "$last_classlink"; then
     TOB_class_path=./$classlink
 else
     echo object $TOB_object is a directory
-    TOB_class_path=$TOB_DEFAULT_CLASS_FOR_DIRECTORY
+    TOB_class_path=$TOB_DIRECTORY_CLASS
 fi
 
 test -n "$DEBUG" && {
@@ -339,7 +328,6 @@ export TOB_caller_path
 export TOB_path_to_object
 
 ## export thinobject utility functions
-export -f TOB_error
 export -f TOB_resolve_method_path
 
 # create pseudo-arrays for export:
@@ -500,14 +488,9 @@ EXPORTED VARIABLES
     TOB_PATH -- search path for object through class hierarchy
 
 EXPORTED FUNCTIONS
-    TOB_error -- print message on STDERR
-        SYNOPSIS: TOB_error [--exit|-x NUMBER] [-v|V] message ..."
-        OPTIONS:
-            --exit N  -- specify exit status number
-            -x N      -- specify exit status number
-            -v        -- be verbose; show thinobject state variables
-            -V        -- don't be verbose
-        output format is: $TOB_object.$TOB_method: ARGUMENTS...
+    TOB_resolve_method_path
+
+   output format is: $TOB_object.$TOB_method: ARGUMENTS...
 
 SEE ALSO
     tob-new --help
