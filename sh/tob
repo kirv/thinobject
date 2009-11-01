@@ -102,7 +102,7 @@ resolve_and_chdir_into_object () {
                 return 2
             elif test -f .$obentry; then
                 unset last_classlink
-                TOB_file_object=$obentry
+                TOB_file_object=.$obentry
                 return 2
             elif test $obentry == super; then
                 # should we check that super comes only at the end?
