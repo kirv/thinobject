@@ -2,8 +2,8 @@
 
 test -e bad$$ && exit 42
 
-tob bad$$.path
+tob bad$$.path 2>/dev/null
 
-test $? == 1 2>/dev/null ||
+test $? == 1 ||
     exit 1
 

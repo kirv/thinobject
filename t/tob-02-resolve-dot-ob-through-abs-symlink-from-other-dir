@@ -1,0 +1,14 @@
+#!/bin/sh
+
+mkdir dir$$
+
+mkdir dir$$/.foo
+ln -s /usr/local/lib/tob/Object dir$$/.foo/^
+
+mkdir ldir$$
+
+ln -s $PWD/dir$$/foo ldir$$/lfoo
+
+test $(tob ldir$$/lfoo.path) == /$PWD/dir$$/.foo/ || exit 1
+
+rm -r dir$$ ldir$$

@@ -14,7 +14,8 @@ test -n "$TOB_FILE_CLASS" ||
     TOB_FILE_CLASS=/usr/local/lib/tob/File
 
 warn () {
-    test -z "$QUIET" && echo $* >&2
+    test -z "$QUIET" &&
+        printf "%s\n" "$*" >&2
     }
 
 error () {
@@ -143,12 +144,17 @@ resolve_and_chdir_into_object () {
                 # combine this obentry with next one, separated by a dot
               # printf "\tprefix=${obentry}.\n"
                 prefix=${obentry}.
+              # warn PREFIX = $prefix
                 unset last_classlink
                 continue
             fi
             unset prefix
         done
     done
+    test -z "$prefix" || {
+      # warn ENDING PREFIX = $prefix
+        return 1
+        }
     }
 
 resolve_attribute_search_path () {
@@ -307,9 +313,6 @@ TOB_caller_path=$PWD
 
 resolve_and_chdir_into_object $TOB_object
 return_code=$?
-
-# test $PWD == $TOB_caller_path &&
-#     error did not move to an object
 
 if test $return_code == 1; then
     error failed to resolve object: $TOB_object
