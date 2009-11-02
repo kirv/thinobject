@@ -1,0 +1,11 @@
+#!/bin/sh
+
+p=d$$/x/y/z
+
+mkdir -p $p/foo.test
+
+ln -s /usr/local/lib/tob/Object $p/foo.test/^
+
+test $(tob d$$.x.y.z.foo.test.path) == ./$p/foo.test/ # || exit 1
+
+rm -r d$$

@@ -1,0 +1,9 @@
+#!/bin/sh
+
+test -e bad$$ && exit 42
+
+tob bad$$.path
+
+test $? == 1 2>/dev/null ||
+    exit 1
+

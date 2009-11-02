@@ -13,26 +13,37 @@ test -n "$TOB_DIRECTORY_CLASS" ||
 test -n "$TOB_FILE_CLASS" || 
     TOB_FILE_CLASS=/usr/local/lib/tob/File
 
+warn () {
+    test -z "$QUIET" && echo $* >&2
+    }
+
+error () {
+    warn "$*"
+    exit 1
+    }
+
 check_classroot () {
     # return true if class begins with allowed root
     # return false if class does not exist or does not begin at TOB_LIBROOT
     # variable classname is set on return if ^ or .^ is found
-    printf "\t\t\tcheck_classroot $1 ...\n"
+  # printf "\t\t\tcheck_classroot $1 ...\n"
   # test -n "$NOT_STRICT" && return 0
     local class=$(/bin/readlink -fe $1) ||
-        return 1
-    printf "\t\t\t\t... $class\n"
+        error check failed for class $1 symlink
+  # printf "\t\t\t\t... $class\n"
     for path in ${libroots[@]}; do
+      # printf "check_classroot $class vs $path\n"
         test ${class#$path/} == $class || {
             classname=${class#$path/}
             return 0
             }
     done
+    error check failed for class $1
     return 1
     }
 
 resolve_object () {  # set classlink to '^', '.^', or ''; or return 1
-    printf "\t\tresolve_object $1 ...\n"
+  # printf "\t\tresolve_object $1 ...\n"
     test -d $1 ||
         return 1 # not a directory
     unset classlink 
@@ -41,9 +52,17 @@ resolve_object () {  # set classlink to '^', '.^', or ''; or return 1
     elif test -L $1/^ -a -d $1/^/; then
         classlink='^'
     fi
-    test -n "$classlink" -a -z "$NOT_STRICT" && {
-        check_classroot $1/$classlink ||
-            return 1
+  # test -n "$classlink" -a -z "$NOT_STRICT" && {
+  #     check_classroot $1/$classlink ||
+  #         return 1
+  #     }
+    test -n "$classlink" && {
+        test -d $1/$classlink/ ||
+            error classlink $1/$classlink/ does not exist
+        test -z "$NOT_STRICT" && {
+            check_classroot $1/$classlink ||
+                error classlink $1/$classlink/ is not under TOB_LIBROOT
+            }
         }
     return 0
     }
@@ -63,33 +82,33 @@ resolve_and_chdir_into_object () {
             prefix=.
         for obentry in ${direntry//./ }; do # split on dots
             obentry=$prefix$obentry
-            echo TRY TO RESOLVE $obentry
+          # warn TRY TO RESOLVE $obentry
             if test ${obentry: -1:1} == /; then  # foo/ explicitly
-                printf "\tfoo/ explicitly\n"
+              # printf "\tfoo/ explicitly\n"
                 TOB_path_to_object=$TOB_path_to_object/${obentry%/}
                 cd $obentry ||
-                    return 1
+                    error failed to cd to $TOB_path_to_object
                 unset last_classlink
             elif resolve_object $obentry; then # foo/^
-                printf "\tfoo/^\n"
+              # printf "\tfoo/^\n"
                 TOB_path_to_object=$TOB_path_to_object/$obentry
                 cd $obentry ||
-                    return 1
+                    error failed to cd to $TOB_path_to_object
                 last_classlink=$classlink
             elif test -z "$NO_HIDDEN" && resolve_object .$obentry; then # .foo/^
-                printf "\t.foo/^\n"
+              # printf "\t.foo/^\n"
                 TOB_path_to_object=$TOB_path_to_object/.$obentry
                 cd .$obentry ||
-                    return 1
+                    error failed to cd to $TOB_path_to_object
                 last_classlink=$classlink
             elif test -z "$NO_HIDDEN" && test -L $obentry; then # foo->bar->.bar/^
-                printf "\tfoo -> bar -> .bar/^\n"
+              # printf "\tfoo -> bar -> .bar/^\n"
                 local save_path=$TOB_path_to_object
                 resolve_and_chdir_into_object $(/bin/readlink -f $obentry)
                 test ${TOB_path_to_object:0:1} == / ||
                     TOB_path_to_object=$save_path/$TOB_path_to_object
             elif test -z "$NO_HIDDEN" && test -L .$obentry; then # .foo->bar->.bar/^
-                printf "\t.foo -> bar -> .bar/^\n"
+              # printf "\t.foo -> bar -> .bar/^\n"
                 local save_path=$TOB_path_to_object
                 resolve_and_chdir_into_object $(/bin/readlink -f .$obentry)
                 test ${TOB_path_to_object:0:1} == / ||
@@ -99,30 +118,30 @@ resolve_and_chdir_into_object () {
                 TOB_path_to_object=$TOB_path_to_object/$obentry
                 unset last_classlink
                 cd $obentry ||
-                    return 1
+                    error failed to cd to $TOB_path_to_object
             elif test -z "$NO_HIDDEN" -a -d .$obentry; then # .foo/
-                printf "\t.foo/\n"
+              # printf "\t.foo/\n"
                 TOB_path_to_object=$TOB_path_to_object/.$obentry
                 unset last_classlink
                 cd .$obentry ||
-                    return 1
+                    error failed to cd to $TOB_path_to_object
             elif test -f $obentry; then # foo
-                printf "\tfoo\n"
+              # printf "\tfoo\n"
                 unset last_classlink
                 TOB_file_object=$obentry
                 return 2
             elif test -z "$NO_HIDDEN" -a -f .$obentry; then # .foo
-                printf "\t.foo\n"
+              # printf "\t.foo\n"
                 unset last_classlink
                 TOB_file_object=.$obentry
                 return 2
             elif test $obentry == super; then # method resolution operator
-                printf "\tsuper\n"
+              # printf "\tsuper\n"
                 # should we check that super comes only at the end?
                 super=$(($super + 1))
             else
                 # combine this obentry with next one, separated by a dot
-                printf "\tprefix=${obentry}.\n"
+              # printf "\tprefix=${obentry}.\n"
                 prefix=${obentry}.
                 unset last_classlink
                 continue
@@ -149,11 +168,6 @@ resolve_attribute_search_path () {
         last=$next
         next=$(($next + 1))
     done
-    }
-
-error () {
-    test -z "$QUIET" && echo $* >&2
-    exit 1
     }
 
 resolve_method_search_path () {
@@ -294,6 +308,9 @@ TOB_caller_path=$PWD
 resolve_and_chdir_into_object $TOB_object
 return_code=$?
 
+# test $PWD == $TOB_caller_path &&
+#     error did not move to an object
+
 if test $return_code == 1; then
     error failed to resolve object: $TOB_object
 
@@ -305,31 +322,31 @@ elif test $return_code == 2; then
     error $TOB_object resolved to a file ... how to handle it?
 
 elif test -n "$last_classlink"; then
-    echo object $TOB_object is a thinobject
-    echo last_classlink is $last_classlink
+  # echo object $TOB_object is a thinobject
+  # echo last_classlink is $last_classlink
     TOB_class_path=./$classlink
 else
-    echo object $TOB_object is a directory
+  # warn object $TOB_object is a directory
     TOB_class_path=$TOB_DIRECTORY_CLASS
 fi
 
 test -n "$DEBUG" && {
-    echo DEBUG: TOB_object=$TOB_object
-    echo DEBUG: TOB_method=$TOB_method
-    echo DEBUG: TOB_path_to_object=$TOB_path_to_object
-    echo DEBUG: TOB_caller_path=$TOB_caller_path
+    warn DEBUG: TOB_object=$TOB_object
+    warn DEBUG: TOB_method=$TOB_method
+    warn DEBUG: TOB_path_to_object=$TOB_path_to_object
+    warn DEBUG: TOB_caller_path=$TOB_caller_path
     }
 
 test -n $TOB_class_path || 
     error no object path resolved from $TOB_object
 
 test -n "$DEBUG" && {
-    echo DEBUG: TOB_path_to_object=$TOB_path_to_object
-    echo DEBUG: TOB_class_path=$TOB_class_path
+    warn DEBUG: TOB_path_to_object=$TOB_path_to_object
+    warn DEBUG: TOB_class_path=$TOB_class_path
     }
 
 test -n "$DEBUG" &&
-    echo DEBUG: args1=\'$args\' args2=\'$*\'
+    warn DEBUG: args1=\'$args\' args2=\'$*\'
     
 declare -a attr_paths
 resolve_attribute_search_path ||
@@ -359,9 +376,9 @@ export TOB_type="${class_names[*]}"
 IFS="$save_IFS"
 
 test -n "$DEBUG" && {
-    echo DEBUG: TOB_attribute_search_paths=$TOB_attribute_search_paths
-    echo DEBUG: TOB_method_search_paths=$TOB_method_search_paths
-    echo DEBUG: TOB_type=$TOB_type
+    warn DEBUG: TOB_attribute_search_paths=$TOB_attribute_search_paths
+    warn DEBUG: TOB_method_search_paths=$TOB_method_search_paths
+    warn DEBUG: TOB_type=$TOB_type
     }
 
 resolve_method_path $TOB_method &&
@@ -370,8 +387,10 @@ resolve_method_path $TOB_method &&
 ## no executable method was resolved, so try some built-ins:
 
 test $TOB_method == path && {
-    test -z "$*" && echo $TOB_path_to_object
+    test -z "$*" && echo $TOB_path_to_object/
     for arg in $*; do
+        test -e $arg ||
+            error $arg not found
         echo $TOB_path_to_object/$arg
     done
     exit
@@ -387,7 +406,7 @@ for path in ${search_paths[@]}; do
     ## ASSERT: class exists
     test -e $path/_default && {
         test -x $path/_default && {
-          # echo DEBUG thinob: exec $path/_default $TOB_object $TOB_method $*
+          # warn DEBUG thinob: exec $path/_default $TOB_object $TOB_method $*
             exec $path/_default $TOB_method $*
             }
         ## ASSERT: _default is not executable

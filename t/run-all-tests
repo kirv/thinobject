@@ -1,2 +1,9 @@
 #!/bin/sh
-run-parts --regex='[0-9]+-tob-.*' --exit-on-error --verbose t
+
+mkdir t/tmp$$
+cd t/tmp$$/
+
+run-parts --regex='[a-z]*-[0-9]+-.*' --exit-on-error --verbose ..
+
+cd -
+rmdir t/tmp$$

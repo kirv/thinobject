@@ -1,0 +1,14 @@
+#!/bin/sh
+
+ob=ob$$
+
+mkdir .$ob
+ln -s /usr/local/lib/tob/Object .$ob/^
+
+ln -s $ob l$ob
+
+test $(tob l$ob.path) == /$PWD/.$ob/ || exit 1
+
+rm -r .$ob
+rm l$ob
+
