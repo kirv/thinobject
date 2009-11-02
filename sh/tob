@@ -27,36 +27,28 @@ check_classroot () {
     # return true if class begins with allowed root
     # return false if class does not exist or does not begin at TOB_LIBROOT
     # variable classname is set on return if ^ or .^ is found
-  # printf "\t\t\tcheck_classroot $1 ...\n"
-  # test -n "$NOT_STRICT" && return 0
     local class=$(/bin/readlink -fe $1) ||
         error check failed for class $1 symlink
-  # printf "\t\t\t\t... $class\n"
     for path in ${libroots[@]}; do
-      # printf "check_classroot $class vs $path\n"
         test ${class#$path/} == $class || {
             classname=${class#$path/}
             return 0
             }
     done
-    error check failed for class $1
+    error bad TOB_LIBROOT check or bad class in $1
     return 1
     }
 
 resolve_object () {  # set classlink to '^', '.^', or ''; or return 1
-  # printf "\t\tresolve_object $1 ...\n"
+  # warn resolve_object $1 ...
     test -d $1 ||
         return 1 # not a directory
     unset classlink 
-    if test -L $1/.^ -a -d $1/.^/; then
+    if test -L $1/.^; then
         classlink='.^'
-    elif test -L $1/^ -a -d $1/^/; then
+    elif test -L $1/^; then
         classlink='^'
     fi
-  # test -n "$classlink" -a -z "$NOT_STRICT" && {
-  #     check_classroot $1/$classlink ||
-  #         return 1
-  #     }
     test -n "$classlink" && {
         test -d $1/$classlink/ ||
             error classlink $1/$classlink/ does not exist
@@ -85,64 +77,65 @@ resolve_and_chdir_into_object () {
             obentry=$prefix$obentry
           # warn TRY TO RESOLVE $obentry
             if test ${obentry: -1:1} == /; then  # foo/ explicitly
-              # printf "\tfoo/ explicitly\n"
+              # warn foo/ explicitly
                 TOB_path_to_object=$TOB_path_to_object/${obentry%/}
                 cd $obentry ||
                     error failed to cd to $TOB_path_to_object
                 unset last_classlink
             elif resolve_object $obentry; then # foo/^
-              # printf "\tfoo/^\n"
+              # warn foo/^
                 TOB_path_to_object=$TOB_path_to_object/$obentry
+              # warn MORE $TOB_path_to_object $classlink
                 cd $obentry ||
                     error failed to cd to $TOB_path_to_object
                 last_classlink=$classlink
             elif test -z "$NO_HIDDEN" && resolve_object .$obentry; then # .foo/^
-              # printf "\t.foo/^\n"
+              # warn .foo/^
                 TOB_path_to_object=$TOB_path_to_object/.$obentry
                 cd .$obentry ||
                     error failed to cd to $TOB_path_to_object
                 last_classlink=$classlink
             elif test -z "$NO_HIDDEN" && test -L $obentry; then # foo->bar->.bar/^
-              # printf "\tfoo -> bar -> .bar/^\n"
+              # warn 'foo -> bar -> .bar/^'
                 local save_path=$TOB_path_to_object
                 resolve_and_chdir_into_object $(/bin/readlink -f $obentry)
                 test ${TOB_path_to_object:0:1} == / ||
                     TOB_path_to_object=$save_path/$TOB_path_to_object
             elif test -z "$NO_HIDDEN" && test -L .$obentry; then # .foo->bar->.bar/^
-              # printf "\t.foo -> bar -> .bar/^\n"
+              # warn '.foo -> bar -> .bar/^'
                 local save_path=$TOB_path_to_object
                 resolve_and_chdir_into_object $(/bin/readlink -f .$obentry)
                 test ${TOB_path_to_object:0:1} == / ||
                     TOB_path_to_object=$save_path/$TOB_path_to_object
             elif test -d $obentry; then  # foo/
-                printf "\tfoo/\n"
+              # warn foo/
                 TOB_path_to_object=$TOB_path_to_object/$obentry
                 unset last_classlink
                 cd $obentry ||
                     error failed to cd to $TOB_path_to_object
             elif test -z "$NO_HIDDEN" -a -d .$obentry; then # .foo/
-              # printf "\t.foo/\n"
+              # warn .foo/
                 TOB_path_to_object=$TOB_path_to_object/.$obentry
                 unset last_classlink
                 cd .$obentry ||
                     error failed to cd to $TOB_path_to_object
             elif test -f $obentry; then # foo
-              # printf "\tfoo\n"
+              # warn foo
                 unset last_classlink
                 TOB_file_object=$obentry
                 return 2
             elif test -z "$NO_HIDDEN" -a -f .$obentry; then # .foo
-              # printf "\t.foo\n"
+              # warn .foo
                 unset last_classlink
                 TOB_file_object=.$obentry
                 return 2
             elif test $obentry == super; then # method resolution operator
-              # printf "\tsuper\n"
+              # warn super
                 # should we check that super comes only at the end?
                 super=$(($super + 1))
             else
                 # combine this obentry with next one, separated by a dot
-              # printf "\tprefix=${obentry}.\n"
+              # warn prefix=${obentry}.\n"
                 prefix=${obentry}.
               # warn PREFIX = $prefix
                 unset last_classlink
