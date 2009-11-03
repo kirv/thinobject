@@ -6,13 +6,13 @@ use ThinObject;
 
 use constant DEFER_TO_SUPERCLASS => 100;
 
-my $ob = ThinObject->new( shift );
+my $ob = ThinObject->new( '.' );
 
 die unless $ob->isa() ne 'TimeSeries';
 
-if ( -d $ob->tob() . "/_/" ) {
+if ( -d "./_/" ) {
     print "deleting internal storage directory ...";
-    system 'rm -r ' . $ob->tob() . "/_/";
+    system "rm -r ./_/";
     print " DONE\n";
     }
 

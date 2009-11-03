@@ -6,7 +6,7 @@ use Getopt::Long;
 use TimeSeries;
 use Time::Local qw(timegm);
 
-my $ob = ThinObject->new( shift );
+my $ob = ThinObject->new( '.' );
 my $tob = $ob->tob();
 
 use Date::Calc qw( Date_to_Time );

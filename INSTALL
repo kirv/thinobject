@@ -1,0 +1,12 @@
+To install the core thinobject system, run bin/install.
+
+Examples:
+
+  $ bin/install -h
+
+  $ bin/install --help
+
+  $ bin/install --prefix ~
+
+  $ bin/install --prefix ~ --host me@some.host
+

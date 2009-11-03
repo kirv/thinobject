@@ -252,8 +252,8 @@ def insert_dataset(ob_index, year, first32, last32, after32, before32):
 
 ## main program
 
-ob = sys.argv.pop(1)
-ob_path = os.environ["tob_path"]
+ob = "."
+ob_path = "./"
 
 suffix = None
 ts_dataset_name_pattern = re.compile(r'@(\d{4})-(\w{5})-(\w{5})-(.+)')

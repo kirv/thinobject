@@ -1,21 +1,16 @@
 #!/bin/bash
-ob=$1 && shift
 
-echo ob=$ob
-echo tob_object=$tob_object
-
-cd $tob_path || tob_error -x 1 -v failed to cd \$tob_path
 self=.
 
 while [ "${1:0:1}" == "-" ]; do # handle option ...
     opt=$1 && shift
     case $opt in
     -h)
-        tob $ob.usage $0
+        tob ..usage $0
         exit 0
         ;;
     --help)
-        exec tob $ob.manual
+        exec tob ..manual
         ;;
     --verbose|-v)
         VERBOSE=1

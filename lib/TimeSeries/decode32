@@ -4,8 +4,6 @@ use warnings;
 
 use Getopt::Long;
 
-my $object = shift;
-
 my $pad = 8;
 
 ## process commandline options:

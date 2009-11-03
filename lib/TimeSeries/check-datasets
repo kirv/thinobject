@@ -186,9 +186,6 @@ def check_adjacent_datasets():
 
 ## main program
 
-# identify nominal object and change to its directory:
-ob = sys.argv.pop(1)
-os.chdir(os.environ["tob_path"])
 self = '.'
 
 # define some global values to be filled in:

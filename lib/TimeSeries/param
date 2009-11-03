@@ -7,7 +7,7 @@ use ThinObject;
 use LockFile::Simple;
 use Getopt::Long;
 
-my $ob = ThinObject->new( shift );
+my $ob = ThinObject->new( '.' );
 
 my %param;
 foreach ( $ob->param() ) {

@@ -11,8 +11,7 @@ use Time::HiRes; # Time::HiRes::time(), Time::HiRes::gettimeofday(), ...
 use TimeSeries; # non-OO utilities are auto-imported into namespace
 
 use constant TEMPFILE => 'datafile-under-construction';
-my $obname = shift;
-my $ob = ThinObject->new( $obname );
+my $ob = ThinObject->new( '.' );
 
 ## declare variables, reading values from the object if defined:
 my $tzofs = $ob->attribute('tzofs') || 0; # hours from UMT to local standard time

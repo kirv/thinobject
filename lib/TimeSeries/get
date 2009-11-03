@@ -9,8 +9,6 @@ use Date::Format; # needed time2str output timestamp formatting
 
 # print qq(command line: $0 @ARGV\n);
 
-my $object = shift;
-
 my $tag;
 my $t_first;
 my $t_last;
@@ -68,11 +66,6 @@ elsif ( $quantity ) {
 print_help( $get_help ) if defined $get_help;
 
 $tag = defined $tag ? "$tag-" : '';
-
-die "no thinobject path in tob_path envar\n"
-    unless exists $ENV{TOB_object_path};
-chdir $ENV{TOB_object_path}
-    or die "failed to chdir " . $ENV{TOB_object_path} . "\n";
 
 ## initialze code/decode structures:
 my @code = ( 0..9, 'a'..'h', 'j', 'k', 'm', 'n', 'p'..'t', 'v'..'z'); 

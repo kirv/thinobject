@@ -7,12 +7,6 @@ else
     libroots=( ~/lib/tob /usr/local/lib/tob /opt/lib/tob /usr/lib/tob /lib/tob )
 fi
 
-test -n "$TOB_DIRECTORY_CLASS" || 
-    TOB_DIRECTORY_CLASS=/usr/local/lib/tob/Directory
-
-test -n "$TOB_FILE_CLASS" || 
-    TOB_FILE_CLASS=/usr/local/lib/tob/File
-
 warn () {
     test -z "$QUIET" &&
         printf "%s\n" "$*" >&2
@@ -227,6 +221,28 @@ TOB_resolve_method_path () {
     return 1
     }
 
+find_default_directory_class () {
+    test -n "$TOB_DIRECTORY_CLASS" &&
+        return
+    for lib in ${libroots[@]}; do
+        test -d $lib/Directory && {
+            TOB_DIRECTORY_CLASS=$lib/Directory
+            break
+            }
+    done
+    }
+
+find_default_file_class () {
+    test -n "$TOB_FILE_CLASS" &&
+        return
+    for lib in ${libroots[@]}; do
+        test -d $lib/File && {
+            TOB_FILE_CLASS=$lib/File
+            break
+            }
+    done
+    }
+
 ## process argument list options:
 arg=$1 && shift
 unset method
@@ -311,6 +327,7 @@ if test $return_code == 1; then
     error failed to resolve object: $TOB_object
 
 elif test $return_code == 2; then
+    find_default_file_class
     TOB_class_path=$TOB_FILE_CLASS
     echo pwd is $PWD
     echo query object was $TOB_object
@@ -323,6 +340,7 @@ elif test -n "$last_classlink"; then
     TOB_class_path=./$classlink
 else
   # warn object $TOB_object is a directory
+    find_default_directory_class
     TOB_class_path=$TOB_DIRECTORY_CLASS
 fi
 

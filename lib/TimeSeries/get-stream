@@ -10,8 +10,6 @@ use Date::Format; # needed for get method
 
 # print qq(command line: $0 @ARGV\n);
 
-my $object = shift;
-
 my $debug;
 my $tag;
 my $validate_only;
@@ -34,11 +32,6 @@ GetOptions (
 # warn "$t_last\n" if defined $t_last;
 
 $tag = defined $tag ? "$tag-" : '';
-
-die "no thinobject path in tob_path envar\n"
-    unless exists $ENV{TOB_object_path};
-chdir $ENV{TOB_object_path}
-    or die "failed to chdir " . $ENV{TOB_object_path} . "\n";
 
 ## initialze code/decode structures:
 my @code = ( 0..9, 'a'..'h', 'j', 'k', 'm', 'n', 'p'..'t', 'v'..'z'); 

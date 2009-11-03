@@ -1,6 +1,0 @@
-#!/bin/sh
-
-host=${1:?no host specified}
-destination=/usr/local/bin/
-
-scp tob tob-new  host:$destination/
