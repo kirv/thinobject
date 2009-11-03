@@ -1,0 +1,380 @@
+#!/usr/bin/perl -w
+use strict;
+use warnings;
+use ThinObject;
+use Getopt::Long;
+use TimeSeries;
+use Time::Local qw(timegm);
+
+my $ob = ThinObject->new( shift );
+my $tob = $ob->tob();
+
+use Date::Calc qw( Date_to_Time );
+use Date::Format;
+
+use constant TIMESTAMP_FORMAT => "%Y-%m-%d %H:%M:%S (day %j)";
+
+## purpose: create a static page representing a CR1000 data file, or files,
+## on a timeline bargraph using html tables
+
+# use constant START_TIME => Date_to_Time(2006, 6, 1, 0, 0, 0); # 1 july 2006
+# use constant END_TIME => time; # current time
+
+my $verbose = 1;
+
+## declare global variables:
+my %table;
+my @files_seen;
+my $files_skipped = 0;
+
+## declare variables, reading values from the object if defined:
+my $interval = $ob->attribute('interval');
+my $tag = $ob->attribute('tag');
+my $tzofs = $ob->attribute('tzofs') || '0000'; # timezone to show in output
+my $debug;
+my $title = "timeseries object timelines";
+my $show_all;
+my $html_chunk_only;
+my $plot_from = timegm(0,0,0,1,0,2005);
+my $plot_to =   timegm(0,0,0,1,0,2009);
+my $disclaimer;
+my $legend;
+my $legend_only;
+my $url_prefix = '';
+
+## process commandline options:
+use Getopt::Long;
+GetOptions (
+    'h'     => sub { print "see --help\n"; exit 1 },
+    'help'  => sub { exec system "pod2text $0" },
+    'title=s'  => \$title,
+    'debug:1'  => \$debug,
+    'tzofs=s'  => \$tzofs, # time zone offset from UMT, hours
+    'interval=s'  => \$interval,
+    'legend-only'  => \$legend_only,
+    'tag=s'  => \$tag,
+    'url-prefix=s'  => \$url_prefix,
+    'all|show-all'      => \$show_all,
+    'html-chunk-only|chunk' => \$html_chunk_only,
+    'legend!'  => \$legend,
+    'disclaimer!'  => \$disclaimer,
+    'range=s' => sub { ($plot_from, $plot_to ) = from_to_range($_[1]) },
+    ) or die "$!\n";
+
+$tzofs = tz_hhmm2sec($tzofs);
+
+sub from_to_range { # parse --range 2005.5-2007
+    my ($from, $to) = split '-', shift;
+    ASSERT(defined $from && defined $to, "from-to range is defined");
+    my ($oneyear, undef) = itag_to_interval_seconds('1y');
+    $from = timegm(0,0,0,1,0,int($from)) + ($from - int($from)) * $oneyear;
+    $to = timegm(0,0,0,1,0,int($to)) + ($to - int($to)) * $oneyear;
+    return ($from, $to);
+    }
+
+## call the timeline method to get the data to graph...
+my @opts;
+# push options passed in on the command line:
+push @opts, '--interval', $interval if defined $interval;
+push @opts, '--tag', $tag if defined $tag;
+push @opts, '--show-all' if $show_all;
+# set some options specific to this method's needs:
+push @opts, '--epoch', '--name', '--no-header', '--fsep', '._.';
+
+my $self = $ob->tob();
+
+my $timeline_method = $ob->method('timeline');
+open TIMELINE_PIPE, '-|', "$self/$timeline_method $self @opts" or die $!;
+
+my %datasets;
+while ( <TIMELINE_PIPE> ) { # expecting: from to count interval tag name
+    chomp;
+    my @dataset = split / /;
+  # print "READING: @dataset\n";
+    my ($interval, $tag) = @dataset[3, 4];
+  # print "$interval, $tag, ";
+    $tag = '' if $tag eq 'n/a';
+    $interval = '' if $interval eq 'n/a';
+    my $key;
+    if ( $tag && $interval ) {
+        $key = $tag . '-' . $interval;
+        }
+    elsif ( $tag ) {
+        $key = $tag;
+        }
+    elsif ( $interval ) {
+        $key = $interval;
+        }
+    else {
+        $key = '-';
+        }
+
+  # print "key=$key\n";
+    push @{$datasets{ $key }}, [ @dataset ];
+    }
+close TIMELINE_PIPE or die $!;
+
+my $obname = $ENV{TOB_object};
+# $obname =~ s{/home/site/}{};
+
+# if ( $obname =~ m{/home/site/} ) {
+#     $obname =~ s{/home/site/}{};
+#     }
+# else {
+#     $obname = $url_prefix . $obname if $url_prefix;
+#     }
+
+$obname = $url_prefix . ':' . $obname if $url_prefix;
+$obname =~ s{/home/site/}{};
+
+my $url = $ENV{url} . "?$obname" if $obname;
+$obname = 'no_name' unless $obname;
+
+unless ( $html_chunk_only || $legend_only ) { ## generate html page headers, start of body...
+    print "<head>\n";
+    print "<title>$title</title>\n";
+    
+    ## read css header from below the __END__ tag in this file
+    print $_ while <DATA>;
+    
+    print "<body>\n";
+    }
+
+# print "url = $url\n";
+
+sub disclaimer {
+    my $outstring = 
+        qq(<font size="-1">\n) .
+        "<i>note -- scaling of bar graphs is approximate...</i><br/>\n" .
+        "<i>page generated at ", scalar localtime, " by $0</i><br/>\n" .
+        "<i>color code: red=contiguous data set, pink=noncontiguous data</i>" .
+        "<br/>\n" .
+        "</font>\n" .
+        "</p>\n";
+    }
+
+
+my $plot_span = $plot_to - $plot_from;
+
+my $header_cell_width = 10;
+my $unit_width = ( 100 - $header_cell_width ) / $plot_span;  ## width per second
+
+## generate a timeline legend, perhaps like:
+##      jun | jul | aug | sep | oct | dec | ...
+
+my @m = qw( J F M A M J J A S O N D );
+my @mon = qw( jan feb mar apr may jun jul aug sep oct nov dec );
+
+sub timeline_legend_years {
+    my $from = shift;
+    my $to = shift;
+    my ($sec,$min,$hour,$day,$month,$year) = gmtime($from);
+    $year += 1900;
+    $month += 1;
+
+    my @colors = qw( lightgrey white );
+    my $outstring =
+        qq(<table height="10" width="100%" cellSpacing="0" cellPadding="0" ) .
+        qq(border="1"><tr>\n);
+
+    $outstring .= qq(<td width="$header_cell_width\%">year:</td>)
+        if $header_cell_width > 0;
+
+    my $b;
+
+    while ( $from < $to ) {
+        my $this_year = $year;
+        my $next_time = timegm(0,0,0,1,0,$year + 1);
+        my $span = sprintf "%.1f",( $next_time - $from ) * $unit_width;
+        $b = !$b;
+        $outstring .= qq(<td bgcolor="$colors[$b]" width="$span\%">$year</td>);
+        $from = $next_time;
+        $year += 1;
+        }
+    $outstring .= qq(</tr></table>\n);
+    return $outstring;
+    }
+
+sub timeline_legend_months {
+    my $from = shift;
+    my $to = shift;
+    my ($sec,$min,$hour,$day,$month,$year) = gmtime($from);
+    $year += 1900;
+    $month += 1;
+
+    my @colors = qw( lightgrey white );
+    my $outstring = qq(<table height="10" width="100%" cellSpacing="0" ) .
+                    qq(cellPadding="0" border="1"><tr>\n);
+    $outstring .= qq(<td width="$header_cell_width\%">month:</td>)
+        if $header_cell_width > 0;
+
+    my $b;
+
+    while ( $from < $to ) {
+        my $this_month = $month;
+        my $this_year = $year;
+        $month += 1;
+        if ( $month > 12 ) {
+            $year += 1;
+            $month = 1;
+            }
+
+        my $next_time = Date_to_Time($year, $month, $day, 0, 0, 0);
+        my $span = sprintf "%.1f",( $next_time - $from ) * $unit_width;
+        $b = !$b;
+        my $month_tag = lc $m[ $this_month - 1 ];
+      # my $month_tag = "$this_year $mon[ $this_month - 1 ]";
+        $outstring .=
+            qq(<td bgcolor="$colors[$b]" width="$span\%">$month_tag</td>);
+
+        $from = $next_time;
+        }
+    $outstring .= qq(</tr></table>\n);
+    return $outstring;
+    }
+
+my $timeline_legend = timeline_legend_years($plot_from, $plot_to) .
+                      timeline_legend_months($plot_from, $plot_to);
+
+if ( $legend_only ) {
+    print $timeline_legend;
+    exit 0;
+    }
+
+print $timeline_legend if $legend;
+
+my $tablename = $obname;
+$tablename =~ s{.*[:/]}{};
+# print "<b>$tablename</b><br/>\n";
+print "<b>$tablename</b>\n";
+
+foreach my $unique_key ( sort keys %datasets ) { # key is $tag . $interval
+    my $dataset = $datasets{$unique_key};
+
+  # print $timeline_legend if $legend;
+
+  # print qq(<h3>$unique_key</h3>\n);
+  # print qq($unique_key<br/>\n);
+  # print qq($unique_key\n);
+  # print qq(<table height="10" width="100%" cellSpacing="0" cellPadding="0" border="1">\n);
+
+  # print $timeline_legend if $legend;
+
+    my $t = $plot_from; # let t be the time being plotted
+
+    print qq(<table height="10" width="100%" cellSpacing="0" cellPadding="0" border="1">\n);
+    print qq(<tr class="cellLink">\n);
+    print qq(<td width="$header_cell_width\%">$unique_key</td>)
+        if $header_cell_width > 0;
+
+    foreach my $ref ( @$dataset ) {
+        my ($from, $to, $count, $interval, $tag, $name) = @$ref;
+        undef $interval if $interval && $interval eq 'n/a';
+        ASSERT(defined $name, "name is $name");
+        next if $to < $t; # already past this one
+        ASSERT($to >= $t, "$to is >= $t");
+
+        my $description = 
+            time2str(TIMESTAMP_FORMAT, $from + $tzofs, 0) . "<br/>" .
+      #     time2str(TIMESTAMP_FORMAT, $from, 0) . "<br/>" .
+      #     $from . "<br/>" .
+            time2str(TIMESTAMP_FORMAT, $to + $tzofs, 0) . "<br/>";
+      #     time2str(TIMESTAMP_FORMAT, $to, 0) . "<br/>";
+      #     $to . "<br/>";
+        if ( $interval ) {
+            $description .= "$count contiguous records" . "<br/>";
+            }
+        else {
+            $description .= "$count records" . "<br/>";
+            }
+        $description .= $name;
+
+        if ( $from > $t ) { ## print blank/filler cell to catch up
+            my $span = sprintf "%.1f",( $from - $t ) * $unit_width;
+            print qq(<td width="$span\%" bgcolor="white" />\n);
+            $t = $from + 1; # update t
+            }
+        ASSERT($t >= $from, "$t is >= $from");
+
+        ## print link cell from $t to $to for span of datafile
+        my $span = sprintf "%.1f",($to - $t) * $unit_width;
+        my $bgcolor = $interval ? 'red' : 'pink';
+        print qq(<td width="$span\%" bgcolor="$bgcolor">),
+              qq(<a href="$url.$name">&nbsp</a>),
+              qq(<span>$description</span></td>\n);
+
+        $t = $to + 1; # update t
+        }
+
+    if ( $t < $plot_to ) { ## print trailing blank/filler cell
+        my $span = sprintf "%.1f",( $plot_to - $t ) * $unit_width;
+        print qq(<td width="$span\%" bgcolor="white" />\n);
+        }
+    print "</tr></table>\n";
+    
+    }
+
+unless ( $html_chunk_only ) {
+    print disclaimer() if $disclaimer;
+    print "</body></html>\n";
+    }
+
+=head1 NAME
+
+TimeSeries.timeline-html -- generate an html timeline of data
+
+=head1 DESCRIPTION
+
+Calls on the timeline method to get dataset ranges, then generates
+html output "plots" using css and tables.
+
+=head1 OPTIONS
+
+=over
+
+=item --range FROM-TO
+
+FROM and TO are decimal years, e.g,. 2005-2007.5
+
+=item --show-all
+
+=item --all
+
+Include all data in the object, with any I<tag> and any I<interval>. 
+
+
+=item --tzofs [S]HHMM
+
+The option value will override the B<tzofs> attribute, if set, to 
+establish the timezone offset from UTC assumed for the given time
+in the store operation.
+
+NOT YET IMPLEMENTED! ALL OUTPUT IS IN THE DEFAULT UTC TIMEZONE!
+
+=head1 BUGS
+
+Generates html table output using CSS, but fairly crude.
+
+=head1 AUTHOR
+
+Ken Irving <fnkci@uaf.edu> (c) 2008
+
+Licensed under the GPL (Gnu Public Library)
+
+=cut
+
+__END__
+
+<style type="text/css">
+  tr.cellLink td {padding:0}
+  tr.cellLink td a {padding:0px; display:block}
+  tr.cellLink td a:hover {background:blue}
+  td span {display: none;}
+  td:hover span {
+    position: absolute;
+    display: block;
+    background: #fdd;
+    border: 1px solid red;
+    } 
+</style>
+

@@ -1,0 +1,713 @@
+#!/usr/bin/perl -w
+use strict;
+use warnings;
+
+use ThinObject;
+use LockFile::Simple;
+use Getopt::Long;
+use Time::Local qw(timegm);
+use TimeSeries; # non-OO utilities are auto-imported into namespace
+
+use constant TEMPFILE => 'datafile-under-construction';
+my $ob = ThinObject->new( shift );
+
+## declare variables, reading values from the object if defined:
+my $tzofs = $ob->attribute('tzofs') || 0; # hours from UMT to local standard time
+my $time;
+my $debug;
+my $interval = $ob->attribute('interval');
+my $tag = $ob->attribute('tag');
+my $assumed_offset;
+my $offset;
+my $max_offset = $ob->attribute('max-offset');
+my $datum_interval = $ob->attribute('datum-interval');
+my $itag;
+my $verbose = 0;
+# my $no_skipping_duplicates_allowed;
+
+## process commandline options:
+use Getopt::Long;
+GetOptions (
+    'h'             => sub { print "see --help\n"; exit 1 },
+    'help'          => sub { exec system "pod2text $0" },
+    'time=s'  => \$time,
+    'max-offset=s'  => \$max_offset,
+    'tzofs=s'  => \$tzofs, # time zone offset from UMT, hours
+    'debug:1'  => \$debug,
+    'verbose+'  => \$verbose,
+    'interval=s'  => \$interval,
+    'datum-interval=s'  => \$datum_interval,
+    'tag=s'  => \$tag,
+  # 'no-skip' => \$no_skipping_duplicates,
+    ) or die "$!\n";
+
+my $tob = $ob->tob();
+
+$tzofs = tz_hhmm2sec( $tzofs ); # time zone offset was in hours, now in seconds
+
+if ( $interval ) {
+    $itag = $interval; # store symbolic representation of interval, offset
+    ($interval, $assumed_offset) = itag_to_interval_seconds($interval);
+    }
+
+# adjust tag so it can be simply concatenated to year, etc.:
+$tag = defined $tag ? $tag . '-' : '';
+
+###############################
+## read stream of single-line entries from file or standard input,
+###############################
+
+my @data;
+@data = <>; # ingest entire dataset into memory!
+
+die "no data to store\n" unless @data;
+
+print scalar @data, " records input...\n" if $debug;
+
+###############################
+## process the data records
+###############################
+
+my %yeardata;
+my $line = 0;
+my $records = 0; # count of records input for storage
+my $skipped = 0; # count skipped duplicates, if allowed
+foreach my $datum ( @data ) {
+    chomp $datum;
+    $line += 1;
+    ## parse leading timestamp
+    die "no timestamp found, line $line: $datum\n"
+        unless $datum =~ s/^(\d+)\s//;
+    my $ts = $1;
+    ASSERT($ts =~ m/^\d+$/, "time in unix epoch seconds has been parsed");
+
+    print "\n$line: $datum\n" if $verbose;
+
+    ## SPECIAL NOTE: the timestamp is adjusted by timezone even though it may
+    ## be conventional to only express it in UTC.  This is done to be
+    ## consistent and unambiguous.  Hint: use the --tzofs=0 option...
+    $ts -= $tzofs;
+
+    ## derive year and seconds-into-year from unix epoch timestamp:
+    my ($year, $ysec) = time_to_year_ysec($ts);
+    print "$line: $year, $ysec\n" if $verbose;
+
+    ## year,ysec now identifies the datum time
+
+    my $offset;
+    ## note: if no interval, offset remains undefined
+    ## if interval, calculate offset and adjust ysec to nearest interval
+
+    if ( $interval ) { # adjust ysec to nearest/last interval, calc offset
+        if ( $offset = $ysec % $interval ) { ## true if offset is non-zero
+            $ysec -= $offset; # adjust ysec back to previous interval time
+            # correct ysec to nearest interval time if so configured:
+            if ( defined $datum_interval && $datum_interval eq 'nearest' ) {
+                if ( $offset > $interval / 2 ) { # adjust ysec up to next interval time
+                    $ysec += $interval;
+                    $offset -= $interval;
+                    }
+                }
+            elsif ( defined $datum_interval ) {
+                die  "unsupported datum-interval $datum_interval\n"
+                    unless $datum_interval eq 'previous';
+                }
+            }
+        ## check if max-offset limit is exceeded:
+        if ( defined $max_offset ) {
+            die qq(max-offset limit exceeded: $offset\n)
+                if abs($offset) > $max_offset;
+            }
+        ASSERT(defined $offset, 'interval offset is defined');
+        }
+
+    ## year,ysec, maybe offset, now identifies the datum time
+
+    ## now mung the datum with initial timestamp or offset, or nothing:
+    if ( $interval && defined $assumed_offset ) {
+        # no change to datum, still a scalar value
+        # ... note that the offset (if any) is not stored in this case;
+        # ... i.e., that information is thrown away
+        }
+    elsif ( $interval ) {
+        # include offset seconds from nominal interval time
+        $datum = [ $offset, $datum];
+        }
+    else {
+        # include time in seconds as first field
+        $datum = [ $ysec, $datum];
+        # note that the timestamp is not zero-padded, so would need to
+        #    be sorted numerically if necessary
+        }
+
+
+    ## now the datum is ready to be stored
+    if ( exists $yeardata{$year}->{$ysec} ) { # this entry already exists...
+        ## check if both datums are the same:
+        unless ( datums_match($datum, $yeardata{$year}->{$ysec}) ) {
+            die "duplicate time, different data at $year,$ysec:\n" .
+                    "\t$datum\n\t" . $yeardata{$year}->{$ysec} . "\n"
+            }
+        ## ASSERT: datum exactly matches one earlier in input stream
+     #  last if $no_skipping_duplicates_allowed;
+        warn qq(skipping duplicate entry at $year,$ysec\n) if $verbose;
+        $skipped += 1;
+        next;
+        }
+    $yeardata{$year}->{$ysec} = $datum; # note: ysec is not 0-padded!
+    $records += 1;
+    }
+
+undef @data; # ... just to make clear that we're done with @data
+
+###############################
+## $records + $skipped records have been consumed from input stream
+##
+## the yeardata structure now contains all the input data with no duplicates,
+## separated by year and keyed on the ysec value
+###############################
+
+# print "DEBUG yeardata:\n";
+# foreach my $year ( sort keys %yeardata ) {
+#     foreach my $ysec ( sort { $a <=> $b } keys %{$yeardata{$year}} ) {
+#         my $d = $yeardata{$year}->{$ysec};
+#         $d = "@$d" if ref $d eq 'ARRAY';
+#         print "$year $ysec: $d\n";
+#         }
+#     }
+
+## next, for the interval case, identify consecutive ranges of data...
+my %yearsets;
+if ( $interval ) {
+    foreach my $year ( keys %yeardata ) { # no need to sort years here...
+        my $first_in_set;
+        my $expected = -1; # ysec value expected in the next pass
+        foreach my $ysec ( sort { $a <=> $b } keys %{$yeardata{$year}} ) {
+            if ( $ysec != $expected ) { # terminate old, start new range-set
+                $expected = $ysec if $expected == -1;
+                push @{$yearsets{$year}},
+                        [$first_in_set, $expected - $interval]
+                    if defined $first_in_set;
+                $first_in_set = $ysec; # remember this value...
+                $expected = $ysec;
+                }
+            $expected += $interval;
+            }
+        # there will be a range still open, so end it:
+        push @{$yearsets{$year}},
+            [$first_in_set, $expected - $interval]
+            if defined $first_in_set;
+        }
+    }
+else { # for the non-interval case, each year has a single dataset:
+    foreach my $year ( keys %yeardata ) { # note: no need to sort these
+        my ($first, $last) = (sort { $a <=> $b } keys %{$yeardata{$year}})[0,-1];
+        ASSERT(defined $first, 'entries are available for year in %yeardata hash');
+        push @{$yearsets{$year}}, [$first, $last] if defined $first;
+        }
+    }
+
+# print "DEBUG yearsets 1:\n";
+# foreach my $year ( sort keys %yearsets ) {
+#     foreach my $yearset ( @{$yearsets{$year}} ) {
+#         print "$year @$yearset\n";
+#         }
+#     }
+
+###############################
+## separate contiguous data sets are now identified in $yearsets;
+###############################
+
+## to facilitate merging, pre-calculate encoded time values:
+## each record: [ first, last, prev32, next32 ]
+do { # (using a block just to localize $h... no real reason...)
+    my $h = $interval || 1;
+  # print "effective interval is: $h seconds\n";
+    foreach my $year ( keys %yearsets ) { # no need to sort
+        foreach ( @{$yearsets{$year}} ) { # here either, but already sorted
+            my ($first, $last) = @$_;
+            push @$_, encode_pad($first - $h, 5), encode_pad($last + $h, 5); 
+            }
+        }
+    };
+
+# print "DEBUG yearsets 2:\n";
+# foreach my $year ( sort keys %yearsets ) {
+#     foreach my $yearset ( @{$yearsets{$year}} ) {
+#         print "$year @$yearset\n";
+#         }
+#     }
+
+###############################
+## before checking/manipulating stored files, set a lock for exclusive access:
+###############################
+
+## check/set a lock object so that the files aren't changed by another process 
+my $locker = LockFile::Simple->make( 
+    -delay => 7, -autoclean => 1, -warn => 0, -wfunc => undef,
+    );
+my $storelock = $locker->trylock("$tob/store-in-progress");
+unless ( $storelock ) {
+    $storelock->release() if $storelock;
+    die "unable to aquire store lock\n"; # end this try, to maybe try again...
+    }
+## ASSERT: a lockfile is now set
+
+
+###############################
+## for each dataset, check for intersecting files:
+###############################
+
+## scan files matching tag and interval (if any)
+my @files = sort $ob->listfiles();
+
+foreach my $year ( sort keys %yearsets ) {
+    foreach my $yearset ( @{$yearsets{$year}} ) {
+        my ($first, $last, $prev32, $next32) = @$yearset;
+        while ( my $file = shift @files ) {
+            next unless $file =~ m/^\@$tag(\d{4})-(\w{5})-(\w{5})-(.*)/;
+          # print "DEBUG: considering file $file\n";
+            my ($f_year, $f_first32, $f_last32, $f_suffix) = ($1, $2, $3, $4);
+            next if $f_year < $year; ## skip any earlier files...
+            if ( $f_year > $year ) {
+                push @files, $file; # may need to check this file again
+                last;
+                }
+            if ( $interval ) {
+                next if $f_suffix ne $itag;
+                }
+            else { # non-interval ...
+                next if $f_suffix !~ m/^\d+$/; # should be element count
+                ## year & suffix match, so insert/add to this file!
+                if ( $f_first32 ge $next32 ) {
+                    push @$yearset, prepend => $file;
+                    }
+                elsif ( $f_last32 le $prev32 ) {
+                    push @$yearset, append => $file;
+                    }
+                else { # dataset goes somewhere in the file
+                    push @$yearset, insert => $file;
+                    }
+                next; # done with non-interval case
+                }
+            ## ASSERT: have the right year, interval case
+            next if $f_last32 lt $prev32; # too early
+            if ( $f_first32 gt $next32 ) { # too late
+                push @files, $file; # may need to check this file again
+                last;
+                }
+            ## the file is either touching or overlapping the dataset
+            if ( $f_last32 eq $prev32 ) { # dataset extends file
+                push @$yearset, append => $file;
+                next;
+                }
+            elsif ( $next32 eq $f_first32 ) { # dataset precedes file
+                push @$yearset, prepend => $file;
+                push @files, $file; # may need to check this file again
+                last;
+                }
+            else { # dataset overlaps file -- exit with error!!
+                die qq(submitted data overlaps existing\n);
+                }
+            }
+        }
+    }
+
+
+###############################
+## each yearset will either be stand-alone or will touch 1 or 2 files
+###############################
+
+my %newfiles;
+my $count = 0;
+foreach my $year ( sort keys %yearsets ) {
+    foreach ( @{$yearsets{$year}} ) {
+        my $n;
+        my ($first, $last, undef, undef, %files) = @$_;
+        unless ( keys %files ) { # no intersection with any files
+            print "creating new file...\n" if $debug;
+            (undef, $n) = create_file($year, $first, $last);
+            $count += $n;
+            }
+        elsif ( keys %files == 2 ) { # file + dataset + file (FILL-IN)
+            ASSERT(exists $files{prepend} && exists $files{append},
+                   'prepend and append files are defined');
+            my $file1 = $newfiles{ $files{append} } || $files{append};
+            print "inserting dataset between files...\n" if $debug;
+            ($newfiles{$files{prepend}}, $n) = fill_in_files(
+                $file1,
+                $year, $first, $last,
+                $files{prepend}
+                );
+            $count += $n;
+            }
+        elsif ( keys %files != 1 ) { # only one entry should be present...
+            my @error_in_hash;
+            push @error_in_hash, $_, $files{$_} foreach keys %files;
+            die qq(invalid entries in touched files hash: @error_in_hash\n);
+            }
+        elsif ( my $file = $files{append} ) { # file + data (APPEND FILE)
+            print "adding dataset to end of file $file...\n" if $debug;
+            ## file may have a new name, so check for that:
+            $file = $newfiles{$file} if exists $newfiles{$file};
+            (undef, $n) = append_to_file(
+                $file,
+                $year, $first, $last
+                );
+            $count += $n;
+            }
+        elsif ( $file = $files{prepend} ) { # data + file (PREPEND FILE)
+            print "adding dataset to start of file $file...\n" if $debug;
+            ## the modified file will have a new name, so register it:
+            ($newfiles{$file}, $n) = prepend_to_file(
+                $year, $first, $last,
+                $file
+                );
+            $count += $n;
+            }
+        elsif ( $file = $files{insert} ) { # data --> file (INSERT FILE)
+            ## this only will happen in non-interval case
+            print "inserting dataset into file $file...\n" if $debug;
+            ## the modified file will have a new name, so register it:
+            warn "may change filename: $file, $year, $first, $last\n";
+            ($newfiles{$file}, $n) = insert_into_file(
+                $file,
+                $year, $first, $last
+                );
+            $count += $n;
+            }
+        else {
+            die "can't happen!";
+            }
+        }
+    }
+
+print "$count records stored,",
+    " $records records queued,",
+    " $skipped records skipped",
+    "\n";
+
+exit 0;
+
+###############################
+## the following subs use global values:
+##   %yeardata $interval $itag
+###############################
+
+sub create_file {
+    my ($year, $first, $last) = @_;
+    warn "create_file($year, $first, $last)\n" if $verbose;
+    die "temporary file " . TEMPFILE . " shouldn't exist!"
+        if -e "$tob/" . TEMPFILE;
+    open NEWFILE, '>', "$tob/" . TEMPFILE or die $!;
+    my $count = 0;
+    foreach my $ysec ( sort { $a <=> $b } keys %{$yeardata{$year}} ) {
+      # print "CHECKING $ysec $first $last\n";
+        next if $ysec < $first;
+        last if $ysec > $last;
+        my $datum = $yeardata{$year}->{$ysec};
+        $datum = join ' ', @$datum if ref $datum eq 'ARRAY';
+        print NEWFILE $datum, "\n";
+      # print "DEBUG stored: $datum\n";
+        $count += 1;
+        }
+    close NEWFILE or die;
+    my $suffix = $interval ? $itag : $count;
+    my $fname = sprintf '@%s%4d-%05s-%05s-%s',
+        $tag, $year, encode($first), encode($last), $suffix;
+    rename "$tob/" . TEMPFILE, "$tob/$fname" or die $!;
+    print "$count records stored in $fname\n" if $debug;
+    return ($fname, $count);
+    }
+
+sub prepend_to_file { # insert data at the start of existing file
+    my ($year, $first, $last, $file) = @_;
+    die qq(prepend_to_file(): "$file" not found\n) unless -e "$tob/$file";
+    open PREPEND, '>', "$tob/" . TEMPFILE or die $!;
+    my $count = 0;
+    foreach my $ysec ( sort { $a <=> $b } keys %{$yeardata{$year}} ) {
+        next if $ysec < $first;
+        last if $ysec > $last;
+        my $datum = $yeardata{$year}->{$ysec};
+        $datum = join ' ', @$datum if ref $datum eq 'ARRAY';
+        print PREPEND $datum, "\n";
+        $count += 1;
+        }
+    open FILE, '<', "$tob/$file" or die $!;
+    foreach ( <FILE> ) {
+        print PREPEND $_;
+        $count += 1; # ... or could use the known count for non-interval files
+        }
+    close FILE or die $!;
+    close PREPEND or die $!;
+    my $suffix = $interval ? $itag : $count;
+    unlink "$tob/$file" or die $!;
+    my ($last32) = $file =~ m/\@$tag\d{4}-\w{5}-(\w{5})-.+/;
+    my $fname = sprintf '@%s%4d-%05s-%05s-%s',
+        $tag, $year, encode($first), $last32, $suffix;
+    rename "$tob/" . TEMPFILE, "$tob/$fname" or die $!;
+    print "$count records now stored in $fname\n" if $debug;
+    return ($fname, $count);
+    }
+
+sub append_to_file { # add data at the end of existing file
+    my ($file, $year, $first, $last) = @_;
+    die qq(append_to_file(): "$file" not found\n) unless -e "$tob/$file";
+    my $count = 0;
+    ($count) = $file =~ m/-(\d+)$/ unless $interval; # get count, if there
+    ## in order to eliminate risk of a wrong-named file, rename it now:
+    rename "$tob/$file", "$tob/" . TEMPFILE or die $!;
+    open APPENDFILE, '>>', "$tob/" . TEMPFILE or die $!;
+    foreach my $ysec ( sort { $a <=> $b } keys %{$yeardata{$year}} ) {
+        next if $ysec < $first;
+        last if $ysec > $last;
+        my $datum = $yeardata{$year}->{$ysec};
+        $datum = join ' ', @$datum if ref $datum eq 'ARRAY';
+        print APPENDFILE $datum, "\n";
+        $count += 1;
+        }
+    close APPENDFILE or die;
+    my $suffix = $interval ? $itag : $count;
+    my ($first32) = $file =~ m/\@$tag\d{4}-(\w{5})-\w{5}-.+/;
+    my $fname = sprintf '@%s%4d-%05s-%05s-%s',
+        $tag, $year, $first32, encode($last), $suffix;
+    rename "$tob/" . TEMPFILE, "$tob/$fname" or die $!;
+    print "$count records now stored in $fname\n" if $debug;
+    return ($fname, $count);
+    }
+
+sub fill_in_files { # add data between two existing files
+    my ($file1, $year, $first, $last, $file2) = @_;
+    for my $f ( $file1, $file2 ) {
+        die qq(fill_in_files(): "$f" not found\n) unless -e "$tob/$f";
+        }
+    ## start by appending data to file1 ...
+    my $count;
+    ($file1, $count) = append_to_file($file1, $year, $first, $last);
+
+    die "temporary file " . TEMPFILE . " shouldn't exist!"
+        if -e "$tob/" . TEMPFILE;
+    ## in order to eliminate risk of a wrong-named file, rename it now:
+    rename "$tob/$file1", "$tob/" . TEMPFILE or die $!;
+    open APPENDFILE, '>>', "$tob/" . TEMPFILE or die $!;
+    open FILE2, '<', "$tob/$file2" or die $!;
+    foreach ( <FILE2> ) {
+        print APPENDFILE $_;
+        $count += 1; # ... or could use the known count for non-interval files
+        }
+    close FILE2 or die $!;
+    close APPENDFILE or die $!;
+    my $suffix = $interval ? $itag : $count;
+    my ($first32) = $file1 =~ m/\@$tag\d{4}-(\w{5})-\w{5}-.+/;
+    my ($last32) = $file2 =~ m/\@$tag\d{4}-\w{5}-(\w{5})-.+/;
+    my $fname = sprintf '@%s%4d-%05s-%05s-%s',
+        $tag, $year, $first32, $last32, $suffix;
+    rename "$tob/" . TEMPFILE, "$tob/$fname" or die $!;
+    print "$count records now stored in $fname\n" if $debug;
+    return ($fname, $count);
+    }
+
+sub insert_into_file { # insert data somewhere into/onto non-interval file
+    my ($file, $year, $first, $last) = @_;
+    die qq(insert_into_file(): "$file" not found\n) unless -e "$tob/$file";
+    my ($f_first32, $f_last32, $f_count) =
+        $file =~ m/\@$tag\d{4}-(\w{5})-(\w{5})-(\d+)/;
+    ASSERT($f_count && $f_count =~ m/^\d+$/, 'numeric count is defined');
+    open INSERTFILE, '>', "$tob/" . TEMPFILE or die $!;
+    open OLDFILE, '<', "$tob/$file" or die $!;
+    
+    # now merge each new entry into file...
+    my $count = 0;
+    my $added = 0;
+    my $dups = 0;
+    my ($ts, $buffer);
+    foreach my $ysec ( sort { $a <=> $b } keys %{$yeardata{$year}} ) {
+        next if $ysec < $first;
+        last if $ysec > $last;
+        ## this record is to be stored
+        my $datum = $yeardata{$year}->{$ysec};
+        $datum = join ' ', @$datum if ref $datum eq 'ARRAY';
+
+        # ysec & datum are in hand, so read from file...
+
+        print "ingesting: $datum\n" if $verbose > 1;
+        
+        while ( (defined $buffer) || ($buffer = <OLDFILE>) ) { # sync up to $ysec
+            ($ts) = $buffer =~ m/^(\d+)/;
+            last if $ts >= $ysec;
+            print INSERTFILE $buffer; # note: buffer still has line ending
+            print "copying old data: $buffer" if $verbose > 1;
+            $count += 1;
+            undef $buffer;
+            undef $ts;
+            }
+
+        if ( defined $ts && $ts == $ysec ) { # collision! ... fatal if values differ
+            my $errmsg;
+            chomp $buffer; # strip off line ending for comparison...
+            if ( $buffer eq $datum ) {
+                warn qq(skipping duplicate entry at: $datum\n) if $verbose;
+                print INSERTFILE $buffer, "\n";
+                print "recopying duplicated old data: $buffer\n"
+                    if $verbose > 1;
+                undef $buffer;
+                undef $ts;
+                $count += 1;
+                $dups += 1;
+                next;
+                }
+            ## times match, but datums differ
+            $errmsg = qq(duplicate time, different datum:\n) .
+                 qq(    old: $buffer\n) .
+                 qq(    new: $datum); # leave newline for die()...
+            close OLDFILE;
+            close INSERTFILE;
+            unlink "$tob/" . TEMPFILE or die $!;
+            die "$errmsg\n";
+            }
+
+        ASSERT($ts > $ysec, "file $ts is after dataset $datum") if defined $ts;
+        print INSERTFILE $datum, "\n";
+        print "writing new data: $datum\n" if $verbose > 1;
+        $count += 1;
+        $added += 1;
+        }
+
+    if ( defined $buffer ) {
+        print INSERTFILE $buffer;
+        print "recopying left over old data: $buffer" if $verbose > 1;
+        $count += 1;
+        }
+
+    ## finally, copy any remaining existing data to new file...
+    while ( <OLDFILE> ) { # copy from existing up to $first...
+        print INSERTFILE $_;
+        print "recopying remaining old data: $_" if $verbose > 1;
+        $count += 1;
+        }
+
+    close OLDFILE or die;
+    close INSERTFILE or die;
+
+    ## check first & last times against those of the file:
+    my ($new_first32, $new_last32) = (encode($first), encode($last));
+    $f_first32 = $new_first32 if $new_first32 < $f_first32;
+    $f_last32 = $new_last32 if $new_last32 > $f_last32;
+    my $fname = sprintf '@%s%4d-%05s-%05s-%s',
+        $tag, $year, $f_first32, $f_last32, $count;
+    if ( -e "$tob/$fname" ) { # unexpected, but make sure this doesn't happen
+        unlink "$tob/" . TEMPFILE or die $!;
+        die "file already exists: $fname\n";
+        }
+    unlink "$tob/$file" or die $!;
+    rename "$tob/" . TEMPFILE, "$tob/$fname" or die $!;
+    print "$count records now stored in $fname\n" if $debug;
+    return ($fname, $count);
+    }
+
+sub datums_match { # also check offsets, if present
+    my ($d1, $d2) = @_;
+    my ($t1, $t2); # ysec or offset may be defined or not
+    ($t1, $d1) = @$d1 if ref $d1 eq 'ARRAY';
+    ($t2, $d2) = @$d2 if ref $d2 eq 'ARRAY';
+    return undef unless $d1 eq $d2;
+    ## datums are the same; next check the offsets if present:
+    ## for now, require that both either have or don't have offsets/times:
+    warn qq(offsets differ: $t1, $t2\n) if defined $t1 && $t1 != $t2;
+    return 1; # yes, datums match, and so do offsets/times, if present
+    }
+
+__END__
+
+=head1 NAME
+
+store-stream -- TimeSeries store-stream method
+
+=head1 SYNOPSIS
+
+Given an object of the TimeSeries class (and a thinobject I<enabler>,
+e.g., C<tob>), store a stream of records from standard input or named
+file(s), with the time for each record given as the first space-delimited
+field on each line as the number of seconds from the Unix epoch (start
+of the year 1970).
+
+  $ tob ob.store-stream datafile
+  $ cat datafile | tob ob.store-stream 
+  $ cat middle-data | tob ob.store-stream first-data - last-data
+
+
+=head1 DESCRIPTION
+
+The TimeSeries thinobject class stores data in list properties, flat files
+with ``@'' as the first character, one line per each datum.  A separate file
+is used (at least) for each year. 
+
+=head1 INTERNAL DETAILS
+
+TimeSeries uses seconds from the start of the year as its basic timestamp
+unit, in the UTC timezone.  Data is stored in list properties (files)
+of the form:
+
+    @TAG-YEAR-TIME1-TIME2-SUFFIX
+
+where TAG can be any string value or none (default), and is set by the
+--tag option or tag attribute.  The tag is not otherwise used
+by the timeseries class.
+
+The SUFFIX value is either the count of entries in the data file or the
+interval tag if interval is set.
+
+Year and time values are encoded using a particular base-32 character
+set in order to reduce filename sizes.  The encoding skips a few letters:
+
+    0123456789abcdefghjkmnpqrstvwxyz
+    0         1         2         3
+    01234567890123456789012345678901
+
+The base-32-encoded year values are 3 characters long, but the time
+values (in seconds from the start of the year) are zero-padded to 5
+characters so that normal sorting is sufficient to put the files in
+temporal order.
+
+
+
+=head1 OPTIONS
+
+=over
+
+=item --tzofs=[S]HHMM
+
+The option value will override the B<tzofs> attribute, if set, to 
+establish the timezone offset from UTC assumed for the given time
+in the store operation.
+
+=item --h
+
+=item --help
+
+=item --time=s
+
+=item --max-offset=s
+
+=item --debug
+
+=item --verbose
+
+=item --interval=s
+
+=item --datum-interval=s
+
+=item --tag=STRING
+
+=back
+
+
+=head1 BUGS
+
+
+=head1 AUTHOR
+
+Ken Irving <fnkci@uaf.edu> (c) 2006
+
+Licensed under the GPL (Gnu Public Library)
+

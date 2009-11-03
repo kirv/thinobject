@@ -1,0 +1,225 @@
+#!/usr/bin/python
+
+# (c) 2008 Ken Irving <fnkci@uaf.edu>
+# License: GNU General Public License, version 2 or any later version
+
+import sys, os, re, shutil
+
+
+manpage = '''NAME
+    TimeSeries.check-datasets -- integrity checks, optional fixes
+
+SYNOPSIS
+    timeseries.check-datasets [--help] [--fix]
+
+DESCRIPTION
+    For interval datasets, the interval suffix must match between the
+    object and each argument object or the method will fail.
+
+OPTIONS
+    --fix
+        concatenate adjacent interval datasets
+
+    --help
+        print this manpage
+
+AUTHOR
+    ki (c) 2008
+'''
+
+def bail(msg, exit=1):
+    print msg
+    sys.exit(exit)
+
+def help(): 
+    print manpage
+
+def step_interval(file, start, end, interval):
+    if not check_lines:
+        return 'no check'
+    f = open(file, 'r')
+    t = start - interval
+    for line in f:
+        t += interval
+    f.close()
+    lines = (t - start) / interval + 1
+    if t == end:
+        return 'ok (%d)' % lines
+    elif t < start:
+        return 'bad: file is empty'
+    elif t < end:
+        return 'bad: %d too few lines (%d)' %\
+             ((end - t) / interval, lines)
+    elif t > end:
+        return 'bad: %d too many lines (%d)' %\
+             ((t - end) / interval, lines)
+    else:
+        return 'bad: incorrect number of lines'
+
+def datasets():
+    "scan thinobject directory, return list of datasets in dict of years"
+    global suffix, interval, offset
+    datasets = []
+    year = None
+    for file in sorted(os.listdir('.')):
+        m = ts_dataset_name_pattern.match(file)
+        if not m:
+            continue
+        year, start32, end32, sfx = m.groups()
+        if sfx != suffix:
+            if not suffix:
+                suffix = sfx
+                interval,offset = interval_seconds(suffix)        
+            else:
+                bail("object %s dataset interval mismatch: %s vs %s" %
+                     (sfx, suffix))
+        ok = step_interval(file, decode32(start32), decode32(end32), interval)
+        datasets.append( (year, start32, end32, file, ok) )
+    return datasets
+
+def scan_for_objects(dir):
+    "scan given directory, return sorted list of objects"
+    objects = []
+    for object in sorted(os.listdir(dir)):
+        if object[0] == '^':
+            continue
+        objects.append(object)
+    return objects
+
+def decode32(ysec32):
+    "decode time in ``code32'', return time in seconds" 
+    if ysec32 == None:
+        return None
+    code = '0123456789' + 'abcdefgh' + 'jk' + 'mn' + 'pqrst' + 'vwxyz'
+    assert len(code) == 32
+    uncode = {}
+    for i, c in enumerate(code):
+        uncode[c] = i
+    seconds = 0
+    for c in ysec32:
+        seconds = uncode[c] + seconds * 32
+    return seconds
+
+def encode32(ysec, width=5):
+    "encode time in seconds, return encoded ysec32 0-padded to 5 characters"
+    assert ysec != None
+    code = '0123456789' + 'abcdefgh' + 'jk' + 'mn' + 'pqrst' + 'vwxyz'
+    assert len(code) == 32
+    ysec32 = ''
+    while ysec > 0:
+        ysec32 = code[ ysec % 32 ] + ysec32
+        ysec = int( ysec / 32 )
+    return "%0*s" % (width,ysec32)
+
+def interval_seconds(itag):
+    "convert interval tag to (interval,offset) in seconds" 
+    # itag may be of the form: 1h-0s or 1h
+    if re.search('-', itag):
+        it,ot = re.split('-', itag)
+    else:
+        it,ot  = itag, None
+    def decode_tag(tag):
+        if tag == None:
+            return 0
+        value, unit = re.match('(\d+)([ytwdhms])$', tag).groups()
+        units = {
+           's' : 1, # seconds
+           'm' : 60,   # ... in a minute
+           'h' : 60*60,  # ... hour
+           'd' : 60*60*24,  # ... day
+           'w' : 60*60*24*7,  # ... week
+           't' : 60*60*24*30,  # ... month... really 30 days
+           'y' : 60*60*24*365,  # ... year... really 365 days
+            }
+        seconds = int(value) * units[unit]
+        return (seconds)
+    return (decode_tag(it), decode_tag(ot))
+
+def concatenate(file1, file2):
+    y1,s1,e1,i1 = ts_dataset_name_pattern.match(file1).groups()
+    y2,s2,e2,i2 = ts_dataset_name_pattern.match(file2).groups()
+    file12 = "@%s-%s-%s-%s" % (y1,s1,e2,i1)
+    os.rename(file1, '.' + file12 )
+    ofile = open('.' + file12, 'a')
+    ifile = open(file2, 'r')
+    for line in ifile:
+        print >> ofile, line, # suppress extra newline!
+    ofile.close()
+    ifile.close()
+    os.remove(file2)
+    shutil.move('.' + file12, file12)
+    return (s1, e2, file12)
+
+
+def check_adjacent_datasets():
+    last_year = last_start32 = last_end = last_file = None
+    global interval
+    for year, start32, end32, file, ok in datasets():
+        assert interval != None
+        print file, ok
+        if year != last_year:
+            # first dataset for this year, so grab values and move on
+            last_file = file
+            last_start32 = start32
+            last_end = decode32(end32)
+            last_year = year
+            continue
+        start = decode32(start32)
+        if start > last_end + interval: # ok, no problem with this
+            pass
+
+        elif start == last_end + interval: # they're adjacent...
+            if fix:
+                start32, end32, file = concatenate(last_file, file)
+                print file, "<-- combined the last two!"
+            else:
+                print "recommed: concatenate(%s, %s, %s)" %\
+                    (year, last_file, file)
+
+        elif start < last_end + interval:
+            print "bad: dataset starts too early"
+    
+        last_start32 = start32
+        last_end = decode32(end32)
+        last_file = file
+
+
+## main program
+
+# identify nominal object and change to its directory:
+ob = sys.argv.pop(1)
+os.chdir(os.environ["tob_path"])
+self = '.'
+
+# define some global values to be filled in:
+suffix = None
+itag = None
+interval = None
+offset = None
+
+ts_dataset_name_pattern = re.compile(r'@(\d{4})-(\w{5})-(\w{5})-(.+)')
+
+# define some options with default values:
+debugmode = None
+fix = None
+check_lines = True
+
+# store the method, then process arg list for options:
+method = sys.argv.pop(0)
+while sys.argv:
+    arg = sys.argv.pop(0)
+    if arg[0] == '-': # parse option
+        if arg == '--help':
+            help()
+            sys.exit(0)
+        elif arg == '--fix':
+            fix = True
+        elif arg == '--debug':
+            debugmode = 1
+        else:
+            bail("unknown option: %s" % arg)
+    else:
+        bail("no arguments expected: %s" % arg)
+
+check_adjacent_datasets()
+
