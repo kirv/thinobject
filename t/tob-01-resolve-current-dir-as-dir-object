@@ -1,0 +1,12 @@
+#!/bin/sh
+
+mkdir dir$$ &&
+    cd dir$$
+
+# ln -s /usr/local/lib/tob/Object $p/foo.test/^
+
+test $(tob ..path) == ././ ||
+    exit 1
+
+cd - >/dev/null
+rmdir dir$$

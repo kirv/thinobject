@@ -1,5 +1,21 @@
 #!/bin/bash
 
+# tob -- thinobject 'enabler' program
+# Copyright (C) 2009 Ken Irving
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 # require class handlers & methods to be under one of these paths:
 if test -n "$TOB_LIBROOT"; then
     libroots=${TOB_LIBROOT//:/ } 
@@ -59,14 +75,18 @@ resolve_and_chdir_into_object () {
     # returns 1 on any error
     # returns 2 if target is a file
     local ob_spec="$1"
+  # warn "TRY TO RESOLVE $ob_spec"
     TOB_path_to_object=. # assume relative path
     test ${ob_spec:0:1} == / &&
         TOB_path_to_object="" # no, it's an absolute path
     unset last_classlink # global variable, set from resolve_object() classlink
     for direntry in ${ob_spec//\//\/ }; do # split on, and leave, slashes
         unset prefix
-        test ${ob_spec:0:1} == . && # special case: dir or ob begins with dot
+        test ${ob_spec:0:1} == . && { # special case: dir or ob begins with dot
             prefix=.
+            test $ob_spec == . && # special case: current directory
+                direntry=/
+            }
         for obentry in ${direntry//./ }; do # split on dots
             obentry=$prefix$obentry
           # warn TRY TO RESOLVE $obentry

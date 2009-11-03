@@ -29,7 +29,7 @@ done
 test -n "$prefix" ||
     prefix=/usr/local
 
-test -n $host && {
+test -n "$host" && {
     echo --host option disabled, not yet tested...
     echo "I don't expect problems, but want to be careful..."
     exit 1
