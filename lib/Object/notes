@@ -1,8 +1,5 @@
 #!/bin/sh
 
-ob=$1
-shift
-
 notes=/usr/local/bin/notes
 
 while test "${1:0:1}" == "-"; do 
@@ -17,17 +14,10 @@ while test "${1:0:1}" == "-"; do
     exit 1
 done
 
-cd $(tob $ob.tob) || {
-    echo unable to cd to object directory
-    exit 1
-    }
-
 test -e NOTES || {
     if [ -n "$CREATE_OK" ]; then
         pwd >> NOTES
-        echo new notes file created in $ob
     else    
-        echo no notes file found in $ob
         exit 1
     fi
     }

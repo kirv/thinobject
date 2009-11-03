@@ -1,6 +1,5 @@
 #!/bin/sh
 
-ob=$1; shift
 dict=$1; shift
 test -e $dict || exit 1
 

@@ -2,8 +2,7 @@
 use strict;
 use warnings;
 
-my $ob = shift;
-chdir $ENV{TOB_object_path} || die $!;
+my $ob = $ENV{TOB_object};
 
 my $method = $ENV{TOB_method};
 

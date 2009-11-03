@@ -1,10 +1,9 @@
 #!/usr/bin/perl -w
 use strict;
 use ThinObject;
-my $ob = shift;
 my $prop = shift;
 my $index1 = shift; # 1-based index into property
-$ob = ThinObject->new($ob);
+my $ob = ThinObject->new('.');
 if ( defined $prop ) {
     my @value = $ob->get_property($prop);
     exit unless @value;
