@@ -60,12 +60,12 @@ while [ -n "$1" -a ${1#-} != $1 ]; do
 
     opt=$1 && shift
 
-    if [ "$opt" == "-s" -o "$opt" == "--hide" -o "$opt" == "--shadow" ]
+    if [ "$opt" == "-s" -o "$opt" == "--hide" ]
         then
         ## create object as dotted directory
         TOB_NEW_DOTDIR=1
 
-    elif [ "$opt" == "-S" -o "$opt" == "--no-hide" -o "$opt" == "--no-shadow" ]
+    elif [ "$opt" == "-S" -o "$opt" == "--no-hide" ]
     then
         ## create object directly, not dotted...
         unset TOB_NEW_DOTDIR
@@ -317,13 +317,11 @@ OPTIONS
 
     -s
     --hide
-    --shadow
     create the object as a "dot directory", i.e., hidden, perhaps shadowing 
     a regular file or directory.  Sets variable TOB_NEW_DOTDIR.
 
     -S
     --no-hide
-    --no-shadow
     create the object as a normal directory, not hidden and not shadowing
     anything.  Unsets variable TOB_NEW_DOTDIR.
 
