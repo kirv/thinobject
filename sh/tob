@@ -50,7 +50,6 @@ check_classroot () {
     }
 
 resolve_object () {  # set classlink to '^', '.^', or ''; or return 1
-  # warn resolve_object $1 ...
     test -d $1 ||
         return 1 # not a directory
     unset classlink 
@@ -95,7 +94,8 @@ resolve_and_chdir_into_object () {
                 TOB_path_to_object=$TOB_path_to_object/${obentry%/}
                 cd $obentry ||
                     error failed to cd to $TOB_path_to_object
-                unset last_classlink
+                resolve_object $obentry
+                last_classlink=$classlink
             elif resolve_object $obentry; then # foo/^
               # warn foo/^
                 TOB_path_to_object=$TOB_path_to_object/$obentry
@@ -186,6 +186,7 @@ resolve_attribute_search_path () {
 resolve_method_search_path () {
     # method search starts with object class, 2nd entry in attr_paths array:
     local attr_index=1
+  # warn "${attr_paths[$*]}"
     test -n "${attr_paths[$attr_index]}" ||
         error attr_paths array not initialized
     local index=0
@@ -346,17 +347,18 @@ return_code=$?
 if test $return_code == 1; then
     error failed to resolve object: $TOB_object
 
+
 elif test $return_code == 2; then
     find_default_file_class
     TOB_class_path=$TOB_FILE_CLASS
-    echo pwd is $PWD
-    echo query object was $TOB_object
-    echo file object is $TOB_file_object
+    warn pwd is $PWD
+    warn query object was $TOB_object
+    warn file object is $TOB_file_object
     error $TOB_object resolved to a file ... how to handle it?
 
 elif test -n "$last_classlink"; then
-  # echo object $TOB_object is a thinobject
-  # echo last_classlink is $last_classlink
+  # warn object $TOB_object is a thinobject
+  # warn last_classlink is $last_classlink
     TOB_class_path=./$classlink
 else
   # warn object $TOB_object is a directory

@@ -3,15 +3,11 @@
 mkdir dir$$ &&
     cd dir$$
 
-ln -s /usr/local/lib/tob/Object ./^
-
 test $(tob ..path) == ././ ||
     exit 1
 
-test $(tob ..type) == Object:Directory ||
+test $(tob ..type) == Directory ||
     exit 2
 
 cd - >/dev/null
-
-rm -r dir$$
-
+rmdir dir$$
