@@ -44,6 +44,7 @@ while test "$i" -lt "$show_number"; do
         break
         }
 
-    printf "\nCHAINING TO NEXT HELP PAGE...\n\n"
+    printf "\nCHAINING TO NEXT (%d of %d) HELP PAGE...\n\n"\
+        $(($i+1)) $available
     
 done
