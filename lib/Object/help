@@ -1,33 +1,49 @@
-#!/bin/sh
+#!/bin/bash
 
-cat << END_HELP_SCREEN
-NAME
-    BaseClass -- thinobject base class
+show_number=1 # show one help page by default
 
-DESCRIPTION
-    The ThinObject` BaseClass class provides some general-use methods
-    which may apply to all thinobject objects.
+# can specify number of pages to show in a numeric argument
+test -n "$1" &&
+    show_number=$1 &&
+        shift 
 
-    Note that there are several methods (or perhaps, ``faux''
-    methods?) available through the ThinObject I<enabler> program,
-    F<thinob> or F<tob>, which are not defined in the BaseClass class.
+declare -a help
+for p in ${TOB_attribute_search_paths//:/ }; do
+    test -e $p/\@HELP &&
+        help=(${help[@]} $p/\@HELP)
+done
 
-METHODS
-    get-prop -- show one or all properties
-    set-prop -- set the value of a property
-    method -- show all methods, or pathname of a method
-    help   -- display this help screen
+available=${#help[@]}
 
-SEE ALSO
-    C<thinob --help> or C<tob>...
+# for h in ${help[@]}; do
+#     printf \\t$h\\n
+# done
 
-    The --help option of the various methods.
-
-BUGS
+i=0
+while test "$i" -lt "$show_number"; do
     
+    cat ${help[$i]} # display the help page
 
-AUTHOR
-    Ken Irving <fnkci@uaf.edu> (c) 2007
+    i=$(($i + 1))
 
-    Licensed under the GPL (Gnu Public Library)
-END_HELP_SCREEN
+  # echo i=$i, available=$available, show=$show_number
+
+    test "$i" -lt "$available" || # no more pages are available
+        break 
+    
+    test "$i" -lt "$show_number" || {
+        pending=$(($available - $i))
+
+        pluralize=s
+        test $pending -eq 1 &&
+            unset pluralize
+
+        printf "\nNOTE: %s more help page$pluralize available, type: %s.help N, N=1 to %d\n"\
+            $pending $TOB_object $available
+
+        break
+        }
+
+    printf "\nCHAINING TO NEXT HELP PAGE...\n\n"
+    
+done

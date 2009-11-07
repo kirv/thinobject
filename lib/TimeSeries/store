@@ -35,7 +35,7 @@ my $gzip;
 use Getopt::Long;
 GetOptions (
     'h'             => sub { print "see --help\n"; exit 1 },
-    'help'          => sub { exec system "pod2text $0" },
+    'help'          => sub { exec "pod2text $0" },
     'time=s'  => \$time,
     'max-offset=s'  => \$max_offset,
     'maxwidth=s'  => \$maxwidth,

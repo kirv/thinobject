@@ -1,0 +1,12 @@
+NAME
+    Directory -- thinobject class for any directory
+
+DESCRIPTION
+    Thinobject methods are invoked after changing to the object 
+    directory.  Most methods in the Directory class are symlinks
+    to regular system utilities in /bin or /usr/bin/.
+
+AUTHOR
+    Ken Irving <fnkci@uaf.edu> (c) 2007
+    Licensed under the GPL3 GNU Public License
+

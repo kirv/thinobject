@@ -1,6 +1,3 @@
-#!/bin/sh
-
-cat << END_HELP_SCREEN
 NAME
     TimeSeries -- thinobject class for time series data, messages, etc.
 
@@ -67,4 +64,3 @@ AUTHOR
     Ken Irving <fnkci@uaf.edu> (c) 2007
 
     Licensed under the GPL (Gnu Public Library)
-END_HELP_SCREEN

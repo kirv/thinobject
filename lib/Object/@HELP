@@ -1,0 +1,23 @@
+NAME
+    Object -- thinobject base class
+
+DESCRIPTION
+    The Object class provides some general-use methods which should 
+    be applicable to all thinobject objects.
+
+METHODS
+    help        -- display @HELP pages in object and parent classes
+    method      -- show all methods, or pathname of a method
+    show-envars -- display thinobject environment variables 
+    _default    -- looks for @method or %method if method is not found
+    _default-list       -- access an object property as a list
+    _default-dictionary -- access an object property as a list
+
+SEE ALSO
+    Each class should define a @HELP page
+    Every method *should* provide a --help option.
+
+AUTHOR
+    Ken Irving <fnkci@uaf.edu> (c) 2009
+    Licensed under the GPL3 GNU Public License
+
