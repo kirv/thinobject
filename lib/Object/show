@@ -4,19 +4,23 @@
 declare -a list dict attr file dir obname obtype unknown
 
 ## scan contents of object, store by type:
-for f in *; do 
-    if [ $f == ^ ]; then
+for f in * .*; do 
+    if [ $f == ^ -o $f == .^ -o $f == . -o $f == .. ]; then
         true
     elif [ ${f:0:1} == @ ]; then
         list=(${list[@]} ${f:1})
+    elif [ ${f:0:2} == .@ ]; then
+        list=(${list[@]} ${f:2})
     elif [ ${f:0:1} == % ]; then
         dict=(${dict[@]} ${f:1})
+    elif [ ${f:0:2} == .% ]; then
+        dict=(${dict[@]} ${f:2})
     elif [ ! ${f#*=} == $f ]; then
         attr=(${attr[@]} $f)
-    elif obclass=($(tob $f.isa 2>/dev/null)); then
+    elif obclass=($(tob $f.type 2>/dev/null)); then
       # echo $f -- ${obclass[0]} object
         obname=(${obname[@]} $f)
-        obtype=(${obtype[@]} ${obclass[0]})
+        obtype=(${obtype[@]} ${obclass%%:*})
     elif [ -f $f ]; then
         file=(${file[@]} $f)
     elif [ -d $f ]; then
@@ -28,13 +32,14 @@ done
 
 ## show elements of each type:
 
-type=(class list dict attr file dir ob unknown)
+type=(self list dict attr file dir ob unknown)
 for t in ${type[@]}; do
 
+  # printf "\n%ss:\n" $t
     case $t in
 
-        class)
-            echo $TOB_class class
+        self)
+            echo . ${TOB_type%%:*}
             ;;
             
         list)
