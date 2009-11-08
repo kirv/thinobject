@@ -17,10 +17,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # require class handlers & methods to be under one of these paths:
-if test -n "$TOB_LIBROOT"; then
-    libroots=${TOB_LIBROOT//:/ } 
+if test -n "$TOB_LIBRARY"; then
+    library=${TOB_LIBRARY//:/ } 
 else
-    libroots=( ~/lib/tob /usr/local/lib/tob /opt/lib/tob /usr/lib/tob /lib/tob )
+    library=( ~/lib/tob /usr/local/lib/tob /opt/lib/tob /usr/lib/tob /lib/tob )
 fi
 
 warn () {
@@ -35,17 +35,17 @@ error () {
 
 check_classroot () {
     # return true if class begins with allowed root
-    # return false if class does not exist or does not begin at TOB_LIBROOT
+    # return false if class does not exist or does not begin at TOB_LIBRARY
     # variable classname is set on return if ^ or .^ is found
     local class=$(/bin/readlink -fe $1) ||
         error check failed for class $1 symlink
-    for path in ${libroots[@]}; do
+    for path in ${library[@]}; do
         test ${class#$path/} == $class || {
             classname=${class#$path/}
             return 0
             }
     done
-    error bad TOB_LIBROOT check or bad class in $1
+    error bad TOB_LIBRARY check or bad class in $1
     return 1
     }
 
@@ -63,7 +63,7 @@ resolve_object () {  # set classlink to '^', '.^', or ''; or return 1
             error classlink $1/$classlink/ does not exist
         test -z "$NOT_STRICT" && {
             check_classroot $1/$classlink ||
-                error classlink $1/$classlink/ is not under TOB_LIBROOT
+                error classlink $1/$classlink/ is not under TOB_LIBRARY
             }
         }
     return 0
@@ -198,7 +198,7 @@ resolve_method_search_path () {
             attr_index=$(($attr_index + 1))
             continue
             }
-        ## the class did not start with one of libroots list
+        ## the class did not start with one of library list
         test $index == 0 || 
             error non-method class cannot follow method class in search path
         attr_index=$(($attr_index + 1))
@@ -245,7 +245,7 @@ TOB_resolve_method_path () {
 find_default_directory_class () {
     test -n "$TOB_DIRECTORY_CLASS" &&
         return
-    for lib in ${libroots[@]}; do
+    for lib in ${library[@]}; do
         test -d $lib/Directory && {
             TOB_DIRECTORY_CLASS=$lib/Directory
             break
@@ -256,7 +256,7 @@ find_default_directory_class () {
 find_default_file_class () {
     test -n "$TOB_FILE_CLASS" &&
         return
-    for lib in ${libroots[@]}; do
+    for lib in ${library[@]}; do
         test -d $lib/File && {
             TOB_FILE_CLASS=$lib/File
             break
@@ -398,7 +398,7 @@ export TOB_object
 export TOB_method
 export TOB_class_path
 export TOB_caller_path
-export TOB_path_to_object
+export TOB_caller_path_to_object=$TOB_path_to_object
 
 ## export thinobject utility functions
 export -f TOB_resolve_method_path
