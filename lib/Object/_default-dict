@@ -8,7 +8,7 @@ function show_help() {
 NAME
   Object._default-dict -- thinobject default dictionary property accessor
 SYNOPSIS
-  _default-dict object dict_property OPTIONS key ...
+  _default-dict dict_property OPTIONS key ...
 OPTIONS
   --csv -- output entries as comma-separated list
   --tab -- output entries as tab-separated list
