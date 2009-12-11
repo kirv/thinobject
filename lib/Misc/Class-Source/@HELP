@@ -1,0 +1,7 @@
+NAME
+    Class-Source -- support development and maintenance of a thinobject class
+
+METHODS
+    init -- create lib/, git, other properties
+    git -- any git command
+
