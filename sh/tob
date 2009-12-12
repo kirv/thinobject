@@ -79,16 +79,20 @@ resolve_and_chdir_into_object () {
     test ${ob_spec:0:1} == / &&
         TOB_path_to_object="" # no, it's an absolute path
     unset last_classlink # global variable, set from resolve_object() classlink
+  # warn ob_spec: $ob_spec
     for direntry in ${ob_spec//\//\/ }; do # split on, and leave, slashes
+      # warn direntry: $direntry
         unset prefix
         test ${ob_spec:0:1} == . && { # special case: dir or ob begins with dot
-            prefix=.
+            test $direntry != ..super &&
+                prefix=.
             test $ob_spec == . && # special case: current directory
                 direntry=/
             }
         for obentry in ${direntry//./ }; do # split on dots
+          # warn obentry: $obentry
             obentry=$prefix$obentry
-          # warn TRY TO RESOLVE $obentry
+          # warn obentry: $obentry
             if test ${obentry: -1:1} == /; then  # foo/ explicitly
               # warn foo/ explicitly
                 TOB_path_to_object=$TOB_path_to_object/${obentry%/}
@@ -147,6 +151,9 @@ resolve_and_chdir_into_object () {
               # warn super
                 # should we check that super comes only at the end?
                 super=$(($super + 1))
+          # elif test $obentry == .super; then # method resolution operator
+          #     warn .super
+          #     super=$(($super + 1))
             else
                 # combine this obentry with next one, separated by a dot
               # warn prefix=${obentry}.\n"
@@ -207,7 +214,7 @@ resolve_method_search_path () {
         return 1
     }
 
-## the next function is for internal use, the following on is for export:
+## the next function is for internal use, the following one is for export:
 resolve_method_path () {
     local method=$1
     # uses global super, i.e., count of how many times to skip matched method

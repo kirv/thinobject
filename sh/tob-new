@@ -272,8 +272,10 @@ test -e "$uri_source" && {
 
 test -n "$init_method_path" && {
     cd $tob
-    $init_method_path "$@" ||
+    $init_method_path "$@" || {
+        cd -
         bail init method failed: $init_method_path $tob "$@"
+        }
     }
 
 exit 0
