@@ -7,13 +7,13 @@ while :; do
         --git)
             setup_git=1
             ;;
-        -h) exec printf "synopsis: %s\n" $synopsis
+        -h) exec printf "synopsis: %s\n" "$synopsis"
             ;;
         --help)
             exec awk '/^NAME/{ok=1}ok{print}' $0
             ;;
         -?*)
-            printf "synopsis: %s\n" $synopsis >&2
+            printf "synopsis: %s\n" "$synopsis" >&2
             exit 1
             ;;
         *)  break
