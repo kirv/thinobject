@@ -190,23 +190,23 @@ resolve_search_paths () {
 
 resolve_method_paths () {
     # method search starts with object class, 2nd entry in paths array:
-    local attr_index=1
+    local p=1
   # warn "${paths[$*]}"
-    test -n "${paths[$attr_index]}" ||
+    test -n "${paths[$p]}" ||
         error paths array not initialized
-    local index=0
-    while test -n "${paths[$attr_index]}"; do
-        check_classroot ${paths[$attr_index]} && {
-            method_paths[$index]=${paths[$attr_index]}
-            class_names[$index]=$classname
-            index=$(($index + 1))
-            attr_index=$(($attr_index + 1))
+    local i=0
+    while test -n "${paths[$p]}"; do
+        check_classroot ${paths[$p]} && {
+            method_paths[$i]=${paths[$p]}
+            class_names[$i]=$classname
+            index=$(($i + 1))
+            p=$(($p + 1))
             continue
             }
         ## the class did not start with one of library list
-        test $index == 0 || 
+        test $i == 0 || 
             error non-method class cannot follow method class in search path
-        attr_index=$(($attr_index + 1))
+        p=$(($p + 1))
     done
     test -n "$method_paths" ||
         return 1
