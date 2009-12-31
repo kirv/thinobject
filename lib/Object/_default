@@ -5,7 +5,7 @@ method=$1 && shift
 ## no ob.method found, so check for @method or %method properties
 
 unset property default_handler
-for path in ${TOB_attribute_search_paths//:/ }; do
+for path in ${TOB_search_paths//:/ }; do
     test -e $path/\@$method && { # found @method
         property=$path/@$method
         default_handler=_default-list
@@ -40,7 +40,7 @@ done
 
 test -n "$property" && {
     # search for _default-list or _default-dict method:
-    for path in ${TOB_method_search_paths//:/ }; do
+    for path in ${TOB_method_paths//:/ }; do
         test -e $path/$default_handler && {
           # echo TODO: /bin/echo exec $path/$default_handler $property $@
             exec $path/$default_handler $property $@ # found & dispatched

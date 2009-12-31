@@ -8,7 +8,7 @@ test -n "$1" &&
         shift 
 
 declare -a help
-for p in ${TOB_attribute_search_paths//:/ }; do
+for p in ${TOB_search_paths//:/ }; do
     test -e $p/\@HELP &&
         help=(${help[@]} $p/\@HELP)
 done

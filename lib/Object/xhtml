@@ -11,7 +11,7 @@ declare -a xhtml_body
 ## also check for "hook" method(s):
 declare -a xml
 
-for path in ${TOB_attribute_search_paths//:/ }; do
+for path in ${TOB_search_paths//:/ }; do
     test -e "$path/@xhtml-css" && 
         xhtml_css=( ${xhtml_css[@]} "$path/@xhtml-css" )
 

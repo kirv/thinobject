@@ -29,7 +29,7 @@ while test -n "$1"; do
     shift
 done
 
-for class in ${TOB_method_search_paths//:/ }; do
+for class in ${TOB_method_paths//:/ }; do
   # echo "looking in $class..."
     for f in $class/*; do
         test -d $f && continue
