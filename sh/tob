@@ -171,16 +171,16 @@ resolve_and_chdir_into_object () {
         }
     }
 
-resolve_search_path () {
+resolve_search_paths () {
     # search starts with the object path, followed by its class path:
-    attr_paths=(. $TOB_class_path)
+    paths=(. $TOB_class_path)
     # declare index to last entry in path array
     local last=1
-    while test -d ${attr_paths[$last]}/; do
-        if test -L ${attr_paths[$last]}/^; then
-            attr_paths[$last+1]=${attr_paths[$last]}/^
-        elif test -L ${attr_paths[$last]}/.^; then
-            attr_paths[$last+1]=${attr_paths[$last]}/.^
+    while test -d ${paths[$last]}/; do
+        if test -L ${paths[$last]}/^; then
+            paths[$last+1]=${paths[$last]}/^
+        elif test -L ${paths[$last]}/.^; then
+            paths[$last+1]=${paths[$last]}/.^
         else
             break
         fi
@@ -188,16 +188,16 @@ resolve_search_path () {
     done
     }
 
-resolve_method_search_path () {
-    # method search starts with object class, 2nd entry in attr_paths array:
+resolve_method_paths () {
+    # method search starts with object class, 2nd entry in paths array:
     local attr_index=1
-  # warn "${attr_paths[$*]}"
-    test -n "${attr_paths[$attr_index]}" ||
-        error attr_paths array not initialized
+  # warn "${paths[$*]}"
+    test -n "${paths[$attr_index]}" ||
+        error paths array not initialized
     local index=0
-    while test -n "${attr_paths[$attr_index]}"; do
-        check_classroot ${attr_paths[$attr_index]} && {
-            method_paths[$index]=${attr_paths[$attr_index]}
+    while test -n "${paths[$attr_index]}"; do
+        check_classroot ${paths[$attr_index]} && {
+            method_paths[$index]=${paths[$attr_index]}
             class_names[$index]=$classname
             index=$(($index + 1))
             attr_index=$(($attr_index + 1))
@@ -216,10 +216,10 @@ resolve_method_search_path () {
 resolve_method_path () {
     local method=$1
     # uses global super, i.e., count of how many times to skip matched method
-    for searchpath in ${method_paths[@]}; do
-        test -x $searchpath/$method && {
+    for path in ${method_paths[@]}; do
+        test -x $path/$method && {
             test $super == 0 && {
-                TOB_method_path=$searchpath/$method
+                TOB_method_path=$path/$method
                 return
                 }
             super=$(($super - 1))
@@ -235,10 +235,10 @@ TOB_resolve_method_path () {
         method=${method:6}
         super=$(($super + 1))
     done
-    for searchpath in ${TOB_method_paths//:/ }; do
-        test -x $searchpath/$method && {
+    for path in ${TOB_method_paths//:/ }; do
+        test -x $path/$method && {
             test $super == 0 && {
-                TOB_method_path=$searchpath/$method
+                TOB_method_path=$path/$method
                 return
                 }
             super=$(($super - 1))
@@ -389,13 +389,13 @@ test -n "$DEBUG" && {
 test -n "$DEBUG" &&
     warn DEBUG: args1=\'$args\' args2=\'$*\'
     
-declare -a attr_paths
-resolve_search_path ||
-    error failure in resolve_search_path function
+declare -a paths
+resolve_search_paths ||
+    error failure in resolve_search_paths function
 
 declare -a method_paths
 declare -a class_names
-resolve_method_search_path ||
+resolve_method_paths ||
     error failed to resolve method search path
 
 ## export thinobject variables
@@ -411,7 +411,7 @@ export -f TOB_resolve_method_path
 # create pseudo-arrays for export:
 save_IFS="$IFS"
 IFS=:
-export TOB_search_paths="${attr_paths[*]}"
+export TOB_search_paths="${paths[*]}"
 export TOB_method_paths="${method_paths[*]}"
 export TOB_type="${class_names[*]}"
 IFS="$save_IFS"
