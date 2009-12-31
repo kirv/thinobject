@@ -171,22 +171,20 @@ resolve_and_chdir_into_object () {
         }
     }
 
-resolve_attribute_search_path () {
+resolve_search_path () {
     # search starts with the object path, followed by its class path:
     attr_paths=(. $TOB_class_path)
-    # declare index to last and next entries in path array
+    # declare index to last entry in path array
     local last=1
-    local next=2
     while test -d ${attr_paths[$last]}/; do
         if test -L ${attr_paths[$last]}/^; then
-            attr_paths[$next]=${attr_paths[$last]}/^
+            attr_paths[$last+1]=${attr_paths[$last]}/^
         elif test -L ${attr_paths[$last]}/.^; then
-            attr_paths[$next]=${attr_paths[$last]}/.^
+            attr_paths[$last+1]=${attr_paths[$last]}/.^
         else
             break
         fi
-        last=$next
-        next=$(($next + 1))
+        last=$(($last + 1))
     done
     }
 
@@ -392,8 +390,8 @@ test -n "$DEBUG" &&
     warn DEBUG: args1=\'$args\' args2=\'$*\'
     
 declare -a attr_paths
-resolve_attribute_search_path ||
-    error failure in resolve_attribute_search_path function
+resolve_search_path ||
+    error failure in resolve_search_path function
 
 declare -a search_paths
 declare -a class_names
@@ -413,13 +411,13 @@ export -f TOB_resolve_method_path
 # create pseudo-arrays for export:
 save_IFS="$IFS"
 IFS=:
-export TOB_attribute_search_paths="${attr_paths[*]}"
+export TOB_search_paths="${attr_paths[*]}"
 export TOB_method_search_paths="${search_paths[*]}"
 export TOB_type="${class_names[*]}"
 IFS="$save_IFS"
 
 test -n "$DEBUG" && {
-    warn DEBUG: TOB_attribute_search_paths=$TOB_attribute_search_paths
+    warn DEBUG: TOB_search_paths=$TOB_search_paths
     warn DEBUG: TOB_method_search_paths=$TOB_method_search_paths
     warn DEBUG: TOB_type=$TOB_type
     }
@@ -463,18 +461,22 @@ error "no method $TOB_method found"
 ## manpage follows
 NAME
     tob -- parse and resolve object.method, invoke method in object directory
+
 SYNOPSIS
     tob [OPTIONS] object.method [METHOD_OPTIONS] [ARGUMENTS]
     tob -m method object...
+
 DESCRIPTION
     Thinobject strives to achieve object oriented programming and data
     management directly on the filesystem, in a language-independent way.
     Methods are executable programs, written in any language.  Thinobject
     uses a symlink, .^ or ^, to a class directory (or handler).  Methods
     and attributes are searched for along the chain of class links.
+
 RETURN VALUE
     0   ok, no error
     1   some error occurred
+
 OPTIONS
     -d
     --debug
@@ -528,6 +530,13 @@ PROPERTIES
     .^
     symlink to the parent class
 
+    ^foo
+    .^foo
+    symlink to a mixin class
+
+    Note: The following properties are handled by default methods,
+    no longer as built-ins.
+
     @
     @foo
     .@
@@ -556,18 +565,34 @@ PROPERTIES
     foo=bar
     attribute 'foo' is assigned the value 'bar'.
 
+SEARCH PATHS
+    tob prepares a search path for methods and one for attributes.
+    These differ mainly in that methods are not resolved in the object,
+    while attributes may be.
+
+    Mixin classes are searched before the parent class, in lexical 
+    order.  Common ancestor classes are searched last. 
+
 EXPORTED VARIABLES
     TOB_object -- the object name as passed to the thinob enabler
 
-    TOB_class -- the nominal class name
+    TOB_method -- the invoked method
+
+    TOB_type -- the nominal class name
 
     TOB_class_path -- the class directory or handler path
 
     TOB_object_path -- the fully resolved object name
 
-    TOB_method -- the invoked method
+    TOB_search_paths -- search paths for object attributes
 
-    TOB_PATH -- search path for object through class hierarchy
+    TOB_method_search_paths -- search paths for object methods
+
+    TOB_caller_path
+
+    TOB_caller_path_to_object
+
+    TOB_path_to_object
 
 EXPORTED FUNCTIONS
     TOB_resolve_method_path
