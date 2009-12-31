@@ -197,7 +197,7 @@ resolve_method_search_path () {
     local index=0
     while test -n "${attr_paths[$attr_index]}"; do
         check_classroot ${attr_paths[$attr_index]} && {
-            search_paths[$index]=${attr_paths[$attr_index]}
+            method_paths[$index]=${attr_paths[$attr_index]}
             class_names[$index]=$classname
             index=$(($index + 1))
             attr_index=$(($attr_index + 1))
@@ -208,7 +208,7 @@ resolve_method_search_path () {
             error non-method class cannot follow method class in search path
         attr_index=$(($attr_index + 1))
     done
-    test -n "$search_paths" ||
+    test -n "$method_paths" ||
         return 1
     }
 
@@ -216,7 +216,7 @@ resolve_method_search_path () {
 resolve_method_path () {
     local method=$1
     # uses global super, i.e., count of how many times to skip matched method
-    for searchpath in ${search_paths[@]}; do
+    for searchpath in ${method_paths[@]}; do
         test -x $searchpath/$method && {
             test $super == 0 && {
                 TOB_method_path=$searchpath/$method
@@ -235,7 +235,7 @@ TOB_resolve_method_path () {
         method=${method:6}
         super=$(($super + 1))
     done
-    for searchpath in ${TOB_method_search_paths//:/ }; do
+    for searchpath in ${TOB_method_paths//:/ }; do
         test -x $searchpath/$method && {
             test $super == 0 && {
                 TOB_method_path=$searchpath/$method
@@ -393,7 +393,7 @@ declare -a attr_paths
 resolve_search_path ||
     error failure in resolve_search_path function
 
-declare -a search_paths
+declare -a method_paths
 declare -a class_names
 resolve_method_search_path ||
     error failed to resolve method search path
@@ -412,13 +412,13 @@ export -f TOB_resolve_method_path
 save_IFS="$IFS"
 IFS=:
 export TOB_search_paths="${attr_paths[*]}"
-export TOB_method_search_paths="${search_paths[*]}"
+export TOB_method_paths="${method_paths[*]}"
 export TOB_type="${class_names[*]}"
 IFS="$save_IFS"
 
 test -n "$DEBUG" && {
     warn DEBUG: TOB_search_paths=$TOB_search_paths
-    warn DEBUG: TOB_method_search_paths=$TOB_method_search_paths
+    warn DEBUG: TOB_method_paths=$TOB_method_paths
     warn DEBUG: TOB_type=$TOB_type
     }
 
@@ -443,7 +443,7 @@ test "$TOB_method" == "type" &&
 
 ## no method was found, so check for _default method...
 
-for path in ${search_paths[@]}; do
+for path in ${method_paths[@]}; do
     ## ASSERT: class exists
     test -e $path/_default && {
         test -x $path/_default && {
@@ -586,7 +586,7 @@ EXPORTED VARIABLES
 
     TOB_search_paths -- search paths for object attributes
 
-    TOB_method_search_paths -- search paths for object methods
+    TOB_method_paths -- search paths for object methods
 
     TOB_caller_path
 
