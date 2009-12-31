@@ -150,10 +150,10 @@ resolve_and_chdir_into_object () {
             elif test $obentry == super; then # method resolution operator
               # warn super
                 # should we check that super comes only at the end?
-                super=$(($super + 1))
+                super=$(($super+1))
           # elif test $obentry == .super; then # method resolution operator
           #     warn .super
-          #     super=$(($super + 1))
+          #     super=$(($super+1))
             else
                 # combine this obentry with next one, separated by a dot
               # warn prefix=${obentry}.\n"
@@ -184,7 +184,7 @@ resolve_search_paths () {
         else
             break
         fi
-        last=$(($last + 1))
+        last=$(($last+1))
     done
     }
 
@@ -199,14 +199,14 @@ resolve_method_paths () {
         check_classroot ${paths[$p]} && {
             method_paths[$i]=${paths[$p]}
             class_names[$i]=$classname
-            i=$(($i + 1))
-            p=$(($p + 1))
+            i=$(($i+1))
+            p=$(($p+1))
             continue
             }
         ## the class did not start with one of library list
         test $i == 0 || 
             error non-method class cannot follow method class in search path
-        p=$(($p + 1))
+        p=$(($p+1))
     done
     test -n "$method_paths" ||
         return 1
@@ -233,7 +233,7 @@ TOB_resolve_method_path () {
     local super=0
     while test "${method:0:6}" == "super."; do
         method=${method:6}
-        super=$(($super + 1))
+        super=$(($super+1))
     done
     for path in ${TOB_method_paths//:/ }; do
         test -x $path/$method && {
