@@ -171,23 +171,60 @@ resolve_and_chdir_into_object () {
         }
     }
 
-resolve_search_paths () {
-    # search starts with the object path, followed by its class path:
-    paths=(. $TOB_class_path)
-    i=1 # last entry in paths array
-    while test -d ${paths[$i]}/; do
-        if test -L ${paths[$i]}/^; then
-            paths[$i+1]=${paths[$i]}/^
-        elif test -L ${paths[$i]}/.^; then
-            paths[$i+1]=${paths[$i]}/.^
+follow_paths () {
+    path=$1
+    paths[${#paths[@]}]=$path
+    while test -d $path/; do
+        for mixin in $path/{,.}^?*; do
+            follow_paths $mixin
+        done
+        if test -L $path/^; then
+            paths[${#paths[@]}]=$path/^
+        elif test -L $path/.^; then
+            paths[${#paths[@]}]=$path/.^
         else
             break
         fi
-        i=$(($i+1))
     done
     }
 
-resolve_method_paths () {
+check_path () {
+    # call error() and exit completely if class path does not exist
+    # return 2 if class has already been processed
+    # return 1 if class does not exist or does not begin at TOB_LIBRARY
+    # return 0 if class begins with allowed root
+    # variable classname is set on return if ^ or .^ is found
+    fullpath==$(/bin/readlink -fe $1) ||
+        error check class $1 does not resolve
+    test "${unique_paths/$fullpath/}" == "$unique_paths" || return 2
+    for libroot in ${library[@]}; do
+        test ${fullpath#$libroot/} == $fullpath || {
+            classname=${fullpath#$libroot/}
+            return 0
+            }
+    done
+    error bad TOB_LIBRARY check or bad class in $1
+    return 1
+    }
+
+check_paths () {
+    p=${#paths[@]}
+    # check each entry in paths array in reverse order
+    while test $p -gt 0; do 
+        p=$(($p-1))
+        local path=${paths[$p]}
+        fullpath=$(/bin/readlink -fe $path) ||
+            error class path $path does not resolve
+        test "${${full_paths[@]}/$fullpath/}" == "${full_paths[@]}" || {
+            # this path already visited
+            unset ${path[$p]}
+            continue
+            }
+        full_paths[$p]=$fullpath
+    done
+    }
+
+resolve_method_paths_OLD () {
     # method search starts with object class, 2nd entry in paths array:
     local p=1
   # warn "${paths[$*]}"
@@ -388,12 +425,16 @@ test -n "$DEBUG" && {
 test -n "$DEBUG" &&
     warn DEBUG: args1=\'$args\' args2=\'$*\'
     
-declare -a paths
-resolve_search_paths ||
-    error failure in resolve_search_paths function
+paths=()
+follow_paths .
+# paths array may include duplicate path elements
 
-declare -a method_paths
-declare -a class_names
+full_paths=()
+# process paths array in reverse order eliminating duplicates
+check_paths
+# arrays paths and full_paths are defined, may be sparse
+
+method_paths=()
 resolve_method_paths ||
     error failed to resolve method search path
 
