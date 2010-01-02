@@ -1,4 +1,4 @@
-#!/bin/bash
+#ii!/bin/bash
 
 # tob -- thinobject 'enabler' program
 # Copyright (C) 2009 Ken Irving
@@ -176,15 +176,17 @@ follow_paths () {
     paths[${#paths[@]}]=$path
     while test -d $path/; do
         for mixin in $path/{,.}^?*; do
-            follow_paths $mixin
+            test -L $mixin -a -d $mixin && -z "$TOB_NO_MIXINS" &&
+                follow_paths $mixin
         done
         if test -L $path/^; then
-            paths[${#paths[@]}]=$path/^
+            path=$path/^
         elif test -L $path/.^; then
-            paths[${#paths[@]}]=$path/.^
+            path=$path/.^
         else
             break
         fi
+        paths[${#paths[@]}]=$path
     done
     }
 
