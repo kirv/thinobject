@@ -173,10 +173,10 @@ resolve_and_chdir_into_object () {
 
 follow_paths () {
     path=$1
-    paths[${#paths[@]}]=$path
     while test -d $path/; do
+        paths[${#paths[@]}]=$path
         for mixin in $path/{,.}^?*; do
-            test -L $mixin -a -d $mixin && -z "$TOB_NO_MIXINS" &&
+            test -L $mixin && -z "$TOB_NO_MIXINS" &&
                 follow_paths $mixin
         done
         if test -L $path/^; then
@@ -186,32 +186,14 @@ follow_paths () {
         else
             break
         fi
-        paths[${#paths[@]}]=$path
     done
-    }
-
-check_path () {
-    # call error() and exit completely if class path does not exist
-    # return 2 if class has already been processed
-    # return 1 if class does not exist or does not begin at TOB_LIBRARY
-    # return 0 if class begins with allowed root
-    # variable classname is set on return if ^ or .^ is found
-    fullpath==$(/bin/readlink -fe $1) ||
-        error check class $1 does not resolve
-    test "${unique_paths/$fullpath/}" == "$unique_paths" || return 2
-    for libroot in ${library[@]}; do
-        test ${fullpath#$libroot/} == $fullpath || {
-            classname=${fullpath#$libroot/}
-            return 0
-            }
-    done
-    error bad TOB_LIBRARY check or bad class in $1
-    return 1
     }
 
 check_paths () {
-    p=${#paths[@]}
-    # check each entry in paths array in reverse order
+    local full_paths=()
+    method_paths=()
+    class_names=()
+    p=${#paths[@]} # start at end to check entries in reverse order
     while test $p -gt 0; do 
         p=$(($p-1))
         local path=${paths[$p]}
@@ -223,31 +205,14 @@ check_paths () {
             continue
             }
         full_paths[$p]=$fullpath
+        for libroot in ${library[@]}; do
+            test ${fullpath#$libroot/} == $fullpath || {
+                # path is under one of the library roots, so is a 'class'
+                method_paths[$p]=${paths[$p]}
+                class_names[$p]=${fullpath#$libroot/}
+                }
+        done
     done
-    }
-
-resolve_method_paths_OLD () {
-    # method search starts with object class, 2nd entry in paths array:
-    local p=1
-  # warn "${paths[$*]}"
-    test -n "${paths[$p]}" ||
-        error paths array not initialized
-    local i=0
-    while test -n "${paths[$p]}"; do
-        check_classroot ${paths[$p]} && {
-            method_paths[$i]=${paths[$p]}
-            class_names[$i]=$classname
-            i=$(($i+1))
-            p=$(($p+1))
-            continue
-            }
-        ## the class did not start with one of library list
-        test $i == 0 || 
-            error non-method class cannot follow method class in search path
-        p=$(($p+1))
-    done
-    test -n "$method_paths" ||
-        return 1
     }
 
 ## the next function is for internal use, the following one is for export:
@@ -427,18 +392,13 @@ test -n "$DEBUG" && {
 test -n "$DEBUG" &&
     warn DEBUG: args1=\'$args\' args2=\'$*\'
     
+# follow_paths() recursively builds the paths array starting with argument path
 paths=()
 follow_paths .
-# paths array may include duplicate path elements
+# paths array now constains the full inheritance path-set, may have duplicates
 
-full_paths=()
-# process paths array in reverse order eliminating duplicates
 check_paths
-# arrays paths and full_paths are defined, may be sparse
-
-method_paths=()
-resolve_method_paths ||
-    error failed to resolve method search path
+# arrays: paths, method_paths, class_names are defined (may be sparse)
 
 ## export thinobject variables
 export TOB_object
