@@ -172,14 +172,17 @@ resolve_and_chdir_into_object () {
     }
 
 follow_paths () {
-    path=$1
+    local path=$1 && shift
     while test -d $path/; do
         paths[${#paths[@]}]=$path
         for mixin in $path/{,.}^?*; do
-            test -L $mixin && -z "$TOB_NO_MIXINS" &&
+            test -L $mixin -a -z "$TOB_NO_MIXINS" &&
                 follow_paths $mixin
         done
-        if test -L $path/^; then
+        if test -n "$1"; then
+            path=$1
+            shift
+        elif test -L $path/^; then
             path=$path/^
         elif test -L $path/.^; then
             path=$path/.^
@@ -190,7 +193,7 @@ follow_paths () {
     }
 
 check_paths () {
-    local full_paths=()
+    local all_paths
     method_paths=()
     class_names=()
     p=${#paths[@]} # start at end to check entries in reverse order
@@ -199,11 +202,12 @@ check_paths () {
         local path=${paths[$p]}
         fullpath=$(/bin/readlink -fe $path) ||
             error class path $path does not resolve
-        test "${${full_paths[@]}/$fullpath/}" == "${full_paths[@]}" || {
+        test "${all_paths/$fullpath/}" == "$all_paths" || {
             # this path already visited
-            unset ${path[$p]}
+            unset paths[$p]
             continue
             }
+        all_paths+=" $fullpath"
         full_paths[$p]=$fullpath
         for libroot in ${library[@]}; do
             test ${fullpath#$libroot/} == $fullpath || {
@@ -394,7 +398,7 @@ test -n "$DEBUG" &&
     
 # follow_paths() recursively builds the paths array starting with argument path
 paths=()
-follow_paths .
+follow_paths . $TOB_class_path
 # paths array now constains the full inheritance path-set, may have duplicates
 
 check_paths
