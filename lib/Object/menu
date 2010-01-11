@@ -40,7 +40,7 @@ for p in ${TOB_search_paths//:/ }; do
                     unset final_menu &&
                         continue
                 methods[$n]="$method"
-                display[$n]="$n - $TOB_object.$method"
+                display[$n]="$n \t- $TOB_object.$method"
                 n=$(($n+1))
             done
             test -n "$final_menu" && break 2
@@ -77,10 +77,11 @@ for p in ${TOB_search_paths//:/ }; do
 
                 if test -n "$hide_entry"; then
                     unset kdisplay[$k]
-                    hidden[$k]="$key - $TOB_object.$value"
+                    hidden[$k]="$key \t. $TOB_object.$value"
                     hkeys[${#hkeys[@]}]=$k
+                    unset hide_entry
                 else
-                    kdisplay[$k]="$key - $TOB_object.$value"
+                    kdisplay[$k]="$key \t- $TOB_object.$value"
                 fi
 
                 k=$(($k+1))
@@ -90,21 +91,23 @@ for p in ${TOB_search_paths//:/ }; do
     done
 done
 
-for menu in "${display[@]}"; do
-    printf "%s\n" "$menu"
+for entry in "${display[@]}"; do
+    printf "$entry\n"
 done
 
 k=1
 while test $k -le ${#keys[@]}; do 
     entry="${kdisplay[$k]}"
     test -n "$entry" && 
-        printf "%s\n" "$entry"
+        printf "$entry\n"
     k=$(($k+1))
 done
 
 test -n "$show_hidden" && {
+    hidden_note="(hidden entries...)"
     for k in "${hkeys[@]}"; do
-        printf "%s\n" "${hidden[$k]}"
+        entry="${hidden[$k]}"
+        printf "$entry\n"
     done
 
     }
@@ -122,9 +125,6 @@ exec_method () {
     else
         echo $TOB_object.$method_args
         exec tob $self._default $method $args
-        
-        printf "no method %s found\n" "$method" >&2
-        exit 1
     fi
     }
 
@@ -132,7 +132,7 @@ read -p "? " choice
 
 test "$choice" == "" && exit 0
 test "$choice" == "?" && {
-    echo $TOB_object.menu --show-hidden
+    echo "$TOB_object.menu --show-hidden # marked with *" 
     exec $0 --show-hidden
     }
 
