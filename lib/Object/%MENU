@@ -1,5 +1,5 @@
-h = help
-s = show
-ls =    ls
+help = help
+show = show
+ls = ls
 ll = ls -lp
 super.menu = 1
