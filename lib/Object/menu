@@ -1,17 +1,14 @@
 #!/bin/bash
 self=.
 
-test -n "$1" && {
-    test $1 == --show-hidden && {
-        show_hidden=1
-        }
-    }
-
 while test -n "$1"; do
     opt=$1 && shift
     case $opt in
         --show-hidden)
             show_hidden=1
+            ;;
+        --show-skipped)
+            show_skipped=1
             ;;
         *)  unknown option: $opt >&2
             exit 1
@@ -52,6 +49,7 @@ for p in ${TOB_search_paths//:/ }; do
             while read key_value; do
                 # ignore blank or commented lines:
                 test "$key_value" == "" && continue
+                original_entry="$key_value"
                 test "${key_value#\#}" == "$key_value" || continue
                 # change 'tag = value' to 'tag value':
                 key_value="${key_value/=/ }"
@@ -59,12 +57,17 @@ for p in ${TOB_search_paths//:/ }; do
                 test $key == super.menu &&
                     unset final_menu &&
                         continue
-                # check for and skip duplicate entry:
                 test ${key:0:1} == . && {
                     key=${key#.}
                     hide_entry=1
                     }
-                test "${allkeys/ $key //}" == "$allkeys" || continue
+                # check for and skip duplicate entry:
+                test "${allkeys/ $key //}" == "$allkeys" || {
+                    test -n "$show_skipped" && 
+                        printf "skipping duplicate entry in file %s: %s\n" \
+                            $f "$original_entry"
+                    continue
+                    }
                 allkeys="$allkeys $key "
                 keys[$k]=$key
                 value="${key_value#* }"
@@ -104,7 +107,6 @@ while test $k -le ${#keys[@]}; do
 done
 
 test -n "$show_hidden" && {
-    hidden_note="(hidden entries...)"
     for k in "${hkeys[@]}"; do
         entry="${hidden[$k]}"
         printf "$entry\n"
@@ -132,7 +134,7 @@ read -p "? " choice
 
 test "$choice" == "" && exit 0
 test "$choice" == "?" && {
-    echo "$TOB_object.menu --show-hidden # marked with *" 
+    echo "$TOB_object.menu --show-hidden # marked with ." 
     exec $0 --show-hidden
     }
 
