@@ -1,0 +1,5 @@
+h = help
+s = show
+ls =    ls
+ll = ls -lp
+super.menu = 1

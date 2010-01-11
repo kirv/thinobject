@@ -1,0 +1,107 @@
+#!/bin/bash
+self=.
+
+declare -a display
+declare -a keys
+declare -a methods
+n=1
+unset methods[0]
+k=1
+unset keys[0]
+allkeys=""
+for p in ${TOB_search_paths//:/ }; do
+    # process the @MENU form first, continue only if super.menu was given
+    for f in $p/{,.}@MENU; do
+        test -e $f && {
+            final_menu=1
+            for method in $(<$f); do
+                test "$method" == super.menu &&
+                    unset final_menu &&
+                        continue
+                methods[$n]="$method"
+                display[$n]="$n - $TOB_object.$method"
+                n=$(($n+1))
+            done
+            test -n "$final_menu" && break 2
+            }
+    done
+    for f in $p/{,.}%MENU; do
+        test -e $f && {
+            final_menu=1
+            while read key_value; do
+                # ignore blank or commented lines:
+                test "$key_value" == "" && continue
+                test "${key_value#\#}" == "$key_value" || continue
+                # change 'tag = value' to 'tag value':
+                key_value="${key_value/=/ }"
+                key=${key_value%% *}
+                test $key == super.menu &&
+                    unset final_menu &&
+                        continue
+                # check for and skip duplicate entry:
+                test "${allkeys/ $key //}" == "$allkeys" || continue
+                allkeys="$allkeys $key "
+                keys[$k]=$key
+                value="${key_value#* }"
+                # strip leading spaces:
+                while test "${value:0:1}" == " "; do
+                    value="${value# }"
+                done
+                vals[$k]="$value"
+              # printf "\t<%s>=<%s>\n" "$key" "$value"
+                kdisplay[$k]="$key - $TOB_object.$value"
+                k=$(($k+1))
+            done < $f
+            test -n "$final_menu" && break 2
+        }
+    done
+done
+
+for menu in "${display[@]}"; do
+    printf "%s\n" "$menu"
+done
+
+k=1
+while test $k -le ${#keys[@]}; do 
+    printf "%s\n" "${kdisplay[$k]}"
+    k=$(($k+1))
+done
+unset k
+
+exec_method () {
+    method_args="$*"
+    method="${method_args% *}"
+    args="${method_args#$method}"
+  # printf "exec <%s> as <%s> <%s>\n" "$method_args" "$method" "$args"
+  # exit 23
+
+    if do_method=$(tob $self.method $method); then
+        echo $TOB_object.$method_args
+        exec $do_method $args
+    else
+        echo $TOB_object.$method_args
+        exec tob $self._default $method $args
+        
+        printf "no method %s found\n" "$method" >&2
+        exit 1
+    fi
+    }
+
+read -p "? " choice
+
+test "$choice" == "" && exit 0
+
+# first check if choice is numeric, from @MENU files:
+test -n "${methods[$choice]}" &&
+    exec_method "${methods[$choice]}"
+
+# next check if choice is a key from %MENU files:
+k=1
+while test $k -le ${#keys[@]}; do 
+    test "$choice" == "${keys[$k]}" &&
+        exec_method "${vals[$k]}"
+    k=$(($k+1))
+done
+
+echo invalid choice >&2
+
