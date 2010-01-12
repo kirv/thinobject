@@ -10,8 +10,10 @@ while test -n "$1"; do
         --show-skipped)
             show_skipped=1
             ;;
-        *)  unknown option: $opt >&2
+        -*) echo unknown option: $opt >&2
             exit 1
+            ;;
+        *)  choice=$opt
             ;;
     esac
 done
@@ -130,7 +132,8 @@ exec_method () {
     fi
     }
 
-read -p "? " choice
+test -n "$choice" ||
+    read -p "? " choice
 
 test "$choice" == "" && exit 0
 test "$choice" == "?" && {
