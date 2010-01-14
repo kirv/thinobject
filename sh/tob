@@ -341,14 +341,21 @@ test ${arg/.//} == $arg && ## could/should provide a default method?
 TOB_method=${arg##*.}
 TOB_object=${arg%.*}
 
+## initialize method superizer:
+super=0
+
+# if called with object.super.method, ob=object.super, so fix this...
+while test ${TOB_object%.super} != $TOB_object; do
+    TOB_object=${TOB_object%.super}
+    super=$(($super+1))
+done
+
 test -n "$TOB_object" ||
     error "no object parsed from $arg with method $TOB_method"
 
 test -n "$TOB_method" ||
     error "no method parsed from $arg, object $TOB_object"
 
-## initialize method superizer:
-super=0
 
 ## the next method will change directories, so store caller's location:
 TOB_caller_path=$PWD

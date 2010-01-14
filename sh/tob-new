@@ -48,7 +48,7 @@ function rollback () {
     done
     }
 
-function bail () {
+function error () {
     echo $* >&2
     test -n "$rollback_commands" &&
         rollback
@@ -80,9 +80,9 @@ while [ -n "$1" -a ${1#-} != $1 ]; do
 
     elif [ "$opt" == "-m" -o "$opt" == "--init-method" ]; then
         test -n "$1" ||
-            bail "missing argument for --init-method or -m option"
+            error "missing argument for --init-method or -m option"
         test "$1" == ${1#*/} ||
-            bail init method cannot include a slash: $1
+            error init method cannot include a slash: $1
         TOB_NEW_INIT_METHOD=$1 && shift
 
     elif [ "$opt" == "-v" -o "$opt" == "--verbose" ]; then
@@ -102,7 +102,7 @@ while [ -n "$1" -a ${1#-} != $1 ]; do
         exit 0
     
     else
-        bail "unsupported option $opt"
+        error "unsupported option $opt"
     fi
 done
 
@@ -110,11 +110,11 @@ target=$1 && shift
 
 ## an argument specifying the target object to be created is required:
 test -n "$target" ||
-    bail "no target specified for object creation"
+    error "no target specified for object creation"
 
 ##  the target must not already be a thinobject:
 tob -q $target.tob > /dev/null &&
-    bail $target already exists as a thinobject
+    error $target already exists as a thinobject
 
 ## second argument specifies class of the new object, or it defaults to Object
 class=$1 && shift
@@ -128,36 +128,9 @@ for lib in ${libroots[@]}; do
 done
 
 test -d $classpath ||
-    bail unable to resolve thinobject class $class
+    error unable to resolve thinobject class $class
 
 ## ASSERT: class resolves
-
-## resolve init method if specified on the command line:
-init_method=$TOB_NEW_INIT_METHOD
-## use method 'init' by default if nothing is specified
-test -z "$init_method" && init_method=init
-unset init_method_path
-searchpath=$classpath
-while test -d $searchpath/; do
-    test -n "$VERBOSE" &&
-        echo searching for $init_method in $searchpath/
-    test -e $searchpath/$init_method &&
-        test -x $searchpath/$init_method &&
-            init_method_path=$searchpath/$init_method &&
-                break
-    searchpath=$searchpath/^
-done
-
-## check that init method exists:
-test -n "$TOB_NEW_INIT_METHOD" && {
-    test -n "$init_method_path" ||
-        bail thinobject method $TOB_NEW_INIT_METHOD not found
-    }
-
-## any remaining arguments will be passed to an init method, if called;
-## but check that there are no more arguments if there's no init method 
-test -z "init_method_path" && test -n "$1" &&
-    bail error: extra arguments given: $*
 
 ## now try to handle target as a set of cases:
 
@@ -173,11 +146,11 @@ if test ! -e $target; then
     elif test "$TOB_NEW_DOTDIR" == "1"; then
         DO_THIS=CREATE_DOT_DIR
     else
-        bail unexpected value of variable TOB_NEW_DOTDIR: $TOB_NEW_DOTDIR
+        error unexpected value of variable TOB_NEW_DOTDIR: $TOB_NEW_DOTDIR
     fi
 
 elif test -L $target; then
-    bail thinobject will not be created because target $target is a symlink
+    error thinobject will not be created because target $target is a symlink
 
 elif test -f $target; then
     test -n "$VERBOSE" &&
@@ -192,14 +165,14 @@ elif test -d $target; then
     elif test "$TOB_NEW_DOTDIR" == "1"; then
         DO_THIS=CREATE_DOT_DIR
     else
-        bail unexpected value of variable TOB_NEW_DOTDIR: $TOB_NEW_DOTDIR
+        error unexpected value of variable TOB_NEW_DOTDIR: $TOB_NEW_DOTDIR
     fi
 
 fi
 
 ## next, do what variable DO_THIS says to do:
 if test -z "$DO_THIS"; then
-    bail internal error: variable DO_THIS is not set
+    error internal error: variable DO_THIS is not set
 
 elif test $DO_THIS == USE_DIR; then
     tob=$target
@@ -207,11 +180,11 @@ elif test $DO_THIS == USE_DIR; then
 elif test $DO_THIS == CREATE_DIR; then
     tob=$target
     test -d $tob &&
-        bail thinobject directory $tob already exists
+        error thinobject directory $tob already exists
     test $VERBOSE &&
         echo creating new thinobject $tob
     mkdir $tob ||
-        bail failed to create thinobject directory: $tob
+        error failed to create thinobject directory: $tob
     push_rollback_command rmdir $tob
 
 elif test $DO_THIS == CREATE_DOT_DIR; then
@@ -223,22 +196,22 @@ elif test $DO_THIS == CREATE_DOT_DIR; then
         tob=${target%\/*}/.${target/*\//}
     fi
     test -d $tob &&
-        bail thinobject directory $tob already exists for $target
+        error thinobject directory $tob already exists for $target
     test $VERBOSE &&
         echo creating new thinobject $tob for $target
     mkdir $tob ||
-        bail failed to create thinobject directory $tob for $target
+        error failed to create thinobject directory $tob for $target
     push_rollback_command rmdir $tob
 
 else
-    bail internal error: unknown value for DO_THIS variable: $DO_THIS
+    error internal error: unknown value for DO_THIS variable: $DO_THIS
 
 fi
 
 ## ASSERT: directory $tob exists, but class link is not yet defined
 
 test -d $tob && test ! -e $tob/^ && test ! -e $tob/.^ ||
-    bail error: file $tob/^ or $tob/.^ already exists in place of class link
+    error error: file $tob/^ or $tob/.^ already exists in place of class link
 
 ## next, create the class link
 
@@ -249,7 +222,7 @@ classlink_name=^
 test -n "$TOB_DOT_ATTR" && classlink_name=.^
 
 ln -s $classpath $tob/$classlink_name ||
-    bail failed to create symlink: ln -s $classpath $tob/$classlink_name
+    error failed to create symlink: ln -s $classpath $tob/$classlink_name
     
 push_rollback_command rm $tob/$classlink_name
 
@@ -264,19 +237,28 @@ test -e "$uri_source" && {
     test -n "$TOB_DOT_ATTR" && uri_dest=.@uri
     echo "cp FROM:$uri_source TO:$tob/$uri_dest"
     cp $uri_source $tob/$uri_dest ||
-        bail failed to copy class uri property $uri_source to $tob/$uri_dest
+        error failed to copy class uri property $uri_source to $tob/$uri_dest
     push_rollback_command rm $tob/$uri_dest
     }
 
-## lastly, execute the init method, if defined & specified:
+## lastly, execute the init method if specified or by default if it exists:
 
-test -n "$init_method_path" && {
-    cd $tob
-    $init_method_path "$@" || {
-        cd -
-        bail init method failed: $init_method_path $tob "$@"
+if test -n "$TOB_NEW_INIT_METHOD"; then
+    # init method was specified:
+    tob $tob.$TOB_NEW_INIT_METHOD "$@" || {
+        code=$?
+        error method $TOB_NEW_INIT_METHOD failed with exit value $code
         }
-    }
+elif tob $tob.method init > /dev/null; then
+    # run init method by default if it exists
+    tob $tob.init "$@" || {
+        code=$?
+        error method init failed with exit value $code
+        }
+else
+    test -n "$1" &&
+        error extra arguments were provided: "$@"
+fi
 
 exit 0
 
