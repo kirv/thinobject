@@ -113,7 +113,7 @@ test -n "$target" ||
     error "no target specified for object creation"
 
 ##  the target must not already be a thinobject:
-tob -q $target.tob > /dev/null &&
+tob $target.path > /dev/null &&
     error $target already exists as a thinobject
 
 ## second argument specifies class of the new object, or it defaults to Object
@@ -243,18 +243,17 @@ test -e "$uri_source" && {
 
 ## lastly, execute the init method if specified or by default if it exists:
 
+# make the target object's name known to the init method:
+export TOB_NEW_target=$target
+
 if test -n "$TOB_NEW_INIT_METHOD"; then
     # init method was specified:
-    tob $tob.$TOB_NEW_INIT_METHOD "$@" || {
-        code=$?
-        error method $TOB_NEW_INIT_METHOD failed with exit value $code
-        }
+    tob $tob.$TOB_NEW_INIT_METHOD "$@" ||
+        error method $TOB_NEW_INIT_METHOD failed with exit value $?
 elif tob $tob.method init > /dev/null; then
     # run init method by default if it exists
-    tob $tob.init "$@" || {
-        code=$?
-        error method init failed with exit value $code
-        }
+    tob $tob.init "$@" ||
+        error method init failed with exit value $?
 else
     test -n "$1" &&
         error extra arguments were provided: "$@"
