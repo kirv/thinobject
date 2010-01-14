@@ -29,7 +29,7 @@ done
 
 get_attr () {
     attr=$1
-    for path in ${TOB_attribute_search_paths//:/ }; do
+    for path in ${TOB_search_paths//:/ }; do
         test -e $path/$attr && {
             attr=$(<$path/$attr)
             return 0
@@ -40,7 +40,7 @@ get_attr () {
 
 get_prop () {
     prop=$1
-    for path in ${TOB_attribute_search_paths//:/ }; do
+    for path in ${TOB_search_paths//:/ }; do
         test -e $path/$prop && {
             prop=$path/$prop
             return 0
@@ -53,7 +53,7 @@ get_prop @install-rsync-exclude &&
     opt="--exclude-from=$prop"
 
 echo TODO: rsync $opt -azv lib/ $host$prefix/lib/tob
-rsync $opt -azv lib/ $host$prefix/lib/tob
+rsync $opt -azv --delete lib/ $host$prefix/lib/tob
 
 exit
 
