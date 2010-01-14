@@ -53,7 +53,8 @@ get_prop @install-rsync-exclude &&
     opt="--exclude-from=$prop"
 
 echo TODO: rsync $opt -azv lib/ $host$prefix/lib/tob
-rsync $opt -azv --delete lib/ $host$prefix/lib/tob
+# rsync $opt -azv --delete lib/ $host$prefix/lib/tob
+rsync $opt -azv lib/ $host$prefix/lib/tob
 
 exit
 
