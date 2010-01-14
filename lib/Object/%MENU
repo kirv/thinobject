@@ -2,4 +2,6 @@
 .show = show
 .ls = ls
 .ll = ls -ltrp
+find = find
+find-f = find -type f
 super.menu = 1

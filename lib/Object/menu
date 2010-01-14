@@ -119,10 +119,9 @@ unset k
 
 
 exec_method () {
-    method_args="$*"
-    method="${method_args% *}"
+    method_args="$@"
+    method="${method_args%% *}"
     args="${method_args#$method}"
-
     if do_method=$(tob $self.method $method); then
         echo $TOB_object.$method_args
         exec $do_method $args
@@ -142,8 +141,9 @@ test "$choice" == "?" && {
     }
 
 # first check if choice is numeric, from @MENU files:
-test -n "${methods[$choice]}" &&
-    exec_method "${methods[$choice]}"
+test ${choice/[-]/} == $choice &&
+    test -n "${methods[$choice]}" &&
+        exec_method "${methods[$choice]}"
 
 # next check if choice is a key from %MENU files:
 k=1
