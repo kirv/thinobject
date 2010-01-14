@@ -113,7 +113,7 @@ test -n "$target" ||
     error "no target specified for object creation"
 
 ##  the target must not already be a thinobject:
-tob $target.path > /dev/null &&
+tob $target.path > /dev/null 2>&1 &&
     error $target already exists as a thinobject
 
 ## second argument specifies class of the new object, or it defaults to Object
@@ -233,9 +233,10 @@ test -e $classpath/@uri && uri_source=$classpath/@uri
 
 ## copy class uri property to thinobject:
 test -e "$uri_source" && {
-    uri_dest=@uri
+    uri_dest=${uri_source##*/}
     test -n "$TOB_DOT_ATTR" && uri_dest=.@uri
-    echo "cp FROM:$uri_source TO:$tob/$uri_dest"
+    test -n "$VERBOSE" &&
+        echo "cp FROM:$uri_source TO:$tob/$uri_dest"
     cp $uri_source $tob/$uri_dest ||
         error failed to copy class uri property $uri_source to $tob/$uri_dest
     push_rollback_command rm $tob/$uri_dest
