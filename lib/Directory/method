@@ -44,7 +44,7 @@ done |
         name = $1
         path = $2
         while ( m[name] ) {
-            name = "SUPER::" name
+            name = "super." name
             }
         m[name] = 1
         if ( method == name ) {
