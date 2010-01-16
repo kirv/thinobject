@@ -1,207 +1,37 @@
-#!/usr/bin/perl -w
-use strict;
-use warnings;
+#!/bin/bash
 
-use ThinObject;
-use Getopt::Long;
+while test -n "$1"; do
+    arg="$1" && shift
+    if test "$arg" == --format; then
+        format=$1 && shift
+    elif test "${arg:0:1}" == -; then
+        echo unknown argument: $arg >&2
+        exit 1
+    else
+        method="$arg"
+        break
+    fi
+done
+test -n "$method" || method=show
 
-my $tob_enabler = "/usr/local/bin/tob";
-die "thinobject enabler/executive not found\n"
-    unless -e $tob_enabler;
-die "thinobject enabler/executive not executable\n"
-    unless -x $tob_enabler;
+unset order
+for p in ${TOB_search_paths//:/ }; do
+    test -e "$p/@order" && order="$p/@order" && break
+    test -e "$p/.@order" && order="$p/.@order" && break
+done
 
-my $agg = ThinObject->new( shift ) ||
-    die "failed to create perl object of ThinObject class\n";
+if test -n "$order"; then
+    order=$(<$order)
+else
+    for ob in *; do 
+        test $ob == ^ || test $ob == .^ && continue
+        test -d $ob/^ && order="$order $ob"
+    done
+fi
 
-die unless $agg->isa() ne 'Aggregate';
-
-# exec "/usr/bin/pod2text $0" if @ARGV && $ARGV[0] =~ m/^(-h|--help)$/;
-
-my $do_name;
-my $do_list_name = $agg->attribute('Aggregate-do-list') || 'do-in-order';
-my $verbose = $agg->attribute('verbose');
-my $verbose_fmt = $agg->attribute('verbose-printf-format');
-my $continue_on_error_value = $agg->attribute('continue-on-error-value');
-my $debug;
-
-## process commandline options:
-use Getopt::Long qw(:config pass_through);
-GetOptions (
-    'h'             => sub { print "see --help\n"; exit 1 },
-    'help'          => sub { exec "pod2text $0" },
-    'do-name:s'  => \$do_name,
-    'verbose!'  => \$verbose,
-    'debug'  => \$debug,
-    'verbose-printf-format=s'  => \$verbose_fmt,
-    'continue-on-error-value=s'  => \$continue_on_error_value,
-    ) or die "$!\n";
-
-my $method = shift;
-my @args = @ARGV;
-
-if ( $debug ) {
-    print "DEBUG: in Aggregate.do method\n";
-    print "DEBUG: verbose_fmt: $verbose_fmt\n" if $verbose_fmt;
-    print "DEBUG: verbose: $verbose\n" if $verbose;
-    print "DEBUG: do-name: $do_name\n" if $do_name;
-    print "DEBUG: do-list-name: $do_list_name\n" if $do_list_name;
-    print "DEBUG: method: $method\n";
-    print "DEBUG: pass-thru args: @args\n";
-    }
-
-$verbose_fmt = expand_escapes($verbose_fmt) if
-    $verbose_fmt && $verbose_fmt =~ m/\\/;
-
-my @order = $agg->get_property( $do_list_name );
-
-unless ( defined $order[0] ) {
-    ## should handle this better, e.g., just use the system's 'natural' order
-    die "Aggregate.do error: no order property defined\n";
-    }
-
-print "DEBUG: order: @order\n" if $debug;
-
-my $tob = $agg->tob();
-chdir $agg->tob() or die $!;
-
-unless ( defined $order[0] ) {
-    @order = (); # kludge... there's something in there...
-    opendir CONTAINER, '.' or die $!;
-    foreach my $candidate ( sort readdir CONTAINER ) {
-        next if $candidate =~ m/^[\^\.]/;
-        push @order, $candidate;
-        }
-    }
-
-foreach my $ob ( @order ) {
-
-  # print "DEBUG:    processing $ob\n" if $debug;
-
-    ## skip if name doesn't match --do-name option value...
-  # defined $do_name && next unless $ob =~ m/$do_name/;
-    next if defined $do_name && $ob !~ m/$do_name/;
-    
-  # print "DEBUG:    still going $ob\n" if $debug;
-
-    ## skip if candidate is not a thinobject:
-    ## NOTE that this could be done using perl ThinObject module,
-    ##    but for now I want to do it at the shell level...
-    next if system("$tob_enabler $ob.path >/dev/null 2>&1");
-
-  # print "DEBUG:    survived so far $ob\n" if $debug;
-
-    if ( $verbose ) {
-        if ( $verbose_fmt ) {
-            printf $verbose_fmt, $ob;
-            }
-        else {
-            print "$ob\n";
-            }
-        }
-
-    next unless $method;
-
-    my @ob_args = @args;
-    map s/%s/$ob/g, @ob_args;
-
-    # execute the method, and bail if succesful:
-    system("$tob_enabler $ob.$method @ob_args");
-    if ( $? != 0 ) {
-        my $error_value = $? >> 8;
-      # print "DEBUG error value is $error_value\n" if $error_value;
-        die qq(Aggregate.do failed: "tob $ob.$method @ob_args", $error_value\n)
-            unless $continue_on_error_value
-                && $error_value == $continue_on_error_value;
-        }
-
-    # otherwise, go on and do the same with the next object...
-    }
-
-sub expand_escapes {
-    my $fmt = shift;
-    $fmt =~ s/\\t/\t/g;
-    $fmt =~ s/\\n/\n/g;
-    return $fmt;
-    }
-
-=head1 NAME
-
-do -- Aggregate do method; apply method to contained objects
-
-=head1 SYNOPSIS
-
-    Aggregate.do [-h|--help] method args ...
-
-=head1 DESCRIPTION
-
-Invoke contained object's method with arguments, in order set by
-the 'do-in-order' property or perhaps by some other criteria.  Quit after
-one of the object method calls succeeds, according to the process
-return value.  If the return value is 1, then call the next object,
-etc.  If the return value is greater than 1, just bail due to the
-error.
-
-=head1 ATTRIBUTES
-
-=over
-
-=item verbose-printf-format = STRING
-
-show target object name using printf format, e.g., "\t%s\n"
-
-=item verbose = NUMBER
-
-show target object name if NUMBER=1
-
-=item Aggregate-do-list = NAME, default 'do-in-order'
-
-If present, operate in order only on listed objects.  If no property
-is found in the object, all contained thinobjects are targets.
-
-=item continue-on-error-value NUMBER
-
-If set, keep going to the next object if a container object method
-returns NUMBER on exit.  Execution always continues when the return
-value (also referred to as error status, return status, error value, etc.)
-is 0.
-
-=back
-
-=head1 EXAMPLES
-
-    Aggregate.do baz 
-
-=head1 SEE ALSO
-
-Aggregate.help overview method, Aggregate.order method.
-
-Manpage for printf or sprintf. 
-
-=head1 BUGS
-
-The do method uses subshells for object tests and for executing the
-methods on them.
-
-Escape sequences in printf format strings are expanded explicitly,
-but for now only \t and \n are handled.
-
-The verbose-printf-format attribute obviates the verbose attribute...
-there might be a more sensible way to handle this (like maybe dropping
-verbose?)
-
-=head1 TODO
-
-A means to exclude objects, and/or to include/exclude by regular expression
-(or other) pattern, could be added.
-
-A check for a specific object class could be added.
-
-The verbose option could maybe be a sprintf format...
-
-=head1 AUTHOR
-
-Ken Irving <fnkci@uaf.edu> (c) 2007
-
-Licensed under the GPL (Gnu Public Library)
+for ob in $order; do
+    test -n "$format" &&
+        printf "$format" $ob
+    tob $ob.$method "$@"
+done
 
