@@ -448,13 +448,13 @@ sub insert_in_file {
             close NEWFILE;
             unlink "$tob/$newfile" or die $!;
             chomp $oldentry;
-            if ( $oldentry eq "$ysec $datum" ) {
+            if ( $oldentry eq $datum ) {
                 print "duplicate record\n";
                 exit 0;
                 }
             ## ASSERT: same timestamp, different message
             die "timestamp collision in $file; no changes made\n" .
-                "  OLD: $oldentry\n  NEW: $ysec $datum\n";
+                "  OLD: $oldentry\n  NEW: $datum\n";
             }
         print NEWFILE $oldentry;
         }
@@ -486,13 +486,13 @@ sub store_hi_res_somewhere_in_file { # called only for non-interval hi-res case
             close NEWFILE;
             unlink "$tob/" . TEMPFILE or die $!;
             chomp $oldentry;
-            if ( $oldentry eq "$ysec_decimal $datum" ) {
+            if ( $oldentry eq $datum ) {
                 print "duplicate record\n";
                 exit 1;
                 }
             ## ASSERT: same timestamp, different message
             die "timestamp collision in $file; no changes made\n" .
-                "  OLD: $oldentry\n  NEW: $ysec $datum\n";
+                "  OLD: $oldentry\n  NEW: $datum\n";
             }
         print NEWFILE $oldentry;
         }
