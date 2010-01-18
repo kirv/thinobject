@@ -53,6 +53,7 @@ while ( my $dataset = readdir SELF ) {
     next unless
         my ($year, $from, $last, $suffix) = $dataset =~
         m/^\@$tag(\d{4})-([0-9a-z]{5})-([0-9a-z]{5})-(\S+)$/;
+
     push @dataset, $dataset;
     $MAIN::suffix = $suffix unless defined $MAIN::suffix;
     
@@ -60,9 +61,8 @@ while ( my $dataset = readdir SELF ) {
     die "suffix: $suffix differs from previous: $MAIN::suffix\n"
         unless $suffix eq $MAIN::suffix;
 
-    my ($interval, $offset) = decode_suffix($suffix);
-    my $count = $suffix unless defined $interval;     # non-interval case
-    
+    my ($interval, $offset, $count) = decode_suffix($suffix);
+
     $details{$dataset} = [
         epoch_year($year),
         decode_ysec($from),
@@ -79,25 +79,22 @@ foreach my $dataset ( sort @dataset ) { # note: lexical order == temporal order
     my ($year_epoch, $from, $last, $interval, $offset, $count) =
         @{$details{$dataset}};
     if ( $debug ) {
-        $interval = -1 unless defined $interval;
-        $offset = -1 unless defined $offset;
-        $count = -1 unless defined $count;
-        printf "%s   %09d   %08d   %08d   %d   %d   %d\n", 
-            $dataset, $year_epoch, $from, $last, $interval, $offset, $count;
-        undef $interval if $interval == -1;
-        undef $offset if $offset == -1;
-        undef $count if $count == -1;
+        printf "%s   %09d   %08d   %08d", $dataset, $year_epoch, $from, $last;
+        printf "   interval=$interval" if $interval;
+        printf "   offset=$offset" if $offset;
+        printf "   count=$count" if $count;
+        print "\n";
         }
     open DSET, '<', $dataset or die "failed to open $dataset, $!\n";
     if ( defined $count ) { ## non-interval dataset, timestamp precedes record
         my $n = 0;
         while ( <DSET> ) {
-            my ($ysec, $datum) = m/^\d+ (.+)/; 
+            my ($ysec, $datum) = m/^(\d+) (.+)/; 
             print $year_epoch + $ysec, ' ', $_
                 unless $validate_only;
             $n += 1;
             }
-        ## validat results::
+        ## validate results::
         die "$dataset had $n records, not $count\n" unless $n == $count;
         close DSET or die $!;
         }
@@ -114,11 +111,28 @@ foreach my $dataset ( sort @dataset ) { # note: lexical order == temporal order
             }
         close DSET or die $!;
         }
-    else { # interval dataset
+    elsif ( defined $offset ) { # interval dataset with assumed offset
         my $t = $year_epoch + $from;
         my $n = 0;
         while ( <DSET> ) {
+            chomp;
             print $t + $offset, ' ', $_
+                unless $validate_only;
+            $t += $interval;
+            $n += 1;
+            }
+        ## validate results:
+        my $final = $t - $year_epoch - $interval;
+        die "$dataset, with $n records, ended at " . encode_ysec($final) . "\n"
+            unless $final == $last;
+        close DSET or die $!;
+        }
+    else { # interval dataset with offset on each datum line:
+        my $t = $year_epoch + $from;
+        my $n = 0;
+        while ( <DSET> ) {
+            my ($ofs, $datum) = m/^(\d+) (.+)/; 
+            print $t + $ofs, ' ', $_
                 unless $validate_only;
             $t += $interval;
             $n += 1;
@@ -177,14 +191,24 @@ sub decode_n_units { # 1h, 0s, etc....
     }
 
 sub decode_suffix {
-    ## the following will be undefined if suffix is a non-interval count:
-    my ($interval, $offset) = $_[0] =~ m/^(\d+\S)-(\d+\S)$/;
+    my $count = shift;
+    # cases: 145, 3600s, 1800s-5s
+    return (undef, undef, $count) if $count =~ m/^\d+$/;
+    my ($interval, $offset) = split /-/, $count;
     $interval = decode_n_units($interval) if $interval;
     $offset = decode_n_units($offset) if $offset;
-    $interval = -1 unless defined $interval;
-    $offset = -1 unless defined $offset;
-    return ($interval, $offset);
+    return ($interval, $offset, undef);
     }
+
+# sub decode_suffix_OLD {
+#     ## the following will be undefined if suffix is a non-interval count:
+#     my ($interval, $offset) = $_[0] =~ m/^(\d+\S)-(\d+\S)$/;
+#     $interval = decode_n_units($interval) if $interval;
+#     $offset = decode_n_units($offset) if $offset;
+#   # $interval = -1 unless defined $interval;
+#   # $offset = -1 unless defined $offset;
+#     return ($interval, $offset);
+#     }
 
 sub convert_time_option {
     chomp(my $epoch_sec = `/bin/date -d '$_[0]' +%s`);
