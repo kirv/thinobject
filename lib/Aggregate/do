@@ -2,8 +2,10 @@
 
 while test -n "$1"; do
     arg="$1" && shift
-    if test "$arg" == --format; then
-        format=$1 && shift
+    if test $arg == --fmt ; then
+        fmt=$1 && shift
+    elif test $arg == --sleep ; then
+        sleep=$1 && shift
     elif test "${arg:0:1}" == -; then
         echo unknown argument: $arg >&2
         exit 1
@@ -30,8 +32,9 @@ else
 fi
 
 for ob in $order; do
-    test -n "$format" &&
-        printf "$format" $ob
+  # test -n "$fmt" && printf "$fmt" $ob
+    printf "\n%s\n" "$ob.$method $*"
     tob $ob.$method "$@"
+    test -n "$sleep" && sleep $sleep
 done
 
