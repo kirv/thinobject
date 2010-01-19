@@ -44,6 +44,9 @@ GetOptions (
     'd|debug'        => \$debug,
     ) or die "$!\n";
 
+die "non-option arguments not supported: @ARGV\n"
+    if  @ARGV;
+
 ## resolve interval, if specified, to first or last time spec
 if ( $interval ) {
     die "from, to, and interval all specified\n" if $t_first && $t_last;
@@ -62,6 +65,11 @@ if ( $interval ) {
 elsif ( $quantity ) {
   # print " QTY $quantity\n" if $debug;
   # die "output count prior to a time not yet supported\n" if $t_last;
+    }
+
+unless ( $t_first || $t_last ) {
+    $t_last = convert_time_option('now');
+    ($quantity, $interval) = convert_count_or_interval(1);
     }
 
 if ( $debug ) {
