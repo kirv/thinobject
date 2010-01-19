@@ -44,6 +44,7 @@ GetOptions (
 
 print "FROM $t_first\n" if $t_first;
 print "  TO $t_last\n" if $t_last;
+print "$output_timestamp\n" if $output_timestamp;
 
 ## resolve interval, if specified, to first or last time spec
 if ( $interval ) {
@@ -67,7 +68,7 @@ print_help( $get_help ) if defined $get_help;
 
 $tag = defined $tag ? "$tag-" : '';
 
-## initialze code/decode structures:
+## initialze code/decode structures for base32 times:
 my @code = ( 0..9, 'a'..'h', 'j', 'k', 'm', 'n', 'p'..'t', 'v'..'z'); 
 my %decode;
 my $i = 0;
@@ -83,19 +84,19 @@ my @dataset;
 my %details;
 my $suffix;
 while ( my $dataset = readdir SELF ) {
-  # print "$dataset\n";
+  # print "SCANNING: $dataset\n";
     next unless
         my ($year, $from, $last, $suffix) = $dataset =~
         m/^\@$tag(\d{4})-([0-9a-z]{5})-([0-9a-z]{5})-(\S+)$/;
     push @dataset, $dataset;
     $MAIN::suffix = $suffix unless defined $MAIN::suffix;
+  # print "CHECKING: $dataset\n";
     
     ## may need to relax this criterion perhaps?:
     die "suffix: $suffix differs from previous: $MAIN::suffix\n"
         unless $suffix eq $MAIN::suffix;
 
-    my ($interval, $offset) = decode_suffix($suffix);
-    my $count = $suffix unless defined $interval;     # non-interval case
+    my ($interval, $offset, $count) = decode_suffix($suffix);
     
     $details{$dataset} = [
         epoch_year($year),
@@ -130,12 +131,14 @@ foreach my $dataset ( sort @dataset ) { # note: lexical order == temporal order
     ## see if we can skip this dataset:
     next if defined $t_first && $year_epoch + $last < $t_first; ## too early
     last if defined $t_last && ($year_epoch + $from > $t_last);   ## too late
+ #  warn "get data from $dataset\n";
 
     open DSET, '<', $dataset or die "failed to open $dataset, $!\n";
 
     my $t = $year_epoch + $from; # epoch time of first record
     if ( defined $count ) { ## non-interval dataset, timestamp precedes record
         while ( <DSET> ) {
+            printf "case1: ";
             my ($ysec, $datum) = m/^\d+ (.+)/; 
             print format_timestamp($year_epoch + $ysec) if $output_timestamp;
             print $_;
@@ -153,8 +156,16 @@ foreach my $dataset ( sort @dataset ) { # note: lexical order == temporal order
             }
         ## ASSERT: next datum is ok if it exists, unless it's already too late
         while ( <DSET> ) {
+            printf "case2: ";
             last if defined $t_last && $t > $t_last;
-            print format_timestamp($t + $offset) if $output_timestamp;
+            if ( defined $offset ) {
+                print format_timestamp($t + $offset) if $output_timestamp;
+                }
+            else { # parse timestamp offset from datum
+                s/^(\d+) //;
+                my $ofs = $1 || 0;
+                print format_timestamp($t + $ofs) if $output_timestamp;
+                }
             print $_;
             $t += $interval;
             $n += 1;
@@ -167,6 +178,7 @@ foreach my $dataset ( sort @dataset ) { # note: lexical order == temporal order
         }
     else { # output all of interval dataset
         while ( <DSET> ) {
+            printf "case3: ";
             print format_timestamp($t + $offset) if $output_timestamp;
             print $_;
             $t += $interval;
@@ -220,14 +232,24 @@ sub decode_n_units { # 1h, 0s, etc....
     return $units{$unit} * $multiplier;
     }
 
+# sub decode_suffix {
+#     ## the following will be undefined if suffix is a non-interval count:
+#     my ($interval, $offset) = $_[0] =~ m/^(\d+\S)-(\d+\S)$/;
+#     $interval = decode_n_units($interval) if $interval;
+#     $offset = decode_n_units($offset) if $offset;
+#     $interval = -1 unless defined $interval;
+#     $offset = -1 unless defined $offset;
+#     return ($interval, $offset);
+#     }
+
 sub decode_suffix {
-    ## the following will be undefined if suffix is a non-interval count:
-    my ($interval, $offset) = $_[0] =~ m/^(\d+\S)-(\d+\S)$/;
+    my $count = shift;
+    # cases: 145, 3600s, 1800s-5s
+    return (undef, undef, $count) if $count =~ m/^\d+$/;
+    my ($interval, $offset) = split /-/, $count;
     $interval = decode_n_units($interval) if $interval;
     $offset = decode_n_units($offset) if $offset;
-    $interval = -1 unless defined $interval;
-    $offset = -1 unless defined $offset;
-    return ($interval, $offset);
+    return ($interval, $offset, undef);
     }
 
 sub convert_time_option {

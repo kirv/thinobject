@@ -436,7 +436,7 @@ test -n "$DEBUG" && {
     }
 
 resolve_method_path $TOB_method &&
-    exec $TOB_method_path $args $@
+    exec $TOB_method_path $args "$@"
 
 ## no executable method was resolved, so try some built-ins:
 
@@ -461,7 +461,7 @@ for path in ${method_paths[@]}; do
     test -e $path/_default && {
         test -x $path/_default && {
           # warn DEBUG thinob: exec $path/_default $TOB_object $TOB_method $*
-            exec $path/_default $TOB_method $*
+            exec $path/_default $TOB_method "$@"
             }
         ## ASSERT: _default is not executable
         ## maybe it can contain a recipe to be executed?
