@@ -264,6 +264,7 @@ sub convert_time_option {
 
 sub convert_count_or_interval {
     my ($qty, $unit) = $_[0] =~ m/^([\d.]+)\s*([\S]+)?$/;
+    $unit = 'count' unless defined $unit;
     die "option not supported: $_[0]\n" unless defined $qty;
     my $count;
     my $interval;
