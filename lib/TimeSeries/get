@@ -19,6 +19,7 @@ my $output_timestamp = '%Y-%m-%d %H:%M:%S%z%t'; # default to ISO 8601 format
 my $otz;
 my $header;
 my $get_help;
+my $debug;
 
 ## process commandline options:
 use Getopt::Long;
@@ -32,23 +33,21 @@ GetOptions (
   # 'skip=s' =>  sub { $t_skip = convert_count_or_interval($_[1]); },
     'last=s' => 
         sub { # --last ... implies --to now:
+            $t_last = convert_time_option('now');
             ($quantity, $interval) = convert_count_or_interval($_[1]);
             ## could get confusing if --to is also given ...
-            $t_last = convert_time_option('now');
             },
     'ots|output-timestamp:s'  => \$output_timestamp,
     'otz|output-timezone=s'  => \$otz,
     'h'             => sub { print "see --help\n"; exit 1 },
     'help:s'        => \$get_help,
+    'd|debug'        => \$debug,
     ) or die "$!\n";
-
-print "FROM $t_first\n" if $t_first;
-print "  TO $t_last\n" if $t_last;
-print "$output_timestamp\n" if $output_timestamp;
 
 ## resolve interval, if specified, to first or last time spec
 if ( $interval ) {
     die "from, to, and interval all specified\n" if $t_first && $t_last;
+    print " SEC $interval\n" if $debug;
     if ( $t_first ) {
         $t_last = $t_first + $interval;
         }
@@ -61,7 +60,16 @@ if ( $interval ) {
     undef $interval; # just to say we're done with it
     }
 elsif ( $quantity ) {
-    die "output count prior to a time not yet supported\n" if $t_last;
+  # print " QTY $quantity\n" if $debug;
+  # die "output count prior to a time not yet supported\n" if $t_last;
+    }
+
+if ( $debug ) {
+    print "FROM $t_first\n" if $t_first;
+    print "  TO $t_last\n" if $t_last;
+    print " OTS $output_timestamp\n" if $output_timestamp;
+    print " QTY $quantity\n" if $quantity;
+    print " SEC $interval\n" if $interval;
     }
 
 print_help( $get_help ) if defined $get_help;
@@ -116,6 +124,48 @@ if ( $header ) {
         }
     print $header, "\n";
     }
+
+if ( $t_last && $quantity ) {
+    my @reverse_output;
+    foreach my $dataset ( reverse sort @dataset ) { 
+        last unless $quantity;
+        my ($year_epoch, $from, $last, $interval, $offset, $count) =
+            @{$details{$dataset}};
+        open DSET, '<', $dataset or die "failed to open $dataset, $!\n";
+        my $t = $year_epoch + $last;
+        foreach ( reverse <DSET> ) {
+
+            # need to handle each timeseries type case:
+            if ( defined $count ) { #  non-interval dataset, timestamp on line
+                s/^(\d+) //;
+                $t = $year_epoch + $1;
+                push @reverse_output, format_timestamp($t) . $_;
+                }
+            elsif ( defined $offset ) { # only datum is on line
+                die unless $interval;
+                push @reverse_output, format_timestamp($t + $offset) . $_;
+                }
+            else { # timestamp offset is first on line
+                die unless $interval;
+                s/^(\d+) //;
+                my $ofs = $1 || 0;
+                push @reverse_output, format_timestamp($t + $ofs) . $_;
+                }
+
+            $t -= $interval if $interval;
+
+            $quantity -= 1;
+            last unless $quantity;
+            }
+        }
+    foreach ( reverse @reverse_output ) {
+        print $_;
+        }
+    exit 0;
+
+    }
+
+
 
 ######################
 ## arriving at the main output processing loop with the following variables:
@@ -179,7 +229,14 @@ foreach my $dataset ( sort @dataset ) { # note: lexical order == temporal order
     else { # output all of interval dataset
         while ( <DSET> ) {
             printf "case3: ";
-            print format_timestamp($t + $offset) if $output_timestamp;
+            if ( defined $offset ) {
+                print format_timestamp($t + $offset) if $output_timestamp;
+                }
+            else { # parse timestamp offset from datum
+                s/^(\d+) //;
+                my $ofs = $1 || 0;
+                print format_timestamp($t + $ofs) if $output_timestamp;
+                }
             print $_;
             $t += $interval;
             }
@@ -287,6 +344,7 @@ sub convert_count_or_interval {
     }
 
 sub format_timestamp { 
+    return '' unless $output_timestamp;
     return time2str( $output_timestamp, $_[0] ) unless $otz;
     return time2str( $output_timestamp, $_[0], $otz );
     }
