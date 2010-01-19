@@ -15,7 +15,7 @@ my $t_last;
 my $interval;
 my $quantity;
 # my $t_skip;
-my $output_timestamp;
+my $output_timestamp = '%Y-%m-%d %H:%M:%S%z%t'; # default to ISO 8601 format
 my $otz;
 my $header;
 my $get_help;
@@ -440,10 +440,15 @@ Any of these may be plural, but any other value for UNIT raises an error.
 =item --output-timestamp FORMAT_STRING
 
 Each datum timestamp will be ouput using FORMAT_STRING as a prefix to
-the datum itself.  No space or other delimiter will be output between the
-timestamp and datum, so must be included in the format if desired.  No
-timestamp will be output if this option is not specified.  See section
-TIMESTAMP FORMAT CODES below, also --help Date::Format.
+the datum itself.  No space or other delimiter will be output between
+the timestamp and datum, so must be included in the format if desired.
+No timestamp will be output if this option is not specified or if an
+empty string is given.  See section TIMESTAMP FORMAT CODES below, also
+--help Date::Format.
+
+An ISO 8601 timestamp is output by default, equivalent to using:
+
+    --ots '%Y-%m-%d %H:%M:%S%z%t'
 
 =item --otz TIMEZONE
 
