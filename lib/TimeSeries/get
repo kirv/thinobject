@@ -9,28 +9,30 @@ use Date::Format; # needed time2str output timestamp formatting
 
 # print qq(command line: $0 @ARGV\n);
 
-my $tag;
-my $t_first;
-my $t_last;
-my $interval;
-my $quantity;
+## process commandline options:
+my $tag = '';
 my $output_timestamp = '%Y-%m-%d %H:%M:%S%z%t'; # default to ISO 8601 format
 my $otz;
 my $header;
 my $get_help;
 my $debug;
 
-## process commandline options:
 use Getopt::Long;
 GetOptions (
+    'tag=s'  => sub { $tag = $_[1] . '-'; },
     'hdr|header=s'  => \$header,
-    'tag=s'  => \$tag,
     'ots|output-timestamp:s'  => \$output_timestamp,
     'otz|output-timezone=s'  => \$otz,
     'h'             => sub { print "see --help\n"; exit 1 },
     'help:s'        => \$get_help,
     'd|debug'        => \$debug,
     ) or die "$!\n";
+
+## process output selector directives:
+my $t_first;
+my $t_last;
+my $interval;
+my $quantity;
 
 while ( @ARGV ) {
     my $arg = shift;
@@ -44,53 +46,21 @@ while ( @ARGV ) {
     elsif ( $arg eq 'qty' || $arg eq 'for' ) {
         ($quantity, $interval) = convert_count_or_interval(shift);
         }
-    elsif ( $arg eq 'last' ) {
-        # last ... implies: to now:
-        $t_last = convert_time_option('now');
+    elsif ( $arg eq 'first' ) {
+        $t_first = -1; # special value to select earliest time in timeseries
         ($quantity, $interval) = convert_count_or_interval(shift);
-        ## could get confusing if --to is also given ...
+        }
+    elsif ( $arg eq 'last' ) {
+        $t_last = -1; # special value to select latest time in timeseries
+        ($quantity, $interval) = convert_count_or_interval(shift);
+        }
+    elsif ( $arg eq 'all' ) {
+        $t_first = $t_last = -1; 
         }
     else {
         die "unknown argument: $arg @ARGV\n";
         }
     }
-
-## resolve interval, if specified, to first or last time spec
-if ( $interval ) {
-    die "from, to, and interval all specified\n" if $t_first && $t_last;
-    print " SEC $interval\n" if $debug;
-    if ( $t_first ) {
-        $t_last = $t_first + $interval;
-        }
-    elsif ( $t_last ) {
-        $t_first = $t_last - $interval;
-        }
-    else {  # neither first nor last??
-        die "count or interval needs from or to time\n";
-        }
-    undef $interval; # just to say we're done with it
-    }
-elsif ( $quantity ) {
-  # print " QTY $quantity\n" if $debug;
-  # die "output count prior to a time not yet supported\n" if $t_last;
-    }
-
-unless ( $t_first || $t_last ) {
-    $t_last = convert_time_option('now');
-    ($quantity, $interval) = convert_count_or_interval(1);
-    }
-
-if ( $debug ) {
-    print "FROM $t_first\n" if $t_first;
-    print "  TO $t_last\n" if $t_last;
-    print " OTS $output_timestamp\n" if $output_timestamp;
-    print " QTY $quantity\n" if $quantity;
-    print " SEC $interval\n" if $interval;
-    }
-
-print_help( $get_help ) if defined $get_help;
-
-$tag = defined $tag ? "$tag-" : '';
 
 ## initialze code/decode structures for base32 times:
 my @code = ( 0..9, 'a'..'h', 'j', 'k', 'm', 'n', 'p'..'t', 'v'..'z'); 
@@ -98,12 +68,9 @@ my %decode;
 my $i = 0;
 $decode{$_} = $i++ foreach @code;
 
-my $chunkdir = '_'; # default internal directory for multiline "chunks"
-
-## parse the "get" query 
-
 opendir SELF, '.' or die "failed to open directory\n";
 
+## scan datasets by data values in their names:
 my @dataset;
 my %details;
 my $suffix;
@@ -131,8 +98,57 @@ while ( my $dataset = readdir SELF ) {
         $count,
         ];
     }
-
 ## ASSERT: timeseries dataset filenames have been parsed; ready for output...
+
+# select first or last time in the timeseries if special value -1 is set:
+if ( defined $t_first && $t_first == -1 ) {
+    my $dataset = (sort @dataset)[0];
+    $t_first = $details{$dataset}->[0] + $details{$dataset}->[1];
+    }
+
+if ( defined $t_last && $t_last == -1 ) {
+    my $dataset = (sort @dataset)[-1];
+    $t_last = $details{$dataset}->[0] + $details{$dataset}->[2];
+    }
+
+## resolve interval, if specified, to first or last time spec
+if ( $interval ) {
+    die "from, to, and interval all specified\n" if $t_first && $t_last;
+    print " SEC $interval\n" if $debug;
+    if ( $t_first ) {
+        $t_last = $t_first + $interval;
+        }
+    elsif ( $t_last ) {
+        $t_first = $t_last - $interval;
+        }
+    else {  # neither first nor last??
+        die "count or interval needs from or to time\n";
+        }
+    undef $interval; # just to say we're done with it
+    }
+elsif ( $quantity ) {
+  # print " QTY $quantity\n" if $debug;
+  # die "output count prior to a time not yet supported\n" if $t_last;
+    }
+
+unless ( $t_first || $t_last ) {
+    $t_last = convert_time_option('now');
+    $quantity = 1;
+    }
+
+if ( $debug ) {
+    print "FROM $t_first\n" if $t_first;
+    print "  TO $t_last\n" if $t_last;
+    print " OTS $output_timestamp\n" if $output_timestamp;
+    print " QTY $quantity\n" if $quantity;
+    print " SEC $interval\n" if $interval;
+    }
+
+print_help( $get_help ) if defined $get_help;
+
+my $chunkdir = '_'; # default internal directory for multiline "chunks"
+
+## parse the "get" query 
 
 if ( $header ) {
     if ( $output_timestamp ) {
@@ -150,7 +166,6 @@ if ( $t_last && $quantity ) {
         open DSET, '<', $dataset or die "failed to open $dataset, $!\n";
         my $t = $year_epoch + $last;
         foreach ( reverse <DSET> ) {
-
             # need to handle each timeseries type case:
             if ( defined $count ) { #  non-interval dataset, timestamp on line
                 s/^(\d+) //;
@@ -167,18 +182,13 @@ if ( $t_last && $quantity ) {
                 my $ofs = $1 || 0;
                 push @reverse_output, format_timestamp($t + $ofs) . $_;
                 }
-
             $t -= $interval if $interval;
-
             $quantity -= 1;
             last unless $quantity;
             }
         }
-    foreach ( reverse @reverse_output ) {
-        print $_;
-        }
+    print $_ foreach reverse @reverse_output;
     exit 0;
-
     }
 
 ######################
@@ -194,7 +204,7 @@ foreach my $dataset ( sort @dataset ) { # note: lexical order == temporal order
         @{$details{$dataset}};
     ## see if we can skip this dataset:
     next if defined $t_first && $year_epoch + $last < $t_first; ## too early
-    last if defined $t_last && ($year_epoch + $from > $t_last);   ## too late
+    last if defined $t_last && ($year_epoch + $from > $t_last); ## too late
  #  warn "get data from $dataset\n";
 
     open DSET, '<', $dataset or die "failed to open $dataset, $!\n";
@@ -202,8 +212,9 @@ foreach my $dataset ( sort @dataset ) { # note: lexical order == temporal order
     my $t = $year_epoch + $from; # epoch time of first record
     if ( defined $count ) { ## non-interval dataset, timestamp precedes record
         while ( <DSET> ) {
-            printf "case1: ";
-            my ($ysec, $datum) = m/^\d+ (.+)/; 
+          # printf "case1: ";
+            s/^(\d+) //;
+            my $ysec = $1;
             print format_timestamp($year_epoch + $ysec) if $output_timestamp;
             print $_;
             $n += 1;
@@ -220,7 +231,7 @@ foreach my $dataset ( sort @dataset ) { # note: lexical order == temporal order
             }
         ## ASSERT: next datum is ok if it exists, unless it's already too late
         while ( <DSET> ) {
-            printf "case2: ";
+          # printf "case2: ";
             last if defined $t_last && $t > $t_last;
             if ( defined $offset ) {
                 print format_timestamp($t + $offset) if $output_timestamp;
@@ -242,7 +253,7 @@ foreach my $dataset ( sort @dataset ) { # note: lexical order == temporal order
         }
     else { # output all of interval dataset
         while ( <DSET> ) {
-            printf "case3: ";
+          # printf "case3: ";
             if ( defined $offset ) {
                 print format_timestamp($t + $offset) if $output_timestamp;
                 }
@@ -259,6 +270,13 @@ foreach my $dataset ( sort @dataset ) { # note: lexical order == temporal order
     }
 
 ## subroutines follow:
+sub sum {
+  # return $_[0] + $_[1];
+    my $a = shift;
+    my $b = shift;
+    return $a + $b;
+    }
+
 sub epoch_year { # seconds from unix epoch for beginning of year
     ## could cache the result, but probably not worth the bother/overhead
     return timegm(0,0,0,1,0,$_[0]);
@@ -334,6 +352,7 @@ sub convert_time_option {
     }
 
 sub convert_count_or_interval {
+    return (1, undef) unless defined $_[0];
     my ($qty, $unit) = $_[0] =~ m/^([\d.]+)\s*([\S]+)?$/;
     $unit = 'count' unless defined $unit;
     die "option not supported: $_[0]\n" unless defined $qty;
@@ -446,55 +465,59 @@ TimeSeries.get -- timeseries data to stdout
 
 =head1 SYNOPSIS
 
-  timeseries.get [OPTIONS]
+  timeseries.get [OPTIONS] [DATA SELECTORS]
 
 OPTIONS:
 
-    --from STRING
-    --to STRING
-    --for "NUMBER UNIT"
-    --qty "NUMBER UNIT"
-    --ots FORMAT_STRING
-    --output-timestamp FORMAT_STRING
-    --otz TIMEZONE
-    --output-timezone TIMEZONE
-    --hdr STRING
-    --header STRING
     --tag STRING
+    --ots FORMAT_STRING (--output-timestamp FORMAT_STRING)
+    --otz TIMEZONE      (--output-timezone TIMEZONE)
+    --hdr STRING        (--header STRING)
     --help
     --help date
     --help Date::Format
 
+DATA SELECTORS:
+
+    from STRING
+    to STRING
+    for "NUMBER [UNIT]"
+    qty "NUMBER [UNIT]"
+    first "NUMBER [UNIT]"
+    last "NUMBER [UNIT]"
+    all
+
 =head1 DESCRIPTION
 
-Output all or a specified range of data from a TimeSeries object. 
+Output all or a selected range or quantity of data from a TimeSeries object. 
+By default, data is output with timestamps formatted as ISO 8601 strings.
+Called with no arguments, the selector 'last 1' is assumed.
 
-=head1 OPTIONS
+=head1 DATA SELECTORS
 
-Options start with two dashes.  If an option parameter is specified,
-it can be separated from the option name by either a space or "=".
-Incorrect options will raise an error, and the method will not run.
+Output selector keywords limit output to a time range or quantity of 
+records.
 
 =over
 
-=item --from STRING
+=item from STRING
 
-=item --to STRING
+=item to STRING
 
 STRING is a date and/or time to limit the range of data output.  The
 string can be in any form supported by the date(1) -d option.
 
-=item --for "NUMBER UNIT"
+=item for "NUMBER [UNIT]"
 
-=item --qty "NUMBER UNIT"
+=item qty "NUMBER [UNIT]"
 
 Specifies a time interval or count for selecting output data.  Must
-be used with either --from or --to (but not both).  The space between
+be used with either 'from' or 'to' (but not both).  The space between
 NUMBER and UNIT may be omitted.
 
 NUMBER is a positive integer or decimal value (only for time intervals).
 
-UNIT can be a time unit, one of:
+UNIT can be ommitted, or can be a time unit, one of:
 
     second minute hour day week month year
 
@@ -507,6 +530,32 @@ or a counting unit, one of:
     record array count line row
 
 Any of these may be plural, but any other value for UNIT raises an error.
+
+
+=item first "NUMBER [UNIT]"
+
+=item last "NUMBER [UNIT]"
+
+Select data from the start or end of the timeseries.  NUMBER and UNIT are 
+as described above.
+
+=item all
+
+Output all data in the timeseries.
+
+=back
+
+=head1 OPTIONS
+
+Options start with two dashes.  If an option parameter is specified,
+it can be separated from the option name by either a space or "=".
+Incorrect options will raise an error, and the method will not run.
+
+=over
+
+=item --tag STRING
+
+optional dataset prefix, an arbitrary string
 
 =item --ots FORMAT_STRING
 
@@ -549,10 +598,6 @@ the server running the program.
 STRING becomes the first line of output.  If --output-timestamp is
 also given, that pattern is converted to a description and output 
 as prefix to the header.
-
-=item --tag STRING
-
-optional dataset prefix, an arbitrary string
 
 =item --help
 
@@ -660,21 +705,21 @@ Some sample formats and results:
 
     --ots="%s "                   ==> 1226516400 ...
     --ots="%Y-%j-%H:%M:%S "       ==> 2007-352-11:30:45 ...
-    --ots='"%Y-%m-%d %H:%M:%S",'  ==> "2008-11-12 09:00:00",...
+    --ots='"%Y-%m-%d %H:%M:%S%,'  ==> "2008-11-12 09:00:00",...
 
 =head1 NOTES ON QUERIES
 
 Several options are provided to control what data is selected. 
 
-The simplest options are --from and --to, which use date -d STRING to
+The simplest options are 'from' and 'to', which use date -d STRING to
 convert their argument to a time.  If only one of these is given, the
 other is interpreted as the oldest or newest time in the dataset.
 
-The --last option should be used with neither --from or --to, as it
-implies --to "now".  Its argument can be a count or an interval value.
+The 'last' option should be used with neither 'from' or 'to', as it
+implies to "now".  Its argument can be a count or an interval value.
 
-The --for (or --qty) option specifies a record count or time interval,
-and should be used with one of --last or --to.
+The 'for' (or 'qty') option specifies a record count or time interval,
+and should be used with one of 'last' or 'to'.
 
 The intention is to keep things simple, but hopefully to support 
 sensible queries.
@@ -687,7 +732,8 @@ Date::Format(3pm), Date(1),
 
 =head1 BUGS
 
-Does not handle indirect datasets with datums stored under _/.
+Does not handle indirect datasets with datums stored under _/.  Needs
+to be fixed!
 
 Use of the optional tag, an arbitrary string prefix to the dataset,
 has not been tested.
