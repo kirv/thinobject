@@ -14,7 +14,6 @@ my $t_first;
 my $t_last;
 my $interval;
 my $quantity;
-# my $t_skip;
 my $output_timestamp = '%Y-%m-%d %H:%M:%S%z%t'; # default to ISO 8601 format
 my $otz;
 my $header;
@@ -51,9 +50,6 @@ while ( @ARGV ) {
         ($quantity, $interval) = convert_count_or_interval(shift);
         ## could get confusing if --to is also given ...
         }
-  # elsif ( $arg eq 'skip=s' ) {  # SKIP IS NOT YET USED...
-  #     $t_skip = convert_count_or_interval(shift);
-  #     }
     else {
         die "unknown argument: $arg @ARGV\n";
         }
@@ -184,8 +180,6 @@ if ( $t_last && $quantity ) {
     exit 0;
 
     }
-
-
 
 ######################
 ## arriving at the main output processing loop with the following variables:
