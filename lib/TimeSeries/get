@@ -26,17 +26,6 @@ use Getopt::Long;
 GetOptions (
     'hdr|header=s'  => \$header,
     'tag=s'  => \$tag,
-    'from=s' => sub { $t_first = convert_time_option($_[1]); },
-    'to=s' => sub { $t_last = convert_time_option($_[1]); },
-    'qty|for=s' =>
-        sub { ($quantity, $interval) = convert_count_or_interval($_[1]); },
-  # 'skip=s' =>  sub { $t_skip = convert_count_or_interval($_[1]); },
-    'last=s' => 
-        sub { # --last ... implies --to now:
-            $t_last = convert_time_option('now');
-            ($quantity, $interval) = convert_count_or_interval($_[1]);
-            ## could get confusing if --to is also given ...
-            },
     'ots|output-timestamp:s'  => \$output_timestamp,
     'otz|output-timezone=s'  => \$otz,
     'h'             => sub { print "see --help\n"; exit 1 },
@@ -44,8 +33,31 @@ GetOptions (
     'd|debug'        => \$debug,
     ) or die "$!\n";
 
-die "non-option arguments not supported: @ARGV\n"
-    if  @ARGV;
+while ( @ARGV ) {
+    my $arg = shift;
+    
+    if ( $arg eq 'from' ) {
+        $t_first = convert_time_option(shift);
+        }
+    elsif ( $arg eq 'to' ) {
+        $t_last = convert_time_option(shift);
+        }
+    elsif ( $arg eq 'qty' || $arg eq 'for' ) {
+        ($quantity, $interval) = convert_count_or_interval(shift);
+        }
+    elsif ( $arg eq 'last' ) {
+        # last ... implies: to now:
+        $t_last = convert_time_option('now');
+        ($quantity, $interval) = convert_count_or_interval(shift);
+        ## could get confusing if --to is also given ...
+        }
+  # elsif ( $arg eq 'skip=s' ) {  # SKIP IS NOT YET USED...
+  #     $t_skip = convert_count_or_interval(shift);
+  #     }
+    else {
+        die "unknown argument: $arg @ARGV\n";
+        }
+    }
 
 ## resolve interval, if specified, to first or last time spec
 if ( $interval ) {
