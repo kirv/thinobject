@@ -6,6 +6,8 @@ while test -n "$1"; do
         fmt=$1 && shift
     elif test $arg == --sleep ; then
         sleep=$1 && shift
+    elif test $arg == --order ; then
+        order=$1 && shift
     elif test "${arg:0:1}" == -; then
         echo unknown argument: $arg >&2
         exit 1
@@ -16,15 +18,16 @@ while test -n "$1"; do
 done
 test -n "$method" || method=show
 
-unset order
-for p in ${TOB_search_paths//:/ }; do
-    test -e "$p/@order" && order="$p/@order" && break
-    test -e "$p/.@order" && order="$p/.@order" && break
-done
+if test -z "$order"; then
+    unset order_prop
+    for p in ${TOB_search_paths//:/ }; do
+        test -e "$p/@order" && order_prop="$p/@order" && break
+        test -e "$p/.@order" && order_prop="$p/.@order" && break
+    done
+    test -n "$order_prop" && order=$(<$order_prop)
+fi
 
-if test -n "$order"; then
-    order=$(<$order)
-else
+if test -z "$order"; then
     for ob in *; do 
         test $ob == ^ || test $ob == .^ && continue
         test -d $ob/^ && order="$order $ob"
@@ -37,4 +40,34 @@ for ob in $order; do
     tob $ob.$method "$@"
     test -n "$sleep" && sleep $sleep
 done
+
+exit
+
+NAME
+    Aggregate.do -- apply argument method to all or specified contained objects
+
+SYNOPSIS
+    ob.do [--fmt FMT] [--sleep SEC] [--order LIST] METHOD
+
+DESCRIPTION
+    Aggregate.do iterates the given method over each of the specified objects
+    or on each object found in the container.
+
+OPTIONS
+    Note that environment variables of the same name as the options will
+    be used if defined, and if not overridden by options.
+
+    --fmt FMT
+        FMT is a format string used with the shell printf function, where
+        the single printf argument is "$ob.$method $*".
+
+        ACTUALLY... this option is ignored, and the method by default acts
+        as if called with --fmt "\n%s\n".  Need to address this...
+
+    --sleep SEC
+        sleep for SEC seconds after executing each object method.
+        
+    --order LIST
+        LIST is a space-delimited list of objects in the container (a thinobject
+        of type Aggregate).  
 

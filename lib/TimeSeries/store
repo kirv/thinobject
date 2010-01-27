@@ -407,7 +407,7 @@ sub match_first_record {
     chomp (my $record = <FILE>);
     if ( $record eq $datum ) {
         print "duplicate entry\n";
-        exit 0; # should probably return a specific error value
+        exit 2; # should probably return a specific error value
         }
     ## ASSERT: same timestamp, different message
     die "timestamp collision in $file; no changes made\n" .
@@ -418,7 +418,7 @@ sub match_last_record {
     chomp( my $record = `tail -n 1 "$tob/$file"` );
     if ( $record eq $datum ) {
         print "duplicate entry\n";
-        exit 0; # should probably return a specific error value
+        exit 2; # should probably return a specific error value
         }
     ## ASSERT: same timestamp, different message
     die "timestamp collision in $file; no changes made\n" .
@@ -450,7 +450,7 @@ sub insert_in_file {
             chomp $oldentry;
             if ( $oldentry eq $datum ) {
                 print "duplicate record\n";
-                exit 0;
+                exit 2;
                 }
             ## ASSERT: same timestamp, different message
             die "timestamp collision in $file; no changes made\n" .
@@ -488,7 +488,7 @@ sub store_hi_res_somewhere_in_file { # called only for non-interval hi-res case
             chomp $oldentry;
             if ( $oldentry eq $datum ) {
                 print "duplicate record\n";
-                exit 1;
+                exit 2;
                 }
             ## ASSERT: same timestamp, different message
             die "timestamp collision in $file; no changes made\n" .
@@ -529,7 +529,7 @@ sub match_in_interval_file {
             chomp $entry;
             if ( $entry eq $datum ) {
                 print "duplicate record\n";
-                exit 0;
+                exit 2;
                 }
             ## ASSERT: same timestamp, different datum
             die "timestamp collision in $file; no changes made\n" .
