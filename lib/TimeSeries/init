@@ -1,0 +1,23 @@
+#!/bin/sh
+
+error () {
+    echo "$@" >&2
+    exit 1
+    }
+
+test -n "$1" ||
+    error "synopsis: init [interval=SECONDS]"
+
+while test -n "$1"; do
+    case "$1" in
+
+        interval=*)
+            touch "$1"s
+            ;;
+
+        *)
+            error unknown argument: $1
+    esac
+    shift
+done
+
