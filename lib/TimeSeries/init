@@ -5,9 +5,6 @@ error () {
     exit 1
     }
 
-test -n "$1" ||
-    error "synopsis: init [interval=SECONDS]"
-
 while test -n "$1"; do
     case "$1" in
 
@@ -20,4 +17,20 @@ while test -n "$1"; do
     esac
     shift
 done
+
+exit
+
+NAME
+    TimeSeries.init -- initialize timeseries object
+
+SYNOPSIS
+    ob.init [interval=SECONDS]
+
+ATTRIBUTES
+    interval=SECONDS
+        set an attribute in the timeseries object as given, except
+        that 's' will be added as a suffix.
+
+AUTHOR
+    (c) ken.irving@alaska.edu 2010
 
