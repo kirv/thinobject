@@ -14,6 +14,7 @@ my $tag = '';
 my $output_timestamp = '%Y-%m-%d %H:%M:%S%z%t'; # default to ISO 8601 format
 my $otz;
 my $header;
+my $nohdr;
 my $get_help;
 my $debug;
 
@@ -21,12 +22,15 @@ use Getopt::Long;
 GetOptions (
     'tag=s'  => sub { $tag = $_[1] . '-'; },
     'hdr|header=s'  => \$header,
+    'no-hdr|no-header' => \$nohdr,
     'ots|output-timestamp:s'  => \$output_timestamp,
     'otz|output-timezone=s'  => \$otz,
     'h'             => sub { print "see --help\n"; exit 1 },
     'help:s'        => \$get_help,
     'd|debug'        => \$debug,
     ) or die "$!\n";
+
+undef $header if $nohdr;
 
 ## process output selector directives:
 my $t_first;
