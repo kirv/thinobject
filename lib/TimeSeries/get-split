@@ -32,7 +32,7 @@ GetOptions (
     'help:s'        => \$get_help,
     'd|debug'        => \$debug,
     'col|column=s'  => sub { push @column, split /,/, $_[1]; },
-    'sep|split-on=s'  => \$datum_sep,
+    'sep|data-separator=s'  => \$datum_sep,
     'osep|output-separator=s'  => \$output_sep,
     ) or die "$!\n";
 
@@ -622,6 +622,28 @@ the server running the program.
 STRING becomes the first line of output.  If --output-timestamp is
 also given, that pattern is converted to a description and output 
 as prefix to the header.
+
+=item --col NUM[,NUM]
+
+=item --column NUM[,NUM]
+
+specify which data columns to output, and in what order.  NUM may
+be a comma-separated list of column numbers.  Columns are numbered
+from 1, and do not include the timestamp.
+
+=item --sep STRING
+
+=item --data-separator STRING
+
+STRING is used to split each datum into fields, if the --column option
+is also specified.  Defaults to a single space.
+
+=item --osep STRING
+
+=item --output-separator STRING
+
+STRING is used to join selected data columns, if the --column option
+is also specified.  Defaults to value of the --data-separator option.
 
 =item --help
 
