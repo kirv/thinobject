@@ -10,7 +10,7 @@ use Date::Format; # needed time2str output timestamp formatting
 # print qq(command line: $0 @ARGV\n);
 
 ## process commandline options:
-my $tag = '';
+my $prefix = '';
 my $output_timestamp = '%Y-%m-%d %H:%M:%S%z%t'; # default to ISO 8601 format
 my $otz;
 my $header;
@@ -20,7 +20,7 @@ my $debug;
 
 use Getopt::Long;
 GetOptions (
-    'tag=s'  => sub { $tag = $_[1] . '-'; },
+    'prefix=s'  => sub { $prefix = $_[1] . '-'; },
     'hdr|header=s'  => \$header,
     'no-hdr|no-header' => \$nohdr,
     'ots|output-timestamp:s'  => \$output_timestamp,
@@ -82,7 +82,7 @@ while ( my $dataset = readdir SELF ) {
   # print "SCANNING: $dataset\n";
     next unless
         my ($year, $from, $last, $suffix) = $dataset =~
-        m/^\@$tag(\d{4})-([0-9a-z]{5})-([0-9a-z]{5})-(\S+)$/;
+        m/^\@$prefix(\d{4})-([0-9a-z]{5})-([0-9a-z]{5})-(\S+)$/;
     push @dataset, $dataset;
     $MAIN::suffix = $suffix unless defined $MAIN::suffix;
   # print "CHECKING: $dataset\n";
@@ -473,7 +473,7 @@ TimeSeries.get -- timeseries data to stdout
 
 OPTIONS:
 
-    --tag STRING
+    --prefix STRING
     --ots FORMAT_STRING (--output-timestamp FORMAT_STRING)
     --otz TIMEZONE      (--output-timezone TIMEZONE)
     --hdr STRING        (--header STRING)
@@ -557,7 +557,7 @@ Incorrect options will raise an error, and the method will not run.
 
 =over
 
-=item --tag STRING
+=item --prefix STRING
 
 optional dataset prefix, an arbitrary string
 
@@ -739,7 +739,7 @@ Date::Format(3pm), Date(1),
 Does not handle indirect datasets with datums stored under _/.  Needs
 to be fixed!
 
-Use of the optional tag, an arbitrary string prefix to the dataset,
+Use of the optional prefix, an arbitrary string prefix to the dataset,
 has not been tested.
 
 Help option for info date works via the shell, but not via the webserver,
