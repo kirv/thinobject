@@ -1,0 +1,116 @@
+#!/bin/bash
+
+describe_self=1
+while test -n "$1" && test ${1:0:1} == '-'; do 
+    opt=$1 && shift
+    case $opt in
+        --dig)      dig=$1 && shift;;
+        --no-self)  unset describe_self;;
+        --detail)  detail="$detail $1" && shift;;
+        *) echo unkown option: $opt >&2 && exit 1;;
+    esac
+done
+
+test -n "$detail" && {
+    details=${detail//,/ }
+    export detail
+    }
+
+## declare category or type arrays:
+declare -a list dict attr file dir obname obtype unknown
+
+## scan contents of object, store by type:
+for f in * .*; do 
+    if [ $f == ^ -o $f == .^ -o $f == . -o $f == .. ]; then
+        true
+    elif [ ${f:0:1} == @ ]; then
+        list=(${list[@]} ${f:1})
+    elif [ ${f:0:2} == .@ ]; then
+        list=(${list[@]} ${f:2})
+    elif [ ${f:0:1} == % ]; then
+        dict=(${dict[@]} ${f:1})
+    elif [ ${f:0:2} == .% ]; then
+        dict=(${dict[@]} ${f:2})
+    elif [ ! ${f#*=} == $f ]; then
+        attr=(${attr[@]} $f)
+    elif obclass=($(tob $f.type 2>/dev/null)); then
+      # echo $f -- ${obclass[0]} object
+        obname=(${obname[@]} $f)
+        obtype=(${obtype[@]} ${obclass%%:*})
+    elif [ -f $f ]; then
+        file=(${file[@]} $f)
+    elif [ -d $f ]; then
+        dir=(${dir[@]} $f)
+    else
+        unknown=(${unknown[@]} $f)
+    fi
+done
+
+## show elements of each type:
+
+type=(self list dict attr file dir ob unknown)
+for t in ${type[@]}; do
+
+  # printf "\n%ss:\n" $t
+    case $t in
+
+        self)
+            test -n "$describe_self" &&
+                echo "${describe_pad}object $TOB_object is of type ${TOB_type%%:*} and contains:"
+            ;;
+            
+        list)
+            for el in ${list[@]}; do
+                test -n "$details" && test "${details/list/}" != $details && {
+                    if test -e @$el; then
+                        f=@$el
+                    else
+                        f=.@$el
+                    fi
+                    extra=$(wc -l <$f)
+                    extra=" ($extra)"
+                    }
+                echo "${describe_pad}$el list$extra"
+            done
+            ;;
+            
+        dict)
+            for el in ${dict[@]}; do
+                echo "${describe_pad}$el dict"
+            done
+            ;;
+            
+        attr)
+            for el in ${attr[@]}; do
+                echo "${describe_pad}$el attr"
+            done
+            ;;
+            
+        file)
+            for el in ${file[@]}; do
+                echo "${describe_pad}$el file"
+            done
+            ;;
+            
+        dir)
+            for el in ${dir[@]}; do
+                echo "${describe_pad}$el dir"
+            done
+            ;;
+            
+        ob)
+            for (( i = 0 ; i < ${#obtype[@]} ; i++ )); do
+                echo "${describe_pad}${obname[$i]} ${obtype[$i]}"
+                test -n "$dig" && test $dig -gt 0 &&
+                    describe_pad="${describe_pad}    " tob ${obname[$i]}.describe --dig $(($dig-1)) --no-self
+            done
+            ;;
+            
+        unknown)
+            for el in ${unknown[@]}; do
+                echo "${describe_pad}$el unknown"
+            done
+            ;;
+
+    esac
+done
