@@ -14,8 +14,6 @@ while test -n "$1" && test ${1:0:1} == '-'; do
     esac
 done
 
-test -n "$detail" && export detail
-
 ## declare category or type arrays:
 declare -a list dict attr file dir obname obtype unknown
 
