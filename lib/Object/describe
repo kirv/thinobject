@@ -109,7 +109,7 @@ for t in ${type[@]}; do
         ob)
             for (( i = 0 ; i < ${#obtype[@]} ; i++ )); do
                 echo "${describe_pad}${obname[$i]} ${obtype[$i]}"
-                test -n "$dig" && test $dig -gt 0 && {
+                test -n "$dig" && test $dig -ne 0 && {
                     opts=(--no-self --dig $(($dig-1)) )
                     test -n "$detail" || opts=( ${opts[@]} --no-detail )
                     describe_pad="${describe_pad}    " \
