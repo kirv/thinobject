@@ -40,7 +40,7 @@ for f in * .*; do
         dict[${#dict[@]}]=${f:2}
         dict_file[${#dict[@]}]=$f
     elif [ ! ${f#*=} == $f ]; then
-        attr=${#attr[@]}=$f
+        attr[${#attr[@]}]=$f
     elif obclass=($(tob $f.type 2>/dev/null)); then
       # echo $f -- ${obclass[0]} object
         obname=(${obname[@]} $f)
