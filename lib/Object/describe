@@ -1,18 +1,41 @@
 #!/bin/bash
 
+detail=(list)
+unset opts
 describe_self=1
 while test -n "$1" && test ${1:0:1} == '-'; do 
     opt=$1 && shift
     case $opt in
         --dig)      dig=$1 && shift;;
         --no-self)  unset describe_self;;
-        --detail)  detail="$detail $1" && shift;;
-        *) echo unkown option: $opt >&2 && exit 1;;
+        --detail)   for arg in ${1//,/ }; do
+                        detail[${#detail[@]}]=$arg
+                    done
+                    shift
+                    ;;
+        --no-detail)
+                    arg=$1
+                    i=0
+                    while test -n "${detail[$i]}"; do
+                        test $arg == ${detail[$i]} && {
+                            unset detail[$i]
+                            opts=( "${opts[@]}" --no-detail $arg )
+                            unset arg
+                            break
+                            }
+                        i=$(($i+1))
+                    done
+                    test -n "$arg" &&
+                        echo bad option: --no-detail $arg >&2 && exit 1
+                    shift
+                    ;;
+        *)  echo unknown option: $opt >&2 && exit 1;;
     esac
 done
 
 test -n "$detail" && {
-    details=${detail//,/ }
+    details="${detail[*]}"
+    echo DETAIL 2: "${detail[@]}"
     export detail
     }
 
@@ -23,16 +46,26 @@ declare -a list dict attr file dir obname obtype unknown
 for f in * .*; do 
     if [ $f == ^ -o $f == .^ -o $f == . -o $f == .. ]; then
         true
+    elif [ $f == \* -o $f == .\* ]; then
+        true
     elif [ ${f:0:1} == @ ]; then
-        list=(${list[@]} ${f:1})
+      # list=(${list[@]} ${f:1})
+        list[${#list[@]}]=${f:1}
+        list_file[${#list[@]}]=$f
     elif [ ${f:0:2} == .@ ]; then
-        list=(${list[@]} ${f:2})
+      # list=(${list[@]} ${f:2})
+        list[${#list[@]}]=${f:2}
+        list_file[${#list[@]}]=$f
     elif [ ${f:0:1} == % ]; then
-        dict=(${dict[@]} ${f:1})
+      # dict=(${dict[@]} ${f:1})
+        dict[${#dict[@]}]=${f:1}
+        dict_file[${#dict[@]}]=$f
     elif [ ${f:0:2} == .% ]; then
-        dict=(${dict[@]} ${f:2})
+      # dict=(${dict[@]} ${f:2})
+        dict[${#dict[@]}]=${f:2}
+        dict_file[${#dict[@]}]=$f
     elif [ ! ${f#*=} == $f ]; then
-        attr=(${attr[@]} $f)
+        attr=${#attr[@]}=$f
     elif obclass=($(tob $f.type 2>/dev/null)); then
       # echo $f -- ${obclass[0]} object
         obname=(${obname[@]} $f)
@@ -101,8 +134,10 @@ for t in ${type[@]}; do
         ob)
             for (( i = 0 ; i < ${#obtype[@]} ; i++ )); do
                 echo "${describe_pad}${obname[$i]} ${obtype[$i]}"
-                test -n "$dig" && test $dig -gt 0 &&
-                    describe_pad="${describe_pad}    " tob ${obname[$i]}.describe --dig $(($dig-1)) --no-self
+                test -n "$dig" && test $dig -gt 0 && {
+                    echo OPTS: "${opts[@]}"
+                    describe_pad="${describe_pad}    " tob ${obname[$i]}.describe --dig $(($dig-1)) "${opts[@]}" --no-self
+                    }
             done
             ;;
             
