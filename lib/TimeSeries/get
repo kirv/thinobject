@@ -174,17 +174,17 @@ if ( $t_last && $quantity ) {
             if ( defined $count ) { #  non-interval dataset, timestamp on line
                 s/^(\d+) //;
                 $t = $year_epoch + $1;
-                push @reverse_output, format_timestamp($t) . $_;
+                push @reverse_output, format_timestamp($t) . get_datum($_);
                 }
             elsif ( defined $offset ) { # only datum is on line
                 die unless $interval;
-                push @reverse_output, format_timestamp($t + $offset) . $_;
+                push @reverse_output, format_timestamp($t + $offset) . get_datum($_);
                 }
             else { # timestamp offset is first on line
                 die unless $interval;
                 s/^(\d+) //;
                 my $ofs = $1 || 0;
-                push @reverse_output, format_timestamp($t + $ofs) . $_;
+                push @reverse_output, format_timestamp($t + $ofs) . get_datum($_);
                 }
             $t -= $interval if $interval;
             $quantity -= 1;
@@ -220,7 +220,7 @@ foreach my $dataset ( sort @dataset ) { # note: lexical order == temporal order
             s/^(\d+) //;
             my $ysec = $1;
             print format_timestamp($year_epoch + $ysec) if $output_timestamp;
-            print $_;
+            print get_datum($_);
             $n += 1;
             if ( $quantity && ($n >= $quantity) ) { 
                 $t_last = $year_epoch + $ysec; # <-- kludge to stop output
@@ -245,7 +245,7 @@ foreach my $dataset ( sort @dataset ) { # note: lexical order == temporal order
                 my $ofs = $1 || 0;
                 print format_timestamp($t + $ofs) if $output_timestamp;
                 }
-            print $_;
+            print get_datum($_);
             $t += $interval;
             $n += 1;
             if ( $quantity && ($n >= $quantity) ) { 
@@ -266,7 +266,7 @@ foreach my $dataset ( sort @dataset ) { # note: lexical order == temporal order
                 my $ofs = $1 || 0;
                 print format_timestamp($t + $ofs) if $output_timestamp;
                 }
-            print $_;
+            print get_datum($_);
             $t += $interval;
             }
         close DSET or die $!;
@@ -462,6 +462,10 @@ sub print_help {
     exit;
     }
 
+sub get_datum {
+    my $datum = shift;
+    return $datum;
+    }
 
 =head1 NAME
 
