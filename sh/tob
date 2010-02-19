@@ -334,8 +334,8 @@ test $method && { ## dispatch method from -m or --method option on objects:
     exit
     }
 
-test ${arg/.//} == $arg && ## could/should provide a default method?
-    error no dot in object.method specifier $arg
+test ${arg/.//} == $arg && ## could/should we provide a default method?
+    error $arg: thinobject object.method not found
 
 ## parse the method and object from the object.method specification:
 TOB_method=${arg##*.}
