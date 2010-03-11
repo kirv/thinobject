@@ -1,4 +1,4 @@
-#ii!/bin/bash
+#!/bin/bash
 
 # tob -- thinobject 'enabler' program
 # Copyright (C) 2009 Ken Irving
@@ -254,6 +254,21 @@ TOB_resolve_method_path () {
     return 1
     }
 
+TOB_get_attr () {
+    attr=$1
+    for path in ${TOB_search_paths//:/ }; do
+        test -e $path/$attr && {
+            attr=$(<$path/$attr)
+            return 0
+            }
+        test -e $path/$attr=* && {
+            attr=${$path/$att#*=}
+            return 0
+            }
+    done
+    return 1
+    }
+
 find_default_directory_class () {
     test -n "$TOB_DIRECTORY_CLASS" &&
         return
@@ -335,7 +350,7 @@ test $method && { ## dispatch method from -m or --method option on objects:
     }
 
 test ${arg/.//} == $arg && ## could/should we provide a default method?
-    error $arg: thinobject object.method not found
+    error $arg: command or object.method not found
 
 ## parse the method and object from the object.method specification:
 TOB_method=${arg##*.}
@@ -420,6 +435,8 @@ export TOB_caller_path_to_object=$TOB_path_to_object
 
 ## export thinobject utility functions
 export -f TOB_resolve_method_path
+export -f TOB_get_attr
+
 
 # create pseudo-arrays for export:
 save_IFS="$IFS"
@@ -609,6 +626,7 @@ EXPORTED VARIABLES
 
 EXPORTED FUNCTIONS
     TOB_resolve_method_path
+    TOB_get_attr
 
    output format is: $TOB_object.$TOB_method: ARGUMENTS...
 

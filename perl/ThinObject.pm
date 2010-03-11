@@ -6,8 +6,9 @@ use warnings;
 
 our $VERSION = '0.03';
 
-use constant LIB => ( $ENV{HOME} . '/lib', '/usr/local/lib', '/usr/lib' );
-use constant ROOT => qw( tob thinob ThinObject );
+# use constant LIB => ( $ENV{HOME} . '/lib', '/usr/local/lib', '/usr/lib' );
+use constant LIB => ( '/usr/local/lib', '/usr/lib' );
+use constant ROOT => 'tob'; # qw( tob thinob ThinObject );
 
 my @libroot; # list of all possible valid class library path roots
 foreach my $lib ( LIB ) {
