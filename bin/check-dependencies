@@ -6,10 +6,10 @@ for module in Date::Calc Date::Format Getopt::Long Getopt::Long \
     LockFile::Simple Time::HiRes Time::Local; do
         perl -m$module -e';' 2>/dev/null || dep="$module $dep"
 done
-test -n "$dep" && {
-    echo these perl modules not found: $dep
-    echo see DEPENDENCIES file
-    exit 1
-    }
 
-exit 0
+test -n "$dep" || exit 0 
+
+echo these perl modules not found: $dep
+echo see DEPENDENCIES file
+exit 1
+
