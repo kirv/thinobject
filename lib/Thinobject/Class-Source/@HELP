@@ -1,7 +1,14 @@
 NAME
-    Class-Source -- support development and maintenance of a thinobject class
+    Thinobject/Class-Source -- support maintenance of a thinobject class source
 
 METHODS
     init -- create lib/, git, other properties
     git -- any git command
+    install -- install (using rsync) classes under lib/ to tob library
+
+BUGS
+    rsync must be installed
+
+AUTHOR
+    ken.irving@alaska.edu 2010
 
