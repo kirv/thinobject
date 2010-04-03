@@ -1,0 +1,9 @@
+The following perl modules are needed, and may be provided by the indicated
+debian package or equivalent:
+    
+    module              debian package
+    ----------------    -----------------------    
+    Date::Calc          libdate-calc-perl
+    Date::Format        libtimedate-perl
+    LockFile::Simple    liblockfile-simple-perl
+

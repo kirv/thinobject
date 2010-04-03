@@ -58,6 +58,11 @@ SEE ALSO
 
     Thinobject BaseClass (... needs work ...)
 
+DEPENDENCIES
+    The following debian packages (or equivalent) are needed:
+
+        libtimedate-perl -- for Date::Format
+
 BUGS
 
 AUTHOR
