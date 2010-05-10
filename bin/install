@@ -33,18 +33,10 @@ rsync -azv --exclude-from=bin/.install-exclude sh/ $host$prefix/bin
 rsync -azv --exclude-from=bin/.install-exclude lib/ $host$prefix/lib/tob
 rsync -azv --exclude-from=bin/.install-exclude perl/ $host$prefix/lib/site_perl
 
-# check for perl modules:
-unset dep
-for module in Date::Calc Date::Format Getopt::Long Getopt::Long \
-    LockFile::Simple Time::HiRes Time::Local; do
-        perl -m$module -e';' 2>/dev/null || dep="$module $dep"
-done
-test -n "$dep" && {
-    echo these perl modules not found: $dep
-    echo see DEPENDENCIES file
-    }
+test -x bin/check-dependencies && exec bin/check-dependencies
 
-exit
+echo should run check-dependencies script, found in same directory as this install file
+exit 
 
 NAME
     bin/install -- install binaries and libraries for thinobject core system

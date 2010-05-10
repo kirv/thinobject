@@ -351,7 +351,6 @@ sub convert_time_option {
         print "invalid date: $_[0]\n";
         die "\n";
         }
-  # print "$_[0] = $epoch_sec\n";
     return $epoch_sec;
     }
 
