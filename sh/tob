@@ -262,7 +262,7 @@ TOB_get_attr () {
             return 0
             }
         test -e $path/$attr=* && {
-            attr=${$path/$att#*=}
+            attr=${$path/$attr#*=}
             return 0
             }
     done
