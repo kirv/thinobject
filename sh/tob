@@ -29,8 +29,10 @@ warn () {
     }
 
 error () {
+    exitvalue=1
+    test -n "$1" -a $1 == --exit && shift && exitvalue=$1 && shift
     warn "$*"
-    exit 1
+    exit $exitvalue
     }
 
 check_classroot () {
@@ -38,14 +40,14 @@ check_classroot () {
     # return false if class does not exist or does not begin at TOB_LIBRARY
     # variable classname is set on return if ^ or .^ is found
     local class=$(/bin/readlink -fe $1) ||
-        error check failed for class $1 symlink
+        error --exit 101 check failed for class $1 symlink
     for path in ${library[@]}; do
         test ${class#$path/} == $class || {
             classname=${class#$path/}
             return 0
             }
     done
-    error bad TOB_LIBRARY check or bad class in $1
+    error --exit 102 bad TOB_LIBRARY check or bad class in $1
     return 1
     }
 
@@ -60,10 +62,10 @@ resolve_object () {  # set classlink to '^', '.^', or ''; or return 1
     fi
     test -n "$classlink" && {
         test -d $1/$classlink/ ||
-            error classlink $1/$classlink/ does not exist
+            error --exit 103 classlink $1/$classlink/ does not exist
         test -z "$NOT_STRICT" && {
             check_classroot $1/$classlink ||
-                error classlink $1/$classlink/ is not under TOB_LIBRARY
+                error --exit 104 classlink $1/$classlink/ is not under TOB_LIBRARY
             }
         }
     return 0
@@ -97,7 +99,7 @@ resolve_and_chdir_into_object () {
               # warn foo/ explicitly
                 TOB_path_to_object=$TOB_path_to_object/${obentry%/}
                 cd $obentry ||
-                    error failed to cd to $TOB_path_to_object
+                    error --exit 105 failed to cd to $TOB_path_to_object
                 resolve_object $obentry
                 last_classlink=$classlink
             elif resolve_object $obentry; then # foo/^
@@ -105,13 +107,13 @@ resolve_and_chdir_into_object () {
                 TOB_path_to_object=$TOB_path_to_object/$obentry
               # warn MORE $TOB_path_to_object $classlink
                 cd $obentry ||
-                    error failed to cd to $TOB_path_to_object
+                    error --exit 106 failed to cd to $TOB_path_to_object
                 last_classlink=$classlink
             elif test -z "$NO_HIDDEN" && resolve_object .$obentry; then # .foo/^
               # warn .foo/^
                 TOB_path_to_object=$TOB_path_to_object/.$obentry
                 cd .$obentry ||
-                    error failed to cd to $TOB_path_to_object
+                    error --exit 107 failed to cd to $TOB_path_to_object
                 last_classlink=$classlink
             elif test -z "$NO_HIDDEN" && test -L $obentry; then # foo->bar->.bar/^
               # warn 'foo -> bar -> .bar/^'
@@ -130,13 +132,13 @@ resolve_and_chdir_into_object () {
                 TOB_path_to_object=$TOB_path_to_object/$obentry
                 unset last_classlink
                 cd $obentry ||
-                    error failed to cd to $TOB_path_to_object
+                    error --exit 108 failed to cd to $TOB_path_to_object
             elif test -z "$NO_HIDDEN" -a -d .$obentry; then # .foo/
               # warn .foo/
                 TOB_path_to_object=$TOB_path_to_object/.$obentry
                 unset last_classlink
                 cd .$obentry ||
-                    error failed to cd to $TOB_path_to_object
+                    error --exit 109 failed to cd to $TOB_path_to_object
             elif test -f $obentry; then # foo
               # warn foo
                 unset last_classlink
@@ -201,7 +203,7 @@ check_paths () {
         p=$(($p-1))
         local path=${paths[$p]}
         fullpath=$(/bin/readlink -fe $path) ||
-            error class path $path does not resolve
+            error --exit 110 class path $path does not resolve
         test "${all_paths/$fullpath/}" == "$all_paths" || {
             # this path already visited
             unset paths[$p]
@@ -306,7 +308,7 @@ while [ -n "$arg" -a "${arg:0:1}" == "-" ]; do # handle option ...
 
     elif [ "$arg" == "-m" -o "$arg" == "--method" ]; then
         method=$1 && shift
-        test $method || error "no method argument"
+        test $method || error --exit 111 "no method argument"
 
     elif [ "$arg" == "-a" -o "$arg" == "--arg" ]; then
         args="$args $1" && shift
@@ -327,12 +329,12 @@ while [ -n "$arg" -a "${arg:0:1}" == "-" ]; do # handle option ...
         exec /usr/bin/awk '/^NAME$/{ok=1}ok' $0
     
     else
-        error "unsupported option $arg"
+        error --exit 112 "unsupported option $arg"
     fi
     arg=$1 && shift # try again...
 done
 
-test -z "$arg" && error "no object specified"
+test -z "$arg" && error --exit 113 "no object specified"
 
 test $method && { ## dispatch method from -m or --method option on objects:
     while [ $arg ]; do
@@ -342,7 +344,7 @@ test $method && { ## dispatch method from -m or --method option on objects:
             test $VERBOSE &&
                 echo $0 $opt $arg.$method $args
             $0 $opt $ob.$method $args ||
-                error "failed in $arg.$method"
+                error --exit 114 "failed in $arg.$method"
         fi
         arg=$1 && shift
     done
@@ -350,7 +352,7 @@ test $method && { ## dispatch method from -m or --method option on objects:
     }
 
 test ${arg/.//} == $arg && ## could/should we provide a default method?
-    error $arg: command or object.method not found
+    error --exit 115 $arg: command or object.method not found
 
 ## parse the method and object from the object.method specification:
 TOB_method=${arg##*.}
@@ -366,10 +368,10 @@ while test ${TOB_object%.super} != $TOB_object; do
 done
 
 test -n "$TOB_object" ||
-    error "no object parsed from $arg with method $TOB_method"
+    error --exit 116 "no object parsed from $arg with method $TOB_method"
 
 test -n "$TOB_method" ||
-    error "no method parsed from $arg, object $TOB_object"
+    error --exit 117 "no method parsed from $arg, object $TOB_object"
 
 
 ## the next method will change directories, so store caller's location:
@@ -379,7 +381,7 @@ resolve_and_chdir_into_object $TOB_object
 return_code=$?
 
 if test $return_code == 1; then
-    error failed to resolve object: $TOB_object
+    error --exit 118 failed to resolve object: $TOB_object
 
 
 elif test $return_code == 2; then
@@ -388,7 +390,7 @@ elif test $return_code == 2; then
     warn pwd is $PWD
     warn query object was $TOB_object
     warn file object is $TOB_file_object
-    error $TOB_object resolved to a file ... how to handle it?
+    error --exit 119 $TOB_object resolved to a file ... how to handle it?
 
 elif test -n "$last_classlink"; then
   # warn object $TOB_object is a thinobject
@@ -408,7 +410,7 @@ test -n "$DEBUG" && {
     }
 
 test -n $TOB_class_path || 
-    error no object path resolved from $TOB_object
+    error --exit 120 no object path resolved from $TOB_object
 
 test -n "$DEBUG" && {
     warn DEBUG: TOB_path_to_object=$TOB_path_to_object
@@ -461,7 +463,7 @@ test $TOB_method == path && {
     test -z "$*" && echo $TOB_path_to_object/
     for arg in $*; do
         test -e $arg ||
-            error $arg not found
+            error --exit 121 $arg not found
         echo $TOB_path_to_object/$arg
     done
     exit
@@ -482,11 +484,11 @@ for path in ${method_paths[@]}; do
             }
         ## ASSERT: _default is not executable
         ## maybe it can contain a recipe to be executed?
-        error 'non-executable _default "method" found'
+        error --exit 122 'non-executable _default "method" found'
         }
 done
 
-error "no method $TOB_method found"
+error --exit 123 "no method $TOB_method found"
 
 ## manpage follows
 NAME
@@ -503,9 +505,11 @@ DESCRIPTION
     uses a symlink, .^ or ^, to a class directory (or handler).  Methods
     and attributes are searched for along the chain of class links.
 
-RETURN VALUE
-    0   ok, no error
-    1   some error occurred
+EXIT VALUE
+    Exit value should be 0 if no error occurred, but should have a value
+    from 101 to 123 if there was an error.  The numbers are assigned
+    sequentially in the tob script, and for now that's the only documentation
+    for what specific values mean.
 
 OPTIONS
     -d
@@ -640,6 +644,8 @@ BUGS
     This is an experimental system.
 
     Not sure the --quiet option is working quite right...
+
+    Should document all exit values.
 
 AUTHOR
     Ken Irving <fnkci@uaf.edu> (c) 2007-2009
