@@ -351,7 +351,7 @@ test $method && { ## dispatch method from -m or --method option on objects:
     exit
     }
 
-test ${arg/.//} == $arg && # no dot found, so exec as $self.method
+test ${arg/.//} == $arg && # no dot found, so exec as ..method in 'self' object
     exec $0 ..$arg "$@"
 
 ## parse the method and object from the object.method specification:
