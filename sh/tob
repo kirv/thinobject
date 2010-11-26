@@ -29,21 +29,17 @@ error () {
     }
 
 resolve_object () {  # set classlink to '^', '.^', or ''; or return 1
-    test -d $1 ||
-        return 1 # not a directory
+    test -d $1 || return 1 # not a directory
     unset classlink 
     if test -L $1/.^; then
         classlink='.^'
     elif test -L $1/^; then
         classlink='^'
     fi
-
     test -n "$classlink" || return 0
-
     for toblib in $TOBLIB; do
         test -d $toblib/$classlink/ && return 0
     done
-
     error --exit 103 class $1/$classlink/ does not exist under $TOBLIB
     }
 
@@ -135,10 +131,7 @@ resolve_and_chdir_into_object () {
             unset prefix
         done
     done
-    test -z "$prefix" || {
-      # warn ENDING PREFIX = $prefix
-        return 1
-        }
+    test -z "$prefix" || return 1 # no prefix should remain...
     # super rare special case: check for object named 'super' ...
     test $super -gt 0 && {
         while test $super -gt 0 -a -d super -o -d .super && {
@@ -155,21 +148,39 @@ resolve_and_chdir_into_object () {
 follow_paths () {
     local path=$1 && shift
     while test -d $path/; do
-        paths[${#paths[@]}]=$path
-        for mixin in $path/{,.}^?*; do
-            test -L $mixin -a -z "$TOB_NO_MIXINS" &&
-                follow_paths $mixin
+        paths.=($path)
+        for mixin in $path/{,.}^?*; do # e.g., ^Cron or .^Web
+            test -z "$TOB_NO_MIXINS" || break
+            test -L $mixin || continue
+            # TODO: check if mixin points to prototype object?
+            for toblib in $TOBLIB; do
+                test -d $toblib/$mixin/ || continue
+                follow_paths $toblib/$mixin
+                break
+            done
         done
+        unset nextclass
+        # TODO: check for xattr tob.^ before symlink ^ or .^
         if test -n "$1"; then
-            path=$1
-            shift
+            # do not check for classlink in first arg if two args were passed
+            path=$1 && shift
         elif test -L $path/^; then
-            path=$path/^
+            nextclass=$path/^
         elif test -L $path/.^; then
-            path=$path/.^
+            nextclass=$path/.^
         else
             break
         fi
+        # assert: nextclass points either to ^ or .^ under $path/
+        # TODO: see if nextclass points to prototype object
+        class=$(readlink $nextclass)
+        classes.=($class)
+        unset path
+        for toblib in $TOBLIB; do
+            test -d $toblib/$class/ || continue
+            path=$toblib/$class
+            break
+        done
     done
     }
 
@@ -385,7 +396,7 @@ main () {
     test -n "$DEBUG" &&
         warn DEBUG: args1=\'$args\' args2=\'$*\'
         
-    # follow_paths() recursively builds the paths array starting with argument path
+    # follow_paths() recursively builds the paths array
     paths=()
     follow_paths . $TOB_class_path
     # paths array now constains the full inheritance path-set, may have duplicates
