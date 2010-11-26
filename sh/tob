@@ -37,16 +37,14 @@ resolve_object () {  # set classlink to '^', '.^', or ''; or return 1
     elif test -L $1/^; then
         classlink='^'
     fi
-    echo FOUND CLASSLINK: $classlink $(readlink $classlink)
-    test -n "$classlink" && {
-        test -d $1/$classlink/ ||
-            error --exit 103 classlink $1/$classlink/ does not exist
-        test -z "$NOT_STRICT" && {
-            check_classroot $1/$classlink ||
-                error --exit 104 classlink $1/$classlink/ is not under TOB_LIBRARY
-            }
-        }
-    return 0
+
+    test -n "$classlink" || return 0
+
+    for tlib in $TOBLIB; do
+        test -d $tlib/$classlink/ && return 0
+    done
+
+    error --exit 103 class $1/$classlink/ does not exist under $TOBLIB
     }
 
 resolve_and_chdir_into_object () {
