@@ -174,7 +174,7 @@ follow_paths () {
         # assert: nextclass points either to ^ or .^ under $path/
         # TODO: see if nextclass points to prototype object
         class=$(readlink $nextclass)
-        classes.=($class)
+        types.=($class)
         unset path
         for toblib in $TOBLIB; do
             test -d $toblib/$class/ || continue
@@ -396,11 +396,15 @@ main () {
     test -n "$DEBUG" &&
         warn DEBUG: args1=\'$args\' args2=\'$*\'
         
-    # follow_paths() recursively builds the paths array
+    # follow_paths() builds arrays: types and paths, recursing on mixins
+    # - calling it with 2 args, arg2 is the resolved class path
+    # - types array is 1:1 with path after skipping paths[0]
+    types=()
     paths=()
     follow_paths . $TOB_class_path
-    # paths array now constains the full inheritance path-set, may have duplicates
+    # paths array now contains the full search path set, may have duplicates
     
+    # NOTE: WORK REMAINS TO FIX check_paths() FOR RELATIVE CLASS LINKS
     check_paths
     # arrays: paths, method_paths, class_names are defined (may be sparse)
     
@@ -421,7 +425,7 @@ main () {
     IFS=:
     export TOB_search_paths="${paths[*]}"
     export TOB_method_paths="${method_paths[*]}"
-    export TOB_type="${class_names[*]}"
+    export TOB_type="${types[*]}"
     IFS="$save_IFS"
     
     test -n "$DEBUG" && {
