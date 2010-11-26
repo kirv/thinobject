@@ -40,8 +40,8 @@ resolve_object () {  # set classlink to '^', '.^', or ''; or return 1
 
     test -n "$classlink" || return 0
 
-    for tlib in $TOBLIB; do
-        test -d $tlib/$classlink/ && return 0
+    for toblib in $TOBLIB; do
+        test -d $toblib/$classlink/ && return 0
     done
 
     error --exit 103 class $1/$classlink/ does not exist under $TOBLIB
@@ -250,28 +250,6 @@ TOB_get_attr () {
     return 1
     }
 
-find_default_directory_class () {
-    test -n "$TOB_DIRECTORY_CLASS" &&
-        return
-    for lib in ${library[@]}; do
-        test -d $lib/Directory && {
-            TOB_DIRECTORY_CLASS=$lib/Directory
-            break
-            }
-    done
-    }
-
-find_default_file_class () {
-    test -n "$TOB_FILE_CLASS" &&
-        return
-    for lib in ${library[@]}; do
-        test -d $lib/File && {
-            TOB_FILE_CLASS=$lib/File
-            break
-            }
-    done
-    }
-
 main () {
 
     ## process argument list options:
@@ -364,21 +342,29 @@ main () {
     
     
     elif test $return_code = 2; then
-        find_default_file_class
-        TOB_class_path=$TOB_FILE_CLASS
+        for toblib in $TOBLIB; do
+            test -d $toblib/File || continue
+            TOB_class_path=$toblib/File
+            break
+        done
         warn pwd is $PWD
         warn query object was $TOB_object
         warn file object is $TOB_file_object
         error --exit 119 $TOB_object resolved to a file ... how to handle it?
     
     elif test -n "$last_classlink"; then
-      # warn object $TOB_object is a thinobject
-      # warn last_classlink is $last_classlink
-        TOB_class_path=./$classlink
+        for toblib in $TOBLIB; do
+            test -d $toblib/$classlink/ || continue
+            TOB_class_path=$toblib/$classlink
+            break
+        done
     else
       # warn object $TOB_object is a directory
-        find_default_directory_class
-        TOB_class_path=$TOB_DIRECTORY_CLASS
+        for toblib in $TOBLIB; do
+            test -d $toblib/Directory || continue
+            TOB_class_path=$toblib/Directory
+            break
+        done
     fi
     
     test -n "$DEBUG" && {
