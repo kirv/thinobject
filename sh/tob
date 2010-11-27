@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # tob -- thinobject 'enabler' program
-# Copyright (C) 2009 Ken Irving
+# Copyright (C) 2010 Ken Irving
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -449,10 +449,10 @@ main () {
         ## ASSERT: class exists
         test -e $path/_default && {
             test -x $path/_default && {
-              # warn DEBUG thinob: exec $path/_default $TOB_object $TOB_method $*
+              # warn DEBUG tob: exec $path/_default $TOB_object $TOB_method $*
                 exec $path/_default $TOB_method "$@"
                 }
-            ## ASSERT: _default is not executable
+            ## ASSERT: _default exists but is not executable
             ## maybe it can contain a recipe to be executed?
             error --exit 122 'non-executable _default "method" found'
             }
@@ -471,7 +471,7 @@ NAME
 
 SYNOPSIS
     tob [OPTIONS] object.method [METHOD_OPTIONS] [ARGUMENTS]
-    tob -m method object...
+    tob -m method [-a arg]... object...
 
 DESCRIPTION
     Thinobject strives to achieve object oriented programming and data
@@ -512,19 +512,19 @@ OPTIONS
     suppress output to stderr on errors
     
 OBJECT CREATION
-    Use thinob-new or tob-new to create objects.
+    Use tob-new to create objects.
 
 BUILT-IN METHODS
     path
-    output the object directory path
+        output the object directory path
 
     type
-    output the class hierarchy
+        output the class hierarchy
 
     foo [ARG]...
-    if no method ``foo'' is found in the class hierarchy, search
-    for a LIST property (@foo) or a DICTIONARY property (%foo) and
-    treat this pseudo method as an ``accessor'' of that property.
+        if no method ``foo'' is found in the class hierarchy, search
+        for a LIST property (@foo) or a DICTIONARY property (%foo)
+        and treat this pseudo method as an ``accessor'' of that property.
 
 PROPERTIES
     The thinobject system uses ordinary files and directories in the
@@ -543,36 +543,6 @@ PROPERTIES
     .^foo
     symlink to a mixin class
 
-    Note: The following properties are handled by default methods,
-    no longer as built-ins.
-
-    @
-    @foo
-    .@
-    .@foo
-    list property, a file containing a list of entries, one per line.
-    @, the anonymous list property, may be scanned when any object method
-    is invoked.
-
-    %
-    %foo
-    .%
-    .%foo
-    dictionary property, file containing a list of tag=value entries,
-    one pair per line.  %, the anonymous dictionary property, may be 
-    scanned in automatically during method invocation, so can be used
-    to store various object attributes.
-
-    %@
-    %@foo
-    .%@
-    .%@foo
-    dictionary property implemented as a list, with keys listed all
-    the first line, values on subsequent lines.  Blank lines and 
-    comments lines are skipped.
-
-    foo=bar
-    attribute 'foo' is assigned the value 'bar'.
 
 SEARCH PATHS
     tob prepares a search path for methods and one for attributes.
@@ -609,6 +579,38 @@ EXPORTED FUNCTIONS
 
    output format is: $TOB_object.$TOB_method: ARGUMENTS...
 
+EXTENDED CONVENTIONS
+    Note: The following properties are handled by default methods,
+    no longer as built-ins.
+
+    @
+    @foo
+    .@
+    .@foo
+    list property, a file containing a list of entries, one per line.
+    @, the anonymous list property, may be scanned when any object method
+    is invoked.
+
+    %
+    %foo
+    .%
+    .%foo
+    dictionary property, file containing a list of tag=value entries,
+    one pair per line.  %, the anonymous dictionary property, may be 
+    scanned in automatically during method invocation, so can be used
+    to store various object attributes.
+
+    %@
+    %@foo
+    .%@
+    .%@foo
+    dictionary property implemented as a list, with keys listed all
+    the first line, values on subsequent lines.  Blank lines and 
+    comments lines are skipped.
+
+    foo=bar
+    attribute 'foo' is assigned the value 'bar'.
+
 SEE ALSO
     tob-new --help
     tob-del --help
@@ -623,4 +625,4 @@ BUGS
     Should document all exit values.
 
 AUTHOR
-    Ken Irving <fnkci@uaf.edu> (c) 2007-2009
+    Ken.Irving@alaska.edu (c) 2007-2010
