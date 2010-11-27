@@ -148,7 +148,7 @@ resolve_and_chdir_into_object () {
 follow_paths () {
     local path=$1 && shift
     while test -d $path/; do
-        paths.=($path)
+        paths+=($path)
         for mixin in $path/{,.}^?*; do # e.g., ^Cron or .^Web
             test -z "$TOB_NO_MIXINS" || break
             test -L $mixin || continue
@@ -174,7 +174,7 @@ follow_paths () {
         # assert: nextclass points either to ^ or .^ under $path/
         # TODO: see if nextclass points to prototype object
         class=$(readlink $nextclass)
-        types.=($class)
+        types+=($class)
         unset path
         for toblib in $TOBLIB; do
             test -d $toblib/$class/ || continue
@@ -209,11 +209,9 @@ resolve_method_path () {
     # uses global super, i.e., count of how many times to skip matched method
     for path in ${method_paths[@]}; do
         test -x $path/$method && {
-            test $super = 0 && {
-                TOB_method_path=$path/$method
-                return
-                }
-            super=$(($super - 1))
+            test $super -gt 0 && super-=1 && continue
+            TOB_method_path=$path/$method
+            return
             }
     done
     return 1
@@ -224,15 +222,13 @@ TOB_resolve_method_path () {
     local super=0
     while test "${method:0:6}" = "super."; do
         method=${method:6}
-        super=$(($super+1))
+        super+=1
     done
     for path in ${TOB_method_paths//:/ }; do
         test -x $path/$method && {
-            test $super = 0 && {
-                TOB_method_path=$path/$method
-                return
-                }
-            super=$(($super - 1))
+            test $super -gt 0 && super-=1 && continue
+            TOB_method_path=$path/$method
+            return
             }
     done
     return 1
