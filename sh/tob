@@ -184,30 +184,22 @@ follow_paths () {
     done
     }
 
-check_paths () {
+cull_duplicate_paths () {
+    local path
     local all_paths
     method_paths=()
     class_names=()
     p=${#paths[@]} # start at end to check entries in reverse order
     while test $p -gt 0; do 
-        p=$(($p-1))
-        local path=${paths[$p]}
-        fullpath=$(/bin/readlink -fe $path) ||
-            error --exit 110 class path $path does not resolve
-        test "${all_paths/$fullpath/}" = "$all_paths" || {
+        p-=1
+        path=${paths[$p]}
+        test "${all_paths/$path/}" = "$all_paths" || {
             # this path already visited
             unset paths[$p]
+            unset types[$p-1]
             continue
             }
-        all_paths+=" $fullpath"
-        full_paths[$p]=$fullpath
-        for libroot in ${library[@]}; do
-            test ${fullpath#$libroot/} = $fullpath || {
-                # path is under one of the library roots, so is a 'class'
-                method_paths[$p]=${paths[$p]}
-                class_names[$p]=${fullpath#$libroot/}
-                }
-        done
+        all_paths+=" $path"
     done
     }
 
@@ -404,8 +396,7 @@ main () {
     follow_paths . $TOB_class_path
     # paths array now contains the full search path set, may have duplicates
     
-    # NOTE: WORK REMAINS TO FIX check_paths() FOR RELATIVE CLASS LINKS
-    check_paths
+    cull_duplicate_paths
     # arrays: paths, method_paths, class_names are defined (may be sparse)
     
     ## export thinobject variables
