@@ -252,20 +252,10 @@ TOB_get_attr () {
 main () {
 
     ## process argument list options:
-    arg=$1 && shift
     unset method
-    while test "${arg:0:1}" = "-"; do # handle option ...
+    arg=$1 && shift
+    while test "${arg:0:1}" = -; do # handle option...
         case $arg in
-            --debug); -d)
-                DEBUG=1
-                opt="$opt -d"
-                ;;
-                
-            --verbose); -v)
-                VERBOSE=1
-                opt="$opt -v"
-                ;;
-    
             --method); -m)
                 method=$1 && shift
                 test $method || error --exit 111 "no method argument"
@@ -280,20 +270,25 @@ main () {
                 opt="$opt -H"
                 ;;
         
-            --not-strict); -S)
-                NOT_STRICT=1
-                opt="$opt -S"
-                ;;
-        
             --quiet); -q)
                 QUIET=1
                 opt="$opt --quiet"
                 ;;
         
+            --verbose); -v)
+                VERBOSE=1
+                opt="$opt -v"
+                ;;
+    
             --help); -h)
                 exec awk '/^NAME$/,0' $0
                 ;;
             
+            --debug); -d)
+                DEBUG=1
+                opt="$opt -d"
+                ;;
+                
             *)
                 error --exit 112 "unsupported option $arg"
                 ;;
@@ -414,7 +409,6 @@ main () {
     ## export thinobject utility functions
     export -f TOB_resolve_method_path
     export -f TOB_get_attr
-    
     
     # create pseudo-arrays for export:
     save_IFS="$IFS"
