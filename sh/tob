@@ -579,38 +579,6 @@ EXPORTED FUNCTIONS
 
    output format is: $TOB_object.$TOB_method: ARGUMENTS...
 
-EXTENDED CONVENTIONS
-    Note: The following properties are handled by default methods,
-    no longer as built-ins.
-
-    @
-    @foo
-    .@
-    .@foo
-    list property, a file containing a list of entries, one per line.
-    @, the anonymous list property, may be scanned when any object method
-    is invoked.
-
-    %
-    %foo
-    .%
-    .%foo
-    dictionary property, file containing a list of tag=value entries,
-    one pair per line.  %, the anonymous dictionary property, may be 
-    scanned in automatically during method invocation, so can be used
-    to store various object attributes.
-
-    %@
-    %@foo
-    .%@
-    .%@foo
-    dictionary property implemented as a list, with keys listed all
-    the first line, values on subsequent lines.  Blank lines and 
-    comments lines are skipped.
-
-    foo=bar
-    attribute 'foo' is assigned the value 'bar'.
-
 SEE ALSO
     tob-new --help
     tob-del --help
