@@ -254,41 +254,50 @@ main () {
     ## process argument list options:
     arg=$1 && shift
     unset method
-    while [ -n "$arg" -a "${arg:0:1}" == "-" ]; do # handle option ...
+    while test "${arg:0:1}" = "-"; do # handle option ...
+        case $arg in
+            --debug); -d)
+                DEBUG=1
+                opt="$opt -d"
+                ;;
+                
+            --verbose); -v)
+                VERBOSE=1
+                opt="$opt -v"
+                ;;
     
-        if [ "$arg" == "-d" -o "$arg" == "--debug" ]; then
-            DEBUG=1
-            opt="$opt -d"
-    
-        elif [ "$arg" == "-v" -o "$arg" == "--verbose" ]; then
-            VERBOSE=1
-            opt="$opt -v"
-    
-        elif [ "$arg" == "-m" -o "$arg" == "--method" ]; then
-            method=$1 && shift
-            test $method || error --exit 111 "no method argument"
-    
-        elif [ "$arg" == "-a" -o "$arg" == "--arg" ]; then
-            args="$args $1" && shift
-    
-        elif [ "$arg" == "-H" -o "$arg" == "--no-hidden" ]; then
-            NO_HIDDEN=1
-            opt="$opt -H"
-    
-        elif [ "$arg" == "-S" -o "$arg" == "--not-strict" ]; then
-            NOT_STRICT=1
-            opt="$opt -S"
-    
-        elif [ "$arg" == "-q" -o "$arg" == "--quiet" ]; then
-            QUIET=1
-            opt="$opt --quiet"
-    
-        elif [ "$arg" == "-h" -o "$arg" == "--help" ]; then # show manpage:
-            exec /usr/bin/awk '/^NAME$/,0' $0
+            --method); -m)
+                method=$1 && shift
+                test $method || error --exit 111 "no method argument"
+                ;;
         
-        else
-            error --exit 112 "unsupported option $arg"
-        fi
+            --arg); -a)
+                args="$args $1" && shift
+                ;;
+        
+            --no-hidden); -H)
+                NO_HIDDEN=1
+                opt="$opt -H"
+                ;;
+        
+            --not-strict); -S)
+                NOT_STRICT=1
+                opt="$opt -S"
+                ;;
+        
+            --quiet); -q)
+                QUIET=1
+                opt="$opt --quiet"
+                ;;
+        
+            --help); -h)
+                exec awk '/^NAME$/,0' $0
+                ;;
+            
+            *)
+                error --exit 112 "unsupported option $arg"
+                ;;
+        esac
         arg=$1 && shift # try again...
     done
     
