@@ -28,23 +28,19 @@ error () {
     exit $exitvalue
     }
 
-resolve_object () {  # set classlink to '^', '.^', or ''; or return 1
+get_object_type () {
     test -d $1 || return 1 # not a directory
-    unset classlink 
     if test -L $1/.^; then
-        classlink='.^'
+        TOB_type='readlink .^'
     elif test -L $1/^; then
-        classlink='^'
+        TOB_type='readlink ^'
+    else
+        TOB_type=Directory
     fi
-    test -n "$classlink" || return 0
-    for toblib in $TOBLIB; do
-        test -d $toblib/$classlink/ && return 0
-    done
-    error --exit 103 class $1/$classlink/ does not exist under $TOBLIB
     }
 
-resolve_and_chdir_into_object () {
-    # returns 0 and with last_classlink set if object, not set if directory
+chdir_into_object () {
+    # set TOB_type, return 0
     # returns 1 on any error
     # returns 2 if target is a file
     local ob_spec="$1"
@@ -52,7 +48,6 @@ resolve_and_chdir_into_object () {
     TOB_path_to_object=. # assume relative path
     test ${ob_spec:0:1} = / &&
         TOB_path_to_object="" # no, it's an absolute path
-    unset last_classlink # global variable, set from resolve_object() classlink
   # warn ob_spec: $ob_spec
     for direntry in ${ob_spec//\//\/ }; do # split on, and leave, slashes
       # warn direntry: $direntry
@@ -71,53 +66,45 @@ resolve_and_chdir_into_object () {
                 TOB_path_to_object=$TOB_path_to_object/${obentry%/}
                 cd $obentry ||
                     error --exit 105 failed to cd to $TOB_path_to_object
-                resolve_object $obentry
-                last_classlink=$classlink
-            elif resolve_object $obentry; then # foo/^
+                get_object_type $obentry
+            elif get_object_type $obentry; then # foo/^
               # warn foo/^
                 TOB_path_to_object=$TOB_path_to_object/$obentry
-              # warn MORE $TOB_path_to_object $classlink
                 cd $obentry ||
                     error --exit 106 failed to cd to $TOB_path_to_object
-                last_classlink=$classlink
-            elif test -z "$NO_HIDDEN" && resolve_object .$obentry; then # .foo/^
+            elif test -z "$NO_HIDDEN" && get_object_type .$obentry; then # .foo/^
               # warn .foo/^
                 TOB_path_to_object=$TOB_path_to_object/.$obentry
                 cd .$obentry ||
                     error --exit 107 failed to cd to $TOB_path_to_object
-                last_classlink=$classlink
             elif test -z "$NO_HIDDEN" && test -L $obentry; then # foo->bar->.bar/^
               # warn 'foo -> bar -> .bar/^'
                 local save_path=$TOB_path_to_object
-                resolve_and_chdir_into_object $(/bin/readlink -f $obentry)
+                chdir_into_object $(/bin/readlink -f $obentry)
                 test ${TOB_path_to_object:0:1} = / ||
                     TOB_path_to_object=$save_path/$TOB_path_to_object
             elif test -z "$NO_HIDDEN" && test -L .$obentry; then # .foo->bar->.bar/^
               # warn '.foo -> bar -> .bar/^'
                 local save_path=$TOB_path_to_object
-                resolve_and_chdir_into_object $(/bin/readlink -f .$obentry)
+                chdir_into_object $(/bin/readlink -f .$obentry)
                 test ${TOB_path_to_object:0:1} = / ||
                     TOB_path_to_object=$save_path/$TOB_path_to_object
             elif test -d $obentry; then  # foo/
               # warn foo/
                 TOB_path_to_object=$TOB_path_to_object/$obentry
-                unset last_classlink
                 cd $obentry ||
                     error --exit 108 failed to cd to $TOB_path_to_object
             elif test -z "$NO_HIDDEN" -a -d .$obentry; then # .foo/
               # warn .foo/
                 TOB_path_to_object=$TOB_path_to_object/.$obentry
-                unset last_classlink
                 cd .$obentry ||
                     error --exit 109 failed to cd to $TOB_path_to_object
             elif test -f $obentry; then # foo
               # warn foo
-                unset last_classlink
                 TOB_file_object=$obentry
                 return 2
             elif test -z "$NO_HIDDEN" -a -f .$obentry; then # .foo
               # warn .foo
-                unset last_classlink
                 TOB_file_object=.$obentry
                 return 2
             else
@@ -125,7 +112,6 @@ resolve_and_chdir_into_object () {
               # warn prefix=${obentry}.\n"
                 prefix=${obentry}.
               # warn PREFIX = $prefix
-                unset last_classlink
                 continue
             fi
             unset prefix
@@ -148,26 +134,25 @@ follow_paths () {
                 break
             done
         done
-        unset nextclass
+        unset type
         # TODO: check for xattr tob.^ before symlink ^ or .^
         if test -n "$1"; then
             # do not check for classlink in first arg if two args were passed
             path=$1 && shift
         elif test -L $path/^; then
-            nextclass=$path/^
+            type=$(readlink $path/^)
         elif test -L $path/.^; then
-            nextclass=$path/.^
+            type=$(readlink $path/.^)
         else
             break
         fi
         # assert: nextclass points either to ^ or .^ under $path/
         # TODO: see if nextclass points to prototype object
-        class=$(readlink $nextclass)
-        types+=($class)
+        types+=($type)
         unset path
         for toblib in $TOBLIB; do
-            test -d $toblib/$class/ || continue
-            path=$toblib/$class
+            test -d $toblib/$type/ || continue
+            path=$toblib/$type
             break
         done
     done
@@ -311,11 +296,11 @@ main () {
     
     ## count and remove 'super' modifier(s) if at end of object:
     super=0
-    while test "${TOB_object%.super}" != $TOB_object; do
+    while test "${TOB_object: -6}" = ".super"; do
         TOB_object=${TOB_object%.super}
         super+=1
     done
-    
+
     test -n "$TOB_object" ||
         error --exit 116 "no object parsed from $arg with method $TOB_method"
     
@@ -326,14 +311,15 @@ main () {
     ## the next method will change directories, so store caller's location:
     TOB_caller_path=$PWD
     
-    resolve_and_chdir_into_object $TOB_object
+    chdir_into_object $TOB_object
     return_code=$?
     
+    unset TOB_class_path
     if test $return_code = 1; then
         error --exit 118 failed to resolve object: $TOB_object
     
-    
     elif test $return_code = 2; then
+        TOB_type=File
         for toblib in $TOBLIB; do
             test -d $toblib/File || continue
             TOB_class_path=$toblib/File
@@ -344,30 +330,29 @@ main () {
         warn file object is $TOB_file_object
         error --exit 119 $TOB_object resolved to a file ... how to handle it?
     
-    elif test -n "$last_classlink"; then
+    elif test -n "$TOB_type"; then
         for toblib in $TOBLIB; do
-            test -d $toblib/$classlink/ || continue
-            TOB_class_path=$toblib/$classlink
+            test -d $toblib/$TOB_type/ || continue
+            TOB_class_path=$toblib/$TOB_type
             break
         done
     else
-      # warn object $TOB_object is a directory
-        for toblib in $TOBLIB; do
-            test -d $toblib/Directory || continue
-            TOB_class_path=$toblib/Directory
-            break
-        done
+        error --exit 124 no object type was found -- should not happen
     fi
+
+    test -n "$TOB_class_path" ||
+        error --exit 125 type $TOB_type did not resolve to a class directory
     
     test -n "$DEBUG" && {
         warn DEBUG: TOB_object=$TOB_object
         warn DEBUG: TOB_method=$TOB_method
+        warn DEBUG: TOB_type=$TOB_type
         warn DEBUG: TOB_path_to_object=$TOB_path_to_object
         warn DEBUG: TOB_caller_path=$TOB_caller_path
         }
     
     test -n $TOB_class_path || 
-        error --exit 120 no object path resolved from $TOB_object
+        error --exit 120 no class dir resolved for $TOB_object of type $TOB_type
     
     test -n "$DEBUG" && {
         warn DEBUG: TOB_path_to_object=$TOB_path_to_object
@@ -391,6 +376,7 @@ main () {
     ## export thinobject variables
     export TOB_object
     export TOB_method
+    export TOB_type
     export TOB_class_path
     export TOB_caller_path
     export TOB_caller_path_to_object=$TOB_path_to_object
