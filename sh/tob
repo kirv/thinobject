@@ -132,17 +132,6 @@ resolve_and_chdir_into_object () {
         done
     done
     test -z "$prefix" || return 1 # no prefix should remain...
-    # super rare special case: check for object named 'super' ...
-  # test $super -gt 0 && {
-  #     while test $super -gt 0 -a -d super -o -d .super && {
-  #         obname=.super
-  #         test -d super && obname=super
-  #         resolve_object $obname || break
-  #         TOB_path_to_object=$TOB_path_to_object/$obname
-  #         last_classlink=$classlink
-  #         super+=-1
-  #         }
-  #     }
     }
 
 follow_paths () {
