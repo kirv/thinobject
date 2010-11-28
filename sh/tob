@@ -133,16 +133,16 @@ resolve_and_chdir_into_object () {
     done
     test -z "$prefix" || return 1 # no prefix should remain...
     # super rare special case: check for object named 'super' ...
-    test $super -gt 0 && {
-        while test $super -gt 0 -a -d super -o -d .super && {
-            obname=.super
-            test -d super && obname=super
-            resolve_object $obname || break
-            TOB_path_to_object=$TOB_path_to_object/$obname
-            last_classlink=$classlink
-            super-=1
-            }
-        }
+  # test $super -gt 0 && {
+  #     while test $super -gt 0 -a -d super -o -d .super && {
+  #         obname=.super
+  #         test -d super && obname=super
+  #         resolve_object $obname || break
+  #         TOB_path_to_object=$TOB_path_to_object/$obname
+  #         last_classlink=$classlink
+  #         super+=-1
+  #         }
+  #     }
     }
 
 follow_paths () {
@@ -189,9 +189,9 @@ cull_duplicate_paths () {
     local all_paths
     method_paths=()
     class_names=()
-    p=${#paths[@]} # start at end to check entries in reverse order
+    typeset -i p=${#paths[@]} # start at end to check entries in reverse order
     while test $p -gt 0; do 
-        p-=1
+        p+=-1
         path=${paths[$p]}
         test "${all_paths/$path/}" = "$all_paths" || {
             # this path already visited
@@ -209,7 +209,7 @@ resolve_method_path () {
     # uses global super, i.e., count of how many times to skip matched method
     for path in ${method_paths[@]}; do
         test -x $path/$method && {
-            test $super -gt 0 && super-=1 && continue
+            test $super -gt 0 && super+=-1 && continue
             TOB_method_path=$path/$method
             return
             }
@@ -226,7 +226,7 @@ TOB_resolve_method_path () {
     done
     for path in ${TOB_method_paths//:/ }; do
         test -x $path/$method && {
-            test $super -gt 0 && super-=1 && continue
+            test $super -gt 0 && super+=-1 && continue
             TOB_method_path=$path/$method
             return
             }
@@ -256,35 +256,35 @@ main () {
     arg=$1 && shift
     while test "${arg:0:1}" = -; do # handle option...
         case $arg in
-            --method); -m)
+            --method | -m)
                 method=$1 && shift
                 test $method || error --exit 111 "no method argument"
                 ;;
         
-            --arg); -a)
+            --arg | -a)
                 args="$args $1" && shift
                 ;;
         
-            --no-hidden); -H)
+            --no-hidden | -H)
                 NO_HIDDEN=1
                 opt="$opt -H"
                 ;;
         
-            --quiet); -q)
+            --quiet | -q)
                 QUIET=1
                 opt="$opt --quiet"
                 ;;
         
-            --verbose); -v)
+            --verbose | -v)
                 VERBOSE=1
                 opt="$opt -v"
                 ;;
     
-            --help); -h)
+            --help | -h)
                 exec awk '/^NAME$/,0' $0
                 ;;
             
-            --debug); -d)
+            --debug | -d)
                 DEBUG=1
                 opt="$opt -d"
                 ;;

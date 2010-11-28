@@ -4,6 +4,6 @@ test -e bad$$ && exit 42
 
 tob bad$$.path 2>/dev/null
 
-test $? == 1 ||
+test $? == 118 ||
     exit 1
 

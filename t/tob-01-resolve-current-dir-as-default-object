@@ -3,11 +3,9 @@
 mkdir dir$$ &&
     cd dir$$
 
-test $(tob ..path) == ././ ||
-    exit 1
+test $(tob ..path) == ././ || exit
 
-test $(tob ..type) == Directory ||
-    exit 2
+test $(tob ..type) == Directory || exit
 
 cd - >/dev/null
 rmdir dir$$
