@@ -61,7 +61,7 @@ get_type () {
 resolve_object () { # cd into object, return 2 if not a dir, return 1 on error
     # get_type() sets TOB_type, TOB_path_to_object
     local obspec=$1
-    local path = . # assume path is local
+    local path=. # assume path is local
     local hidden=0
     test ${obspec:0:1} = / && path = "" # no, path is absolute
     unset prefix
