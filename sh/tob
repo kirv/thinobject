@@ -27,7 +27,7 @@ error () {
     exit $exitvalue
     }
 
-get_type () {
+get_type () { # set TOB_type, but also cd into object or return 1 if unable
     unset TOB_type
     # TODO: check xattr tob.^ for type
     type="$(stat -L -c %F $1 2> /dev/null)"
@@ -36,6 +36,8 @@ get_type () {
             TOB_type=Directory
             test -L $1/^ && TOB_type=$(readlink ^)
             test -L $1/.^ && TOB_type=$(readlink .^)
+            cd $1 2> /dev/null || return 1
+            return
             ;;
         regular)   TOB_type=File;;
         fifo)      TOB_type=NamedPipe;;
@@ -44,6 +46,7 @@ get_type () {
         block)     TOB_type=BlockSpecial;;
     esac
     test -z "$TOB_type" && test -l $arg && TOB_type=SymLink
+    return 1
     }
 
 chdir_into_object () {
