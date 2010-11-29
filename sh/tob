@@ -27,16 +27,24 @@ error () {
     exit $exitvalue
     }
 
-get_type () { # set TOB_type, but also cd into object or return 1 if unable
+get_type () {
+    #               set TOB_path_to_object from arg 1
+    #               set TOB_type after analysis
+    #               cd into dir object, return 0, or 1 if cd failed 
+    #               return 2 for regular or special file
+    #               return 3 for symbolic link that does not resolve
+    #               return 4 if no type identified
+    #
+    TOB_path_to_object=$1
     unset TOB_type
     # TODO: check xattr tob.^ for type
-    type="$(stat -L -c %F $1 2> /dev/null)"
+    type="$(stat -L -c %F $TOB_path_to_object 2> /dev/null)"
     case "${type%% *}" in
         directory)
             TOB_type=Directory
-            test -L $1/^ && TOB_type=$(readlink ^)
-            test -L $1/.^ && TOB_type=$(readlink .^)
-            cd $1 2> /dev/null || return 1
+            test -L $TOB_path_to_object/^ && TOB_type=$(readlink ^)
+            test -L $TOB_path_to_object/.^ && TOB_type=$(readlink .^)
+            cd $TOB_path_to_object 2> /dev/null || return 1
             return
             ;;
         regular)   TOB_type=File;;
@@ -45,76 +53,100 @@ get_type () { # set TOB_type, but also cd into object or return 1 if unable
         character) TOB_type=CharacterSpecial;;
         block)     TOB_type=BlockSpecial;;
     esac
-    test -z "$TOB_type" && test -l $arg && TOB_type=SymLink
-    return 1
+    test -n "$TOB_type" && return 2
+    test -L $arg && TOB_type=SymLink && return 3
+    return 4
     }
 
-chdir_into_object () {
-    # set TOB_type, return 0
-    # returns 1 on any error
-    # returns 2 if target is a file
-    local ob_spec="$1"
-
-    case ${ob_spec:0:1} in
-        /)  TOB_path_to_object=""  # absolute path
-        *)  TOB_path_to_object="." # relative path
-    esac
-
-    for direntry in ${ob_spec//\//\/ }; do # split on, and leave, slashes
+resolve_object () { # cd into object, return 2 if not a dir, return 1 on error
+    # get_type() sets TOB_type, TOB_path_to_object
+    local obspec=$1
+    local path = . # assume path is local
+    local hidden=0
+    test ${obspec:0:1} = / && path = "" # no, path is absolute
+    unset prefix
+    for elem in ${obspec//./ }; do # split on dots
+        test -n "$prefix" && elem=$prefix.$elem # failed to resolve previous
         unset prefix
-        test ${ob_spec:0:1} = . && { # special case: dir or ob begins with dot
-            prefix=.
-            test $ob_spec = . && # special case: current directory
-                direntry=/
-            }
-        for obentry in ${direntry//./ }; do # split on dots
-            obentry=$prefix$obentry
-            if test ${obentry: -1:1} = /; then  # foo/ explicitly
-                TOB_path_to_object=$TOB_path_to_object/${obentry%/}
-                cd $obentry ||
-                    error --exit 105 failed to cd to $TOB_path_to_object
-                get_type $obentry
-            elif get_type $obentry; then # foo/^
-                TOB_path_to_object=$TOB_path_to_object/$obentry
-                cd $obentry ||
-                    error --exit 106 failed to cd to $TOB_path_to_object
-            elif test -z "$NO_HIDDEN" && get_type .$obentry; then # .foo/^
-                TOB_path_to_object=$TOB_path_to_object/.$obentry
-                cd .$obentry ||
-                    error --exit 107 failed to cd to $TOB_path_to_object
-            elif test -z "$NO_HIDDEN" && test -L $obentry; then # foo->bar->.bar/^
-                local save_path=$TOB_path_to_object
-                chdir_into_object $(/bin/readlink -f $obentry)
-                test ${TOB_path_to_object:0:1} = / ||
-                    TOB_path_to_object=$save_path/$TOB_path_to_object
-            elif test -z "$NO_HIDDEN" && test -L .$obentry; then # .foo->bar->.bar/^
-                local save_path=$TOB_path_to_object
-                chdir_into_object $(/bin/readlink -f .$obentry)
-                test ${TOB_path_to_object:0:1} = / ||
-                    TOB_path_to_object=$save_path/$TOB_path_to_object
-            elif test -d $obentry; then  # foo/
-                TOB_path_to_object=$TOB_path_to_object/$obentry
-                cd $obentry ||
-                    error --exit 108 failed to cd to $TOB_path_to_object
-            elif test -z "$NO_HIDDEN" -a -d .$obentry; then # .foo/
-                TOB_path_to_object=$TOB_path_to_object/.$obentry
-                cd .$obentry ||
-                    error --exit 109 failed to cd to $TOB_path_to_object
-            elif test -f $obentry; then # foo
-                TOB_file_object=$obentry
-                return 2
-            elif test -z "$NO_HIDDEN" -a -f .$obentry; then # .foo
-                TOB_file_object=.$obentry
-                return 2
-            else
-                # combine this obentry with next one, separated by a dot
-                prefix=${obentry}.
+
+        if test ${elem: -1:1} = /; then     # element is a simple directory
+            path+=/${elem%/}
+            continue
+
+        elif test -d $path/$elem; then      # dot-terminated directory
+            path+=/$elem
+            continue
+
+        elif test -d $path/.$elem; then     # hidden directory
+            path+=/.$elem
+            hidden+=1
+            continue
+
+        elif test -L $path/$elem; then      # hidden dir behind symlink?
+            target=$(readlink -f $path/$elem)
+            leaf=${target##*/}
+            target=${target%/*}
+            test -d $target/.$leaf && {
+                path=$target/.$leaf
                 continue
-            fi
-            unset prefix
-        done
+                }
+
+        elif test -L $path/.$elem; then     # hidden dir behind dot-symlink?
+            target=$(readlink -f $path/.$elem)
+            leaf=${target##*/}
+            target=${target%/*}
+            test -d $target/.$leaf && {
+                path=$target/.$leaf
+                continue
+                }
+        fi
+        # failed to identify directory, so save elem to combine with next
+        prefix=$elem
     done
-    test -z "$prefix" || return 1 # no prefix should remain...
+
+    test $hidden -gt 0 && test -n "$NO_HIDDEN" &&
+        error --exit 105 "hidden element or elements ($hidden) in $obspec"
+
+    test -z "$prefix" && {  # a directory object was resolved
+        get_type $path
+        return
+        }
+
+    # if prefix remains, $path.$prefix has not been resolved as a dir-object
+    # however, a non-directory object could be there...
+
+    test -e $path/$prefix && {      # regular or special file
+        get_type $path/$prefix
+        return
+        }
+
+    test -n "$NO_HIDDEN" &&     # anything left must be hidden...
+        error --exit 107 leave element hidden in $obspec
+
+    test -e $path/.$prefix && {    # hidden regular or special file
+        get_type $path/.$prefix
+        return
+        }
+
+    test -L $path/$prefix && {      # hidden ob behind symlink?
+        target=$(readlink -f $path/$prefix)
+        leaf=${target##*/}
+        target=${target%/*}
+        test -e $target/.$leaf && {
+            get_type $target/.$leaf
+            return
+            }
+        }
+
+    test -L $path/.$prefix && {     # hidden ob behind dot-symlink?
+        target=$(readlink -f $path/.$prefix)
+        leaf=${target##*/}
+        target=${target%/*}
+        test -e $target/.$leaf && {
+            get_type $target/.$leaf
+            return
+            }
+        }
     }
 
 resolve_paths () {
@@ -315,7 +347,7 @@ main () {
     TOB_caller_path=$PWD
     
     unset TOB_type
-    chdir_into_object $TOB_object
+    resolve_object $TOB_object
     return_code=$?
     
     unset TOB_class_path
