@@ -17,8 +17,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 warn () {
-    test -z "$QUIET" &&
-        printf "%s\n" "$*" >&2
+    test -z "$QUIET" && printf "%s\n" "$*" >&2
     }
 
 error () {
@@ -28,15 +27,23 @@ error () {
     exit $exitvalue
     }
 
-get_object_type () {
-    test -d $1 || return 1 # not a directory
-    if test -L $1/.^; then
-        TOB_type='readlink .^'
-    elif test -L $1/^; then
-        TOB_type='readlink ^'
-    else
-        TOB_type=Directory
-    fi
+get_type () {
+    unset TOB_type
+    # TODO: check xattr tob.^ for type
+    type="$(stat -L -c %F $1 2> /dev/null)"
+    case "${type%% *}" in
+        directory)
+            TOB_type=Directory
+            test -L $1/^ && TOB_type=$(readlink ^)
+            test -L $1/.^ && TOB_type=$(readlink .^)
+            ;;
+        regular)   TOB_type=File;;
+        fifo)      TOB_type=NamedPipe;;
+        socket)    TOB_type=Socket;;
+        character) TOB_type=CharacterSpecial;;
+        block)     TOB_type=BlockSpecial;;
+    esac
+    test -z "$TOB_type" && test -l $arg && TOB_type=SymLink
     }
 
 chdir_into_object () {
@@ -44,13 +51,13 @@ chdir_into_object () {
     # returns 1 on any error
     # returns 2 if target is a file
     local ob_spec="$1"
-  # warn "TRY TO RESOLVE $ob_spec"
-    TOB_path_to_object=. # assume relative path
-    test ${ob_spec:0:1} = / &&
-        TOB_path_to_object="" # no, it's an absolute path
-  # warn ob_spec: $ob_spec
+
+    case ${ob_spec:0:1} in
+        /)  TOB_path_to_object=""  # absolute path
+        *)  TOB_path_to_object="." # relative path
+    esac
+
     for direntry in ${ob_spec//\//\/ }; do # split on, and leave, slashes
-      # warn direntry: $direntry
         unset prefix
         test ${ob_spec:0:1} = . && { # special case: dir or ob begins with dot
             prefix=.
@@ -58,60 +65,47 @@ chdir_into_object () {
                 direntry=/
             }
         for obentry in ${direntry//./ }; do # split on dots
-          # warn obentry: $obentry
             obentry=$prefix$obentry
-          # warn obentry: $obentry
             if test ${obentry: -1:1} = /; then  # foo/ explicitly
-              # warn foo/ explicitly
                 TOB_path_to_object=$TOB_path_to_object/${obentry%/}
                 cd $obentry ||
                     error --exit 105 failed to cd to $TOB_path_to_object
-                get_object_type $obentry
-            elif get_object_type $obentry; then # foo/^
-              # warn foo/^
+                get_type $obentry
+            elif get_type $obentry; then # foo/^
                 TOB_path_to_object=$TOB_path_to_object/$obentry
                 cd $obentry ||
                     error --exit 106 failed to cd to $TOB_path_to_object
-            elif test -z "$NO_HIDDEN" && get_object_type .$obentry; then # .foo/^
-              # warn .foo/^
+            elif test -z "$NO_HIDDEN" && get_type .$obentry; then # .foo/^
                 TOB_path_to_object=$TOB_path_to_object/.$obentry
                 cd .$obentry ||
                     error --exit 107 failed to cd to $TOB_path_to_object
             elif test -z "$NO_HIDDEN" && test -L $obentry; then # foo->bar->.bar/^
-              # warn 'foo -> bar -> .bar/^'
                 local save_path=$TOB_path_to_object
                 chdir_into_object $(/bin/readlink -f $obentry)
                 test ${TOB_path_to_object:0:1} = / ||
                     TOB_path_to_object=$save_path/$TOB_path_to_object
             elif test -z "$NO_HIDDEN" && test -L .$obentry; then # .foo->bar->.bar/^
-              # warn '.foo -> bar -> .bar/^'
                 local save_path=$TOB_path_to_object
                 chdir_into_object $(/bin/readlink -f .$obentry)
                 test ${TOB_path_to_object:0:1} = / ||
                     TOB_path_to_object=$save_path/$TOB_path_to_object
             elif test -d $obentry; then  # foo/
-              # warn foo/
                 TOB_path_to_object=$TOB_path_to_object/$obentry
                 cd $obentry ||
                     error --exit 108 failed to cd to $TOB_path_to_object
             elif test -z "$NO_HIDDEN" -a -d .$obentry; then # .foo/
-              # warn .foo/
                 TOB_path_to_object=$TOB_path_to_object/.$obentry
                 cd .$obentry ||
                     error --exit 109 failed to cd to $TOB_path_to_object
             elif test -f $obentry; then # foo
-              # warn foo
                 TOB_file_object=$obentry
                 return 2
             elif test -z "$NO_HIDDEN" -a -f .$obentry; then # .foo
-              # warn .foo
                 TOB_file_object=.$obentry
                 return 2
             else
                 # combine this obentry with next one, separated by a dot
-              # warn prefix=${obentry}.\n"
                 prefix=${obentry}.
-              # warn PREFIX = $prefix
                 continue
             fi
             unset prefix
@@ -120,17 +114,19 @@ chdir_into_object () {
     test -z "$prefix" || return 1 # no prefix should remain...
     }
 
-follow_paths () {
+resolve_paths () {
     local path=$1 && shift
+  warn "in resolve_paths()..."
     while test -d $path/; do
         paths+=($path)
+  warn "    path is now <$path>"
         for mixin in $path/{,.}^?*; do # e.g., ^Cron or .^Web
             test -z "$TOB_NO_MIXINS" || break
             test -L $mixin || continue
             # TODO: check if mixin points to prototype object?
             for toblib in $TOBLIB; do
                 test -d $toblib/$mixin/ || continue
-                follow_paths $toblib/$mixin
+                resolve_paths $toblib/$mixin
                 break
             done
         done
@@ -139,6 +135,8 @@ follow_paths () {
         if test -n "$1"; then
             # do not check for classlink in first arg if two args were passed
             path=$1 && shift
+  warn "    path is now <$path> just pulled from arglist"
+            break
         elif test -L $path/^; then
             type=$(readlink $path/^)
         elif test -L $path/.^; then
@@ -160,20 +158,22 @@ follow_paths () {
 
 cull_duplicate_paths () {
     local path
-    local all_paths
-    method_paths=()
-    class_names=()
-    typeset -i p=${#paths[@]} # start at end to check entries in reverse order
+    local unique_paths
+    typeset -i p
+    p=${#paths[@]} # start at end to check entries in reverse order
+ warn "we have $p paths defined"
     while test $p -gt 0; do 
         p+=-1
+ warn "now p=$p..."
         path=${paths[$p]}
-        test "${all_paths/$path/}" = "$all_paths" || {
+ warn "and path[$p] is <$path>..."
+        test "${unique_paths/$path/}" = "$unique_paths" || {
             # this path already visited
             unset paths[$p]
             unset types[$p-1]
             continue
             }
-        all_paths+=" $path"
+        unique_paths+=" $path"
     done
     }
 
@@ -311,6 +311,7 @@ main () {
     ## the next method will change directories, so store caller's location:
     TOB_caller_path=$PWD
     
+    unset TOB_type
     chdir_into_object $TOB_object
     return_code=$?
     
@@ -362,16 +363,24 @@ main () {
     test -n "$DEBUG" &&
         warn DEBUG: args1=\'$args\' args2=\'$*\'
         
-    # follow_paths() builds arrays: types and paths, recursing on mixins
+
+    # resolve_paths() builds arrays: types and paths, recursing on mixins
     # - calling it with 2 args, arg2 is the resolved class path
     # - types array is 1:1 with path after skipping paths[0]
     types=()
     paths=()
-    follow_paths . $TOB_class_path
+  warn "before resolve_paths(): type $TOB_type -> $TOB_class_path"
+    resolve_paths . $TOB_class_path
+  warn " after resolve_paths(): type $TOB_type -> $TOB_class_path"
     # paths array now contains the full search path set, may have duplicates
+  warn " after resolve_paths(): types: ${types[@]}"
+  warn " after resolve_paths(): paths: ${paths[@]}"
     
     cull_duplicate_paths
+  warn " after cull_duplicate_paths(): type $TOB_type -> $TOB_class_path"
     # arrays: paths, method_paths, class_names are defined (may be sparse)
+  warn " after cull_duplicate_paths(): types: ${types[@]}"
+  warn " after cull_duplicate_paths(): paths: ${paths[@]}"
     
     ## export thinobject variables
     export TOB_object
