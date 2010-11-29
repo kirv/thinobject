@@ -4,6 +4,6 @@ d=dir$$
 
 mkdir $d
 
-test $(tob $d.path) == ./$d/ || exit 1
+test $(tob $d.path) = ./$d/ || exit 1
 
 rmdir $d

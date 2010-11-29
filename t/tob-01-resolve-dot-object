@@ -5,7 +5,7 @@ ob=ob$$
 mkdir .$ob
 ln -s /usr/local/lib/tob/Object .$ob/^
 
-test $(tob $ob.path) == ./.$ob/ || exit 1
+test $(tob $ob.path) = ./.$ob/ || exit 1
 
 rm -r .$ob
 

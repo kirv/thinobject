@@ -5,10 +5,10 @@ mkdir dir$$ &&
 
 ln -s /usr/local/lib/tob/Directory ./^
 
-test $(tob ..path) == ././ ||
+test $(tob ..path) = ././ ||
     exit 1
 
-test $(tob ..type) == Directory ||
+test $(tob ..type) = Directory ||
     exit 2
 
 cd - >/dev/null

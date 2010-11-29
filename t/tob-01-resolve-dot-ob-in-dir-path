@@ -6,7 +6,7 @@ mkdir -p $p/.foo
 
 ln -s /usr/local/lib/tob/Object $p/.foo/^
 
-test $(tob $p/foo.path) == ./$p/.foo/ # || exit 1
+test $(tob $p/foo.path) = ./$p/.foo/ # || exit 1
 
 rm -r d$$
 

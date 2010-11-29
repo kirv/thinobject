@@ -1,9 +1,15 @@
 #!/bin/sh
 
 test -e bad$$ && exit 42
+test -e .bad$$ && exit 43
 
+export TOBLIB_NOT_OBJECT=1
 tob bad$$.path 2>/dev/null
 
-test $? == 118 ||
-    exit 1
+test $? = 116 || exit
+
+unset TOBLIB_NOT_OBJECT
+tob bad$$.path 2>/dev/null
+
+test $? = 117 || exit
 

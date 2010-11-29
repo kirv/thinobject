@@ -5,12 +5,12 @@
 output_msg=$(tob 2>&1)
 exitcode=$?
 
-test "$exitcode" == 113 || {
+test "$exitcode" = 103 || {
     echo unexpected exit code: $exitcode
     exit 1
     }
 
-test "$output_msg" == "no object specified" || {
+test "$output_msg" = "no object specified" || {
     echo unexpected output message: $output_msg
     exit 1
     }

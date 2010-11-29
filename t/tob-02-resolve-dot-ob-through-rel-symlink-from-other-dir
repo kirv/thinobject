@@ -9,6 +9,6 @@ mkdir ldir$$
 
 ln -s ../dir$$/foo ldir$$/lfoo
 
-test $(tob ldir$$/lfoo.path) == /$PWD/dir$$/.foo/ || exit 1
+test $(tob ldir$$/lfoo.path) = /$PWD/dir$$/.foo/ || exit 1
 
 rm -r dir$$ ldir$$
