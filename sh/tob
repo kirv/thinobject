@@ -65,25 +65,19 @@ resolve_object () {
     #               return 6 if unable to resolve anything
     #
     local obspec=$1
-    warn starting resolve_object $obspec
     local path=. # assume path is relative
     declare -i hidden=0
     test ${obspec:0:1} = / && path="" # no, path is absolute
     unset prefix
     for elem in ${obspec//./ }; do          # split into elements on dots
-        warn resolve_object: elem=$elem
         test -n "$prefix" && elem=$prefix.$elem && unset prefix
-        warn resolve_object: elem=$elem after prefix 
         if test ${elem: -1:1} = /; then     # element is explicitly a directory
             path+=/${elem%/}
-            warn resolve_object: directory: $path/$elem/
         elif test -d $path/$elem; then      # dot-terminated directory
             path+=/$elem
-            warn resolve_object: directory: $path/$elem
         elif test -d $path/.$elem; then     # hidden directory
             path+=/.$elem
             hidden+=1
-            warn resolve_object: hidden directory: $path/.$elem
         elif test -L $path/$elem; then      # hidden dir behind symlink?
             target=$(readlink -f $path/$elem)
             leaf=${target##*/}
@@ -108,7 +102,6 @@ resolve_object () {
             prefix=$elem
         fi
     done
-    warn resolve_object: path=$path prefix=$prefix
     test $hidden -gt 0 && test -n "$NO_HIDDEN" && return 5
     test -z "$prefix" && {  # a directory object was resolved
         get_type $path
@@ -146,11 +139,13 @@ resolve_object () {
     }
 
 resolve_paths () {
+    warn resolve_paths $@
     local path=$1 && shift
-  warn "in resolve_paths()..."
-    while test -d $path/; do
+    while test -n $path; do
+        warn resolve_paths: check out $path
+        if test -d $path; then
+
         paths+=($path)
-  warn "    path is now <$path>"
         for mixin in $path/{,.}^?*; do # e.g., ^Cron or .^Web
             test -z "$TOB_NO_MIXINS" || break
             test -L $mixin || continue
@@ -166,8 +161,16 @@ resolve_paths () {
         if test -n "$1"; then
             # do not check for classlink in first arg if two args were passed
             path=$1 && shift
-  warn "    path is now <$path> just pulled from arglist"
-            break
+            continue
+        elif test -n $path; then
+            warn resolve_paths: type = $path
+            for toblib in $TOBLIB; do
+                test -d $toblib/$path/ || continue
+                paths+=($toblib/$path)
+                warn resolve_paths: path = $toblib/$path
+                types+=($path)
+                break
+            done
         elif test -L $path/^; then
             type=$(readlink $path/^)
         elif test -L $path/.^; then
@@ -192,12 +195,9 @@ cull_duplicate_paths () {
     local unique_paths
     declare -i p
     p=${#paths[@]} # start at end to check entries in reverse order
- warn "we have $p paths defined"
     while test $p -gt 0; do 
         p+=-1
- warn "now p=$p..."
         path=${paths[$p]}
- warn "and path[$p] is <$path>..."
         test "${unique_paths/$path/}" = "$unique_paths" || {
             # this path already visited
             unset paths[$p]
@@ -345,7 +345,6 @@ main () {
     # resolve_object() should set TOB_type, TOB_path_to_object
     resolve_object $TOB_object
     return_status=$?
-    warn resolve_object $TOB_object returned $return_status
     case $return_status in
     1)  error --exit 111 failed to cd to $TOB_object at $TOB_path_to_object ;;
     2)  error --exit 112 $TOB_object at $TOB_path_to_object is $TOB_type ;;
@@ -377,24 +376,23 @@ main () {
         warn DEBUG: TOB_path_to_object=$TOB_path_to_object
         }
     
+warn "now 1: TOB_type = $TOB_type"
+
     # resolve_paths() builds arrays: types and paths, recursing on mixins
     # - first of 2 args is the object, not class, may include mixins
     # - types array is 1:1 with path after skipping paths[0]
     types=()
     paths=()
-  warn "before resolve_paths(): type $TOB_type -> $TOB_class_path"
-    resolve_paths . $TOB_class_path
-  warn " after resolve_paths(): type $TOB_type -> $TOB_class_path"
+    resolve_paths . $TOB_type
     # paths array now contains the full search path set, may have duplicates
-  warn " after resolve_paths(): types: ${types[@]}"
-  warn " after resolve_paths(): paths: ${paths[@]}"
+
+warn "now 2: TOB_type = $TOB_type $types"
     
     cull_duplicate_paths
-  warn " after cull_duplicate_paths(): type $TOB_type -> $TOB_class_path"
     # arrays: paths, method_paths, class_names are defined (may be sparse)
-  warn " after cull_duplicate_paths(): types: ${types[@]}"
-  warn " after cull_duplicate_paths(): paths: ${paths[@]}"
     
+warn "now 3: TOB_type = $TOB_type $types"
+
     ## export thinobject variables
     export TOB_object
     export TOB_method
@@ -407,6 +405,7 @@ main () {
     export -f TOB_resolve_method_path
     export -f TOB_get_attr
     
+warn "now 4: TOB_type = $TOB_type $types"
     # create pseudo-arrays for export:
     save_IFS="$IFS"
     IFS=:
@@ -415,6 +414,7 @@ main () {
     export TOB_type="${types[*]}"
     IFS="$save_IFS"
     
+warn "now 5: TOB_type = $TOB_type"
     test -n "$DEBUG" && {
         warn DEBUG: TOB_search_paths=$TOB_search_paths
         warn DEBUG: TOB_method_paths=$TOB_method_paths
