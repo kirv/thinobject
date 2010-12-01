@@ -3,7 +3,7 @@
 
 mkdir foo$$
 
-ln -s /usr/local/lib/tob/bad foo$$/^
+ln -s bad foo$$/^
 
 tob foo$$.type 2>/dev/null
 

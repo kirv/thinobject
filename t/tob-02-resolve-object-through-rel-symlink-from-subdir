@@ -3,7 +3,7 @@
 ob=ob$$
 
 mkdir $ob
-ln -s /usr/local/lib/tob/Object $ob/^
+ln -s Object $ob/^
 
 mkdir ldir$$
 

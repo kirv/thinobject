@@ -3,7 +3,7 @@
 mkdir dir$$
 
 mkdir dir$$/foo
-ln -s /usr/local/lib/tob/Object dir$$/foo/^
+ln -s Object dir$$/foo/^
 
 mkdir ldir$$
 

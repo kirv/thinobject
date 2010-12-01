@@ -4,9 +4,9 @@ p=d$$/x/y/z
 
 mkdir -p $p/.foo
 
-ln -s /usr/local/lib/tob/Object $p/.foo/^
+ln -s Object $p/.foo/^
 
-test $(tob $p/foo.path) = ./$p/.foo/ # || exit 1
+test "$(tob $p/foo.path)" = "./$p/.foo/" || exit 2
 
 rm -r d$$
 

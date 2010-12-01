@@ -3,9 +3,10 @@
 mkdir dir$$ &&
     cd dir$$
 
-test "$(tob ..path)" = ./ || exit
+tob ..path
+test "$(tob ..path)" = ./ || exit 2
 
-test "$(tob ..type)" = Directory || exit
+test "$(tob ..type)" = Directory || exit 3
 
 cd - >/dev/null
 rmdir dir$$

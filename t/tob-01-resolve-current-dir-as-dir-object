@@ -3,13 +3,13 @@
 mkdir dir$$ &&
     cd dir$$
 
-ln -s /usr/local/lib/tob/Directory ./^
+ln -s Directory ./^
 
-test $(tob ..path) = ././ ||
-    exit 1
+test $(tob ..path) = ./ ||
+    exit 2
 
 test $(tob ..type) = Directory ||
-    exit 2
+    exit 3
 
 cd - >/dev/null
 rm -r dir$$
