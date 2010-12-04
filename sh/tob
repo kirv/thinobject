@@ -42,8 +42,8 @@ get_type () {
     case "${type%% *}" in                   # first word from stat(1) filetype
         directory)
             TOB_type=Directory
-            test -L $TOB_path_to_object/^ && TOB_type=$(readlink ^)
-            test -L $TOB_path_to_object/.^ && TOB_type=$(readlink .^)
+            test -L $TOB_path_to_object/^ && TOB_type=$(readlink $TOB_path_to_object/^)
+            test -L $TOB_path_to_object/.^ && TOB_type=$(readlink $TOB_path_to_object/.^)
             cd $TOB_path_to_object 2> /dev/null || return 1
             return
             ;;
@@ -75,8 +75,8 @@ resolve_object () {
             path+=/${elem%/}
         elif test -d $path/$elem; then      # dot-terminated directory
             path+=/$elem
-        elif test -d $path/.$elem; then     # hidden directory
-            path+=/.$elem
+        elif test -d $path/${elem%/*}/.${elem##*/}; then # hidden directory
+            path="$path/${elem%/*}/.${elem##*/}"
             hidden+=1
         elif test -L $path/$elem; then      # hidden dir behind symlink?
             target=$(readlink -f $path/$elem)
