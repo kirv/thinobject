@@ -3,7 +3,6 @@
 mkdir dir$$ &&
     cd dir$$
 
-tob ..path
 test "$(tob ..path)" = ./ || exit 2
 
 test "$(tob ..type)" = Directory || exit 3

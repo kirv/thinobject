@@ -9,6 +9,6 @@ mkdir ldir$$
 
 ln -s $PWD/$ob ldir$$/lfoo
 
-test $(tob ldir$$/lfoo.path) = /$PWD/.$ob/ || exit 1
+test $(tob ldir$$/lfoo.path) = $PWD/.$ob/ || exit 1
 
 rm -r .$ob ldir$$

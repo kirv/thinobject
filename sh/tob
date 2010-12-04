@@ -37,13 +37,13 @@ get_type () {
     #
     TOB_path_to_object=$1
     unset TOB_type
-    # TODO: check xattr tob.^ for type
     type="$(stat -L -c %F $TOB_path_to_object 2> /dev/null)"
     case "${type%% *}" in                   # first word from stat(1) filetype
         directory)
             TOB_type=Directory
-            test -L $TOB_path_to_object/^ && TOB_type=$(readlink $TOB_path_to_object/^)
+            # TODO: check xattr tob.^ for type
             test -L $TOB_path_to_object/.^ && TOB_type=$(readlink $TOB_path_to_object/.^)
+            test -L $TOB_path_to_object/^ && TOB_type=$(readlink $TOB_path_to_object/^)
             cd $TOB_path_to_object 2> /dev/null || return 1
             return
             ;;
@@ -273,35 +273,15 @@ main () {
     arg=$1 && shift
     while test "${arg:0:1}" = -; do # handle option...
         case $arg in
-            --method | -m)
-                method=$1 && shift
-                test $method || error --exit 101 "no method argument"
-                ;;
-            --arg | -a)
-                args="$args $1" && shift
-                ;;
-            --no-hidden | -H)
-                NO_HIDDEN=1
-                opt="$opt -H"
-                ;;
-            --quiet | -q)
-                QUIET=1
-                opt="$opt --quiet"
-                ;;
-            --verbose | -v)
-                VERBOSE=1
-                opt="$opt -v"
-                ;;
-            --help | -h)
-                exec awk '/^NAME$/,0' $0
-                ;;
-            --debug | -d)
-                DEBUG=1
-                opt="$opt -d"
-                ;;
-            *)
-                error --exit 102 "unsupported option $arg"
-                ;;
+            -H | --no-hidden)   NO_HIDDEN=1;    opt="$opt -H" ;;
+            -q | --quiet)       QUIET=1;        opt="$opt -q" ;;
+            -v | --verbose)     VERBOSE=1;      opt="$opt -v" ;;
+            -d | --debug)       DEBUG=1;        opt="$opt -d" ;;
+            -h | --help)        exec awk '/^NAME$/,0' $0 ;;
+            -a | --arg)         args="$args $1" && shift ;;
+            -m | --method)      method=$1 && shift
+                test $method || error --exit 101 "no method argument" ;;
+            *) error --exit 102 "unsupported option $arg" ;;
         esac
         arg=$1 && shift # try again...
     done
