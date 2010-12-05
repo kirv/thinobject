@@ -1,6 +1,5 @@
 #!/bin/sh
 
-
 mkdir foo$$
 
 ln -s /etc/init.d foo$$/^
@@ -9,7 +8,6 @@ tob foo$$.type 2>/dev/null
 
 result=$?
 
-test $result = 1 ||
-    exit 1
+test $result = 120 || exit
 
 rm -r foo$$

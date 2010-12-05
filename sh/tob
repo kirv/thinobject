@@ -374,6 +374,12 @@ main () {
     declare -a types mpaths apaths
     resolve_paths . $TOB_type
 
+    test "$types" || {
+        test "${#apaths[@]}" -gt 1 &&
+            error --exit 120 prototype but no type resolved for $TOB_object
+        error --exit 121 no type or prototype resolved for $TOB_object
+        }
+
     # arrays may have duplicate entries, so leave only the last such entry
     cull_duplicate_paths
     
