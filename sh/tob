@@ -30,7 +30,7 @@ warn () {
 
 error () {
     exitvalue=1
-    test -n "$1" -a $1 == --exit && shift && exitvalue=$1 && shift
+    test -n "$1" -a $1 = --exit && shift && exitvalue=$1 && shift
     warn "$*"
     exit $exitvalue
     }
@@ -42,7 +42,7 @@ check_classroot () {
     local class=$(/bin/readlink -fe $1) ||
         error --exit 101 check failed for class $1 symlink
     for path in ${library[@]}; do
-        test ${class#$path/} == $class || {
+        test ${class#$path/} = $class || {
             classname=${class#$path/}
             return 0
             }
@@ -78,24 +78,24 @@ resolve_and_chdir_into_object () {
     local ob_spec="$1"
   # warn "TRY TO RESOLVE $ob_spec"
     TOB_path_to_object=. # assume relative path
-    test ${ob_spec:0:1} == / &&
+    test ${ob_spec:0:1} = / &&
         TOB_path_to_object="" # no, it's an absolute path
     unset last_classlink # global variable, set from resolve_object() classlink
   # warn ob_spec: $ob_spec
     for direntry in ${ob_spec//\//\/ }; do # split on, and leave, slashes
       # warn direntry: $direntry
         unset prefix
-        test ${ob_spec:0:1} == . && { # special case: dir or ob begins with dot
+        test ${ob_spec:0:1} = . && { # special case: dir or ob begins with dot
             test $direntry != ..super &&
                 prefix=.
-            test $ob_spec == . && # special case: current directory
+            test $ob_spec = . && # special case: current directory
                 direntry=/
             }
         for obentry in ${direntry//./ }; do # split on dots
           # warn obentry: $obentry
             obentry=$prefix$obentry
           # warn obentry: $obentry
-            if test ${obentry: -1:1} == /; then  # foo/ explicitly
+            if test ${obentry: -1:1} = /; then  # foo/ explicitly
               # warn foo/ explicitly
                 TOB_path_to_object=$TOB_path_to_object/${obentry%/}
                 cd $obentry ||
@@ -119,13 +119,13 @@ resolve_and_chdir_into_object () {
               # warn 'foo -> bar -> .bar/^'
                 local save_path=$TOB_path_to_object
                 resolve_and_chdir_into_object $(/bin/readlink -f $obentry)
-                test ${TOB_path_to_object:0:1} == / ||
+                test ${TOB_path_to_object:0:1} = / ||
                     TOB_path_to_object=$save_path/$TOB_path_to_object
             elif test -z "$NO_HIDDEN" && test -L .$obentry; then # .foo->bar->.bar/^
               # warn '.foo -> bar -> .bar/^'
                 local save_path=$TOB_path_to_object
                 resolve_and_chdir_into_object $(/bin/readlink -f .$obentry)
-                test ${TOB_path_to_object:0:1} == / ||
+                test ${TOB_path_to_object:0:1} = / ||
                     TOB_path_to_object=$save_path/$TOB_path_to_object
             elif test -d $obentry; then  # foo/
               # warn foo/
@@ -149,11 +149,11 @@ resolve_and_chdir_into_object () {
                 unset last_classlink
                 TOB_file_object=.$obentry
                 return 2
-            elif test $obentry == super; then # method resolution operator
+            elif test $obentry = super; then # method resolution operator
               # warn super
                 # should we check that super comes only at the end?
                 super=$(($super+1))
-          # elif test $obentry == .super; then # method resolution operator
+          # elif test $obentry = .super; then # method resolution operator
           #     warn .super
           #     super=$(($super+1))
             else
@@ -204,7 +204,7 @@ check_paths () {
         local path=${paths[$p]}
         fullpath=$(/bin/readlink -fe $path) ||
             error --exit 110 class path $path does not resolve
-        test "${all_paths/$fullpath/}" == "$all_paths" || {
+        test "${all_paths/$fullpath/}" = "$all_paths" || {
             # this path already visited
             unset paths[$p]
             continue
@@ -212,7 +212,7 @@ check_paths () {
         all_paths+=" $fullpath"
         full_paths[$p]=$fullpath
         for libroot in ${library[@]}; do
-            test ${fullpath#$libroot/} == $fullpath || {
+            test ${fullpath#$libroot/} = $fullpath || {
                 # path is under one of the library roots, so is a 'class'
                 method_paths[$p]=${paths[$p]}
                 class_names[$p]=${fullpath#$libroot/}
@@ -227,7 +227,7 @@ resolve_method_path () {
     # uses global super, i.e., count of how many times to skip matched method
     for path in ${method_paths[@]}; do
         test -x $path/$method && {
-            test $super == 0 && {
+            test $super = 0 && {
                 TOB_method_path=$path/$method
                 return
                 }
@@ -240,13 +240,13 @@ resolve_method_path () {
 TOB_resolve_method_path () {
     local method=$1
     local super=0
-    while test "${method:0:6}" == "super."; do
+    while test "${method:0:6}" = "super."; do
         method=${method:6}
         super=$(($super+1))
     done
     for path in ${TOB_method_paths//:/ }; do
         test -x $path/$method && {
-            test $super == 0 && {
+            test $super = 0 && {
                 TOB_method_path=$path/$method
                 return
                 }
@@ -265,7 +265,7 @@ TOB_get_attr () {
     for path in ${TOB_search_paths//:/ }; do
         test -e "$path/$arg" && attr=$(<$path/$arg) && return
         file=($path/$arg=*)
-        test "${file: -1}" == '*' && continue
+        test "${file: -1}" = '*' && continue
         attr=(${file[@]#$path/$arg=}) && return
     done
     return 1
@@ -296,36 +296,36 @@ find_default_file_class () {
 ## process argument list options:
 arg=$1 && shift
 unset method
-while [ -n "$arg" -a "${arg:0:1}" == "-" ]; do # handle option ...
+while [ -n "$arg" -a "${arg:0:1}" = "-" ]; do # handle option ...
 
-    if [ "$arg" == "-d" -o "$arg" == "--debug" ]; then
+    if [ "$arg" = "-d" -o "$arg" = "--debug" ]; then
         DEBUG=1
         opt="$opt -d"
 
-    elif [ "$arg" == "-v" -o "$arg" == "--verbose" ]; then
+    elif [ "$arg" = "-v" -o "$arg" = "--verbose" ]; then
         VERBOSE=1
         opt="$opt -v"
 
-    elif [ "$arg" == "-m" -o "$arg" == "--method" ]; then
+    elif [ "$arg" = "-m" -o "$arg" = "--method" ]; then
         method=$1 && shift
         test $method || error --exit 111 "no method argument"
 
-    elif [ "$arg" == "-a" -o "$arg" == "--arg" ]; then
+    elif [ "$arg" = "-a" -o "$arg" = "--arg" ]; then
         args="$args $1" && shift
 
-    elif [ "$arg" == "-H" -o "$arg" == "--no-hidden" ]; then
+    elif [ "$arg" = "-H" -o "$arg" = "--no-hidden" ]; then
         NO_HIDDEN=1
         opt="$opt -H"
 
-    elif [ "$arg" == "-S" -o "$arg" == "--not-strict" ]; then
+    elif [ "$arg" = "-S" -o "$arg" = "--not-strict" ]; then
         NOT_STRICT=1
         opt="$opt -S"
 
-    elif [ "$arg" == "-q" -o "$arg" == "--quiet" ]; then
+    elif [ "$arg" = "-q" -o "$arg" = "--quiet" ]; then
         QUIET=1
         opt="$opt --quiet"
 
-    elif [ "$arg" == "-h" -o "$arg" == "--help" ]; then # show manpage:
+    elif [ "$arg" = "-h" -o "$arg" = "--help" ]; then # show manpage:
         exec /usr/bin/awk '/^NAME$/{ok=1}ok' $0
     
     else
@@ -351,7 +351,7 @@ test $method && { ## dispatch method from -m or --method option on objects:
     exit
     }
 
-test ${arg/.//} == $arg && # no dot found, so exec as ..method in 'self' object
+test ${arg/.//} = $arg && # no dot found, so exec as ..method in 'self' object
     exec $0 ..$arg "$@"
 
 ## parse the method and object from the object.method specification:
@@ -380,11 +380,11 @@ TOB_caller_path=$PWD
 resolve_and_chdir_into_object $TOB_object
 return_code=$?
 
-if test $return_code == 1; then
+if test $return_code = 1; then
     error --exit 118 failed to resolve object: $TOB_object
 
 
-elif test $return_code == 2; then
+elif test $return_code = 2; then
     find_default_file_class
     TOB_class_path=$TOB_FILE_CLASS
     warn pwd is $PWD
@@ -459,7 +459,7 @@ resolve_method_path $TOB_method &&
 
 ## no executable method was resolved, so try some built-ins:
 
-test $TOB_method == path && {
+test $TOB_method = path && {
     test -z "$*" && echo $TOB_path_to_object/
     for arg in $*; do
         test -e $arg ||
@@ -469,7 +469,7 @@ test $TOB_method == path && {
     exit
     }
 
-test "$TOB_method" == "type" &&
+test "$TOB_method" = "type" &&
     echo $TOB_type &&
         exit
 
