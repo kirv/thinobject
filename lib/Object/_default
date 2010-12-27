@@ -6,15 +6,33 @@ method=$1 && shift
 
 for path in ${TOB_method_paths//:/ }; do
     test -L $path/$method || continue
-    indirect_method=$(readlink $path/$method)
+    # assert: the given method exists as a 'class attribute'
+    # we already know it is not executable, or method would have resolved
+    target=$(readlink $path/$method)
+    # try to resolve target as an indirect method under the object's classes:
     for path in ${TOB_method_paths//:/ }; do
-        test -x $path/$indirect_method && exec $indirect_method $method "$@"
+        test -x $path/$target && exec $target $method "$@"
     done
-    echo indirect method $indirect_method not resolved for method $method >&2
+    # try to resolve target as a thinobject class:
+    for toblib in $TOBLIB; do
+        test -d $toblib/$target/ || continue
+        # class attribute resolves to a thinobject class
+        # check if 'sub-command' exists as a method:
+        test -n "$1" && test -x $toblib/$target/$1 && {
+            command=$1 && shift
+            exec $toblib/$target/$command $method "$@"
+            }
+        test -x $toblib/$target/default || {
+            echo no $target/default method found for $method >&2
+            exit 1
+            }
+        exec $toblib/$target/default $method "$@"
+    done
+    echo failed to resolve $method as indirect method or attribute type >&2
     exit 1
 done
     
-## now look for @method or %method properties:
+## no class attribute was resolved, so look for @method or %method properties:
 
 unset property default_handler
 for path in ${TOB_search_paths//:/ }; do
