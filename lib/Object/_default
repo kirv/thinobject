@@ -1,8 +1,20 @@
-#!/bin/sh
+#!/bin/bash
 
 method=$1 && shift
 
-## no ob.method found, so check for @method or %method properties
+## ob.method did not resolve, so check for indirect method:
+
+for path in ${TOB_method_paths//:/ }; do
+    test -L $path/$method || continue
+    indirect_method=$(readlink $path/$method)
+    for path in ${TOB_method_paths//:/ }; do
+        test -x $path/$indirect_method && exec $indirect_method $method "$@"
+    done
+    echo indirect method $indirect_method not resolved for method $method >&2
+    exit 1
+done
+    
+## now look for @method or %method properties:
 
 unset property default_handler
 for path in ${TOB_search_paths//:/ }; do

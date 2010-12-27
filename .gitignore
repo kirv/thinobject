@@ -1,3 +1,5 @@
 *,v
 *.swp
 tmp/*
+t/tmp*
+.tmp
