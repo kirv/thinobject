@@ -2,3 +2,4 @@
 *.swp
 tmp/*
 t/tmp*
+.tmp
