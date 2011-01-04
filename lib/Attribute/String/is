@@ -1,0 +1,19 @@
+#!/bin/bash
+
+synopsis="Attribute/String.is VALUE ..."
+
+shopt -s nocasematch
+
+test "$(readlink $TOB_object)" = "=$*" && exit
+
+exit 1
+
+NAME
+    Attribute/String.is -- compare attribute value to argument value
+
+SYNOPSIS
+    Attribute/String.is VALUE ...
+
+AUTHOR
+    ken.irving@alaska.edu (c) 2011
+

@@ -1,0 +1,17 @@
+#!/bin/bash
+
+synopsis="Attribute/Integer.set VALUE..."
+
+ln -sf "=$(($*))" $TOB_object
+
+exit
+    
+NAME
+    Attribute/Integer.set -- set Integer attribute to given value
+
+SYNOPSIS
+    Attribute/Integer.set VALUE ...
+
+AUTHOR
+    ken.irving@alaska.edu (c) 2011
+

@@ -1,0 +1,23 @@
+#!/bin/bash
+
+synopsis="Attribute/Boolean.set"
+
+if test -n "$boolean_states"; then
+    states=(${boolean_states/:/ })
+else
+    states=(true false)
+fi
+
+ln -sf "=${states[0]}" $TOB_object
+
+exit
+    
+NAME
+    Attribute/Boolean.set -- set boolean attribute to true value
+
+SYNOPSIS
+    Attribute/Boolean.set [STATE]
+
+AUTHOR
+    ken.irving@alaska.edu (c) 2011
+

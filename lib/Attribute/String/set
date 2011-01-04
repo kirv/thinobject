@@ -1,0 +1,17 @@
+#!/bin/bash
+
+synopsis="Attribute/String.set VALUE..."
+
+ln -sf "=$*" $TOB_object
+
+exit
+    
+NAME
+    Attribute/String.set -- set string attribute to given value
+
+SYNOPSIS
+    Attribute/String.set VALUE ...
+
+AUTHOR
+    ken.irving@alaska.edu (c) 2011
+

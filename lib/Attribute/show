@@ -1,0 +1,20 @@
+#!/bin/bash
+
+synopsis="Attribute.show"
+
+test -L $TOB_object || exit 1
+
+value="$(readlink $TOB_object)"
+echo ${value#=}
+
+exit
+
+NAME
+    Attribute.show -- print attribute value to standard output
+
+SYNOPSIS
+    Attribute.show
+
+AUTHOR
+    ken.irving@alaska.edu (c) 2011
+

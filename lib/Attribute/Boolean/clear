@@ -1,0 +1,32 @@
+#!/bin/bash
+
+synopsis="Attribute/Boolean.clear"
+
+test -n "$1" && echo synopsis: $synopsis >&2 && exit 1
+
+if test -n "$boolean_remove"; then
+    test -L $TOB_object && rm $TOB_object
+elif test -n "$boolean_states"; then
+    ln -sf "=${boolean_states#*:}" $TOB_object
+else
+    ln -sf =false $TOB_object
+fi
+
+exit
+    
+NAME
+    Attribute/Boolean.clear -- set boolean attribute to false value
+
+SYNOPSIS
+    Attribute/Boolean.clear
+
+ENVIRONMENT VARIABLES
+    boolean_states -- colon-separated strings for states, default is true:false
+    boolean_remove -- delete attribute file for false state
+
+SEE ALSO
+    Attribute/Boolean.help
+
+AUTHOR
+    ken.irving@alaska.edu (c) 2011
+
