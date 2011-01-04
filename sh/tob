@@ -79,11 +79,11 @@ resolve_object () {
             path="$path/${elem%/*}/.${elem##*/}"
             hidden+=1
         elif test -L $path/$elem; then      # hidden dir behind symlink?
-            target=$(readlink -f $path/$elem)
-            leaf=${target##*/}
-            target=${target%/*}
-            if test -d $target/.$leaf; then
-                path=$target/.$leaf
+            target="$(readlink -f $path/$elem)"
+            leaf="${target##*/}"
+            target="${target%/*}"
+            if test -d "$target/.$leaf"; then
+                path="$target/.$leaf"
                 hidden+=1
             else
                 prefix=$elem
@@ -107,6 +107,19 @@ resolve_object () {
         get_type $path
         return
         }
+    # look for matching attribute declaration in the parent object's lineage
+    # the declaration must be a non-resolving symlink identifying a class
+    # 'path' variable identifies directory containing object 'prefix' 
+    unset shadow_type
+    if test $path = ./ -a -n "$TOB_search_paths"; then
+        resolve_shadow_type $prefix
+    elif test -L $path/^; then
+        resolve_shadow_type $prefix $path/^
+    elif test -L $path/.^; then
+        resolve_shadow_type $prefix $path/.^
+    fi
+        
+
     # try to resolve $path.$prefix as a regular or special file object...
     test -e $path/$prefix && {              # regular or special file
         get_type $path/$prefix
@@ -506,14 +519,9 @@ BUILT-IN METHODS
     type
         output the class hierarchy
 
-    foo [ARG]...
-        if no method ``foo'' is found in the class hierarchy, search
-        for a LIST property (@foo) or a DICTIONARY property (%foo)
-        and treat this pseudo method as an ``accessor'' of that property.
-
 PROPERTIES
     The thinobject system uses ordinary files and directories in the
-    filesystem, so the contents of an object is arbitrary.  It may be
+    filesystem, so the content of an object is arbitrary.  It may be
     convenient/helpful to think of the contents of an object as its
     ``properties'', if only to distinguish them from otherwise ordinary
     files (which they really are).

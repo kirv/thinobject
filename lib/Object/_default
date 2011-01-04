@@ -2,7 +2,7 @@
 
 method=$1 && shift
 
-## ob.method did not resolve, so check for indirect method:
+## ob.method did not resolve, so check for indirect method or attribute type:
 
 for path in ${TOB_method_paths//:/ }; do
     test -L $path/$method || continue
