@@ -1,0 +1,12 @@
+resolve_method_path () {
+    local method=$1
+    # uses global super, i.e., count of how many times to skip matched method
+    for path in ${mpaths[@]}; do
+        test -x $path/$method && {
+            test $super -gt 0 && super+=-1 && continue
+            TOB_method_path=$path/$method
+            return
+            }
+    done
+    return 1
+    }

@@ -1,0 +1,6 @@
+error () {
+    exitvalue=1
+    test -n "$1" -a $1 = --exit && shift && exitvalue=$1 && shift
+    warn "$*"
+    exit $exitvalue
+    }

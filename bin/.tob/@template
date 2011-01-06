@@ -1,0 +1,27 @@
+#< shebang
+#< prelude
+
+#< warn
+
+#< error
+
+#< get-type
+
+#< resolve-object
+
+#< resolve-paths
+
+#< cull-duplicate-paths
+
+#< resolve-method-path
+
+#< TOB-resolve-method-path
+
+#< TOB-get-attribute
+
+#< main
+
+main "$@"
+
+#< manpage
+

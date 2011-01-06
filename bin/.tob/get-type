@@ -1,0 +1,30 @@
+get_type () {
+    #               set TOB_path_to_object from arg 1
+    #               set TOB_type after analysis
+    #               cd into dir object, return 0, or 1 if cd failed 
+    #               return 2 for regular or special file
+    #               return 3 for symbolic link that does not resolve
+    #               return 4 if no type identified
+    #
+    TOB_path_to_object=$1
+    unset TOB_type
+    type="$(stat -L -c %F $TOB_path_to_object 2> /dev/null)"
+    case "${type%% *}" in                   # first word from stat(1) filetype
+        directory)
+            TOB_type=Directory
+            # TODO: check xattr tob.^ for type
+            test -L $TOB_path_to_object/.^ && TOB_type=$(readlink $TOB_path_to_object/.^)
+            test -L $TOB_path_to_object/^ && TOB_type=$(readlink $TOB_path_to_object/^)
+            cd $TOB_path_to_object 2> /dev/null || return 1
+            return
+            ;;
+        regular)   TOB_type=File;;
+        socket)    TOB_type=Socket;;
+        fifo)      TOB_type=NamedPipe;;
+        block)     TOB_type=BlockSpecial;;
+        character) TOB_type=CharacterSpecial;;
+    esac
+    test -n "$TOB_type" && return 2
+    test -L $arg && TOB_type=SymLink && return 3
+    return 4
+    }

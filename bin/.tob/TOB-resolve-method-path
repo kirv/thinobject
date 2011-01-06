@@ -1,0 +1,16 @@
+TOB_resolve_method_path () {
+    local method=$1
+    local super=0
+    while test "${method:0:6}" = "super."; do
+        method=${method:6}
+        super+=1
+    done
+    for path in ${TOB_method_paths//:/ }; do
+        test -x $path/$method && {
+            test $super -gt 0 && super+=-1 && continue
+            TOB_method_path=$path/$method
+            return
+            }
+    done
+    return 1
+    }

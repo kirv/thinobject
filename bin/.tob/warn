@@ -1,0 +1,3 @@
+warn () {
+    test -z "$QUIET" && printf "%s\n" "$*" >&2
+    }
