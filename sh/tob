@@ -78,6 +78,9 @@ resolve_object () {
         elif test -d $path/${elem%/*}/.${elem##*/}; then # hidden directory
             path="$path/${elem%/*}/.${elem##*/}"
             hidden+=1
+        elif test -d $path/.$elem; then # hidden directory
+            path="$path/.$elem"
+            hidden+=1
         elif test -L $path/$elem; then      # hidden dir behind symlink?
             target="$(readlink -f $path/$elem)"
             leaf="${target##*/}"
