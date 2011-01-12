@@ -1,6 +1,6 @@
 #!/bin/bash
 
-synopsis="Attribute/Boolean.is [STATE]"
+synopsis="Boolean.is [STATE]"
 
 if test -n "$boolean_states"; then
     states=(${boolean_states/:/ })
@@ -30,10 +30,10 @@ test $state = $assert && exit 0
 exit 1
 
 NAME
-    Attribute/Boolean.is -- compare state to given argument or true
+    Boolean.is -- compare state to given argument or true
 
 SYNOPSIS
-    Attribute/Boolean.is [STATE]
+    Boolean.is [STATE]
 
 AUTHOR
     ken.irving@alaska.edu (c) 2010

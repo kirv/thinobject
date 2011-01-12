@@ -1,6 +1,6 @@
 #!/bin/bash
 
-synopsis="Attribute/Boolean.show"
+synopsis="Boolean.show"
 
 if test -n "$boolean_states"; then
     states=(${boolean_states/:/ })
@@ -22,10 +22,10 @@ fi
 exit
 
 NAME
-    Attribute/Boolean.show -- print attribute state to standard output
+    Boolean.show -- print attribute state to standard output
 
 SYNOPSIS
-    Attribute/Boolean.show
+    Boolean.show
 
 DESCRIPTION
     True value is displayed if attribute exists and exactly matches the

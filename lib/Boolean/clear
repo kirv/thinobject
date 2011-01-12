@@ -1,6 +1,6 @@
 #!/bin/bash
 
-synopsis="Attribute/Boolean.clear"
+synopsis="Boolean.clear"
 
 test -n "$1" && echo synopsis: $synopsis >&2 && exit 1
 
@@ -15,17 +15,17 @@ fi
 exit
     
 NAME
-    Attribute/Boolean.clear -- set boolean attribute to false value
+    Boolean.clear -- set boolean attribute to false value
 
 SYNOPSIS
-    Attribute/Boolean.clear
+    Boolean.clear
 
 ENVIRONMENT VARIABLES
     boolean_states -- colon-separated strings for states, default is true:false
     boolean_remove -- delete attribute file for false state
 
 SEE ALSO
-    Attribute/Boolean.help
+    Boolean.help
 
 AUTHOR
     ken.irving@alaska.edu (c) 2011

@@ -1,5 +1,5 @@
 NAME
-    Attribute/Boolean -- implement boolean attribute using symlink 
+    Boolean -- implement boolean attribute using symlink 
 
 DESCRIPTION
     
@@ -20,7 +20,7 @@ IMPLEMENTATION
     value with prefix =.  The prefix is intended to make collisions with
     actual files unlikely, 
 
-    The Attribute/Boolean object value is set either to =true or =false, 
+    The Boolean object value is set either to =true or =false, 
     or the two strings specified in the boolean_states variable (separated
     by :, a colon).
 
