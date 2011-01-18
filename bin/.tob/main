@@ -1,5 +1,5 @@
 main () {
-
+    test -n "$TOBLIB" || error --exit 102 "TOBLIB is not set"
     ## process argument list options:
     unset method
     arg=$1 && shift
@@ -104,7 +104,7 @@ main () {
     # - first of 2 args is the object, not class, may include mixins
     # - types array is 1:1 with path after skipping paths[0]
     declare -a types mpaths apaths
-    resolve_paths . $TOB_type
+    resolve_type . $TOB_type
 
     test "$types" || {
         test "${#apaths[@]}" -gt 1 &&

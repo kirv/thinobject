@@ -9,7 +9,7 @@
 
 #< resolve-object
 
-#< resolve-paths
+#< resolve-type
 
 #< cull-duplicate-paths
 

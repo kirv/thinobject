@@ -1,0 +1,43 @@
+resolve_type () { # resolve (proto)type(s) into types[], apaths[], mpaths[]
+    local type=$1 && shift
+    local path
+    while test -n "$type"; do
+        if test -d $type; then
+            # ... a 'prototype' only provides attributes, not methods
+            path=$type
+            apaths+=($path)
+        else
+            unset path
+            for lib in $TOBLIB; do
+                test -d $lib/$type/ || continue
+                path=$lib/$type
+                break
+            done
+            test -n "$path" || return 1
+            types+=($type)
+            apaths+=($path)
+            mpaths+=($path)
+        fi
+        unset type
+
+        for mixin in $path/{,.}^?*; do # ... e.g., ^Cron or .^settings, etc.
+            test -z "$TOB_NO_MIXINS" || break
+            test -L $mixin || continue # ... skip if not a symlink
+
+            if test -d $mixin; then # ... prototype object
+                mixin=$(readlink $mixin)
+                if test ${mixin:0:1} = /; then # ... absolute path
+                    resolve_type $mixin
+                else
+                    resolve_type $path/$mixin
+                fi
+            else # does not resolve, so assume it's a type
+                resolve_type $(readlink $mixin)
+            fi
+        done
+
+        test -n "$1" && type=$1 && shift && continue # ... use arg for type
+        test -L $path/^ && type=$(readlink $path/^)
+        test -L $path/.^ && type=$(readlink $path/.^)
+    done
+    }
