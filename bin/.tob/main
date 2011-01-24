@@ -98,6 +98,7 @@ main () {
     test -n "$DEBUG" && { # all of these should now be set:
         warn DEBUG: TOB_type=$TOB_type
         warn DEBUG: TOB_path_to_object=$TOB_path_to_object
+        warn DEBUG: calling: resolve_type . $TOB_type
         }
     
     # resolve_paths() builds arrays: types and paths, recursing on mixins
@@ -106,6 +107,12 @@ main () {
     declare -a types mpaths apaths
     resolve_type . $TOB_type
 
+    test -n "$DEBUG" && { # all of these should now be set:
+        warn DEBUG: top types="<$types>",    ${#types[*]} entries
+        warn DEBUG: top mpaths="<$mpaths>", ${#mpaths[*]} entries
+        warn DEBUG: top apaths="<$apaths>", ${#apaths[*]} entries
+        }
+    
     test "$types" || {
         test "${#apaths[@]}" -gt 1 &&
             error --exit 120 prototype but no type resolved for $TOB_object
