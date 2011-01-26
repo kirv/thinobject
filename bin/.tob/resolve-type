@@ -7,13 +7,7 @@ resolve_type () { # resolve (proto)type(s) into types[], apaths[], mpaths[]
             path=$type
             apaths+=($path)
         else
-            unset path
-            for lib in $TOBLIB; do
-                test -d $lib/$type/ || continue
-                path=$lib/$type
-                break
-            done
-            test -n "$path" || return 1
+            resolve_library $type || return 1
             types+=($type)
             apaths+=($path)
             mpaths+=($path)
