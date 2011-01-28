@@ -1,4 +1,4 @@
-resolve_type () { # resolve (proto)type(s) into types[], apaths[], mpaths[]
+resolve_search_paths () { # resolve (proto)type(s) into types[], apaths[], mpaths[]
     local type=$1 && shift
     local path
     while test -n "$type"; do
@@ -21,12 +21,12 @@ resolve_type () { # resolve (proto)type(s) into types[], apaths[], mpaths[]
             if test -d $mixin; then # ... prototype object
                 mixin=$(readlink $mixin)
                 if test ${mixin:0:1} = /; then # ... absolute path
-                    resolve_type $mixin
+                    resolve_search_paths $mixin
                 else
-                    resolve_type $path/$mixin
+                    resolve_search_paths $path/$mixin
                 fi
             else # does not resolve, so assume it's a type
-                resolve_type $(readlink $mixin)
+                resolve_search_paths $(readlink $mixin)
             fi
         done
 

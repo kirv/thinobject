@@ -50,6 +50,13 @@ resolve_object () {
         get_type $path
         return
         }
+
+    # look for attribute declaration shadowing object:
+    resolve_attr_shadow_declaration $path $prefix
+
+    # look for attribute declaration in class definition
+    resolve_attr_class_declaration $path $prefix
+
     # look for matching attribute declaration in the parent object's lineage
     # the declaration must be a non-resolving symlink identifying a class
     # 'path' variable identifies directory containing object 'prefix' 

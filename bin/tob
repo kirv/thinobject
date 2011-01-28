@@ -109,6 +109,24 @@ resolve_object () {
         get_type $path
         return
         }
+
+    # a Directory object was not resolved, so...
+    # first look for a type declaration as dot-object
+    # then look for a type declaration as object in the current dir's class
+
+    warn state: path=$path prefix=$prefix
+
+    test -L $path/.$prefix && test ! -e $path/.$prefix && {
+        set=($(readlink $path/.$prefix))
+        warn ${set[*]} type:$set
+        test -e $set
+        }
+
+    
+
+
+
+
     # look for matching attribute declaration in the parent object's lineage
     # the declaration must be a non-resolving symlink identifying a class
     # 'path' variable identifies directory containing object 'prefix' 
@@ -121,7 +139,6 @@ resolve_object () {
         resolve_shadow_type $prefix $path/.^
     fi
         
-
     # try to resolve $path.$prefix as a regular or special file object...
     test -e $path/$prefix && {              # regular or special file
         get_type $path/$prefix
