@@ -5,7 +5,6 @@ main () {
     arg=$1 && shift
     while test "${arg:0:1}" = -; do # handle option...
         case $arg in
-            -H | --no-hidden)   NO_HIDDEN=1;    opt="$opt -H" ;;
             -q | --quiet)       QUIET=1;        opt="$opt -q" ;;
             -v | --verbose)     VERBOSE=1;      opt="$opt -v" ;;
             -d | --debug)       DEBUG=1;        opt="$opt -d" ;;
@@ -74,7 +73,6 @@ main () {
     2)  error --exit 112 $TOB_object at $TOB_path_to_object is $TOB_type ;;
     3)  error --exit 113 broken symlink: $TOB_object at $TOB_path_to_object ;;
     4)  error --exit 114 no $TOB_object type at $TOB_path_to_object ;;
-    5)  error --exit 115 "hidden element or elements ($hidden) in $obspec" ;;
     6)  test -z "$TOBLIB_NOT_OBJECT" ||
             error --exit 116 failed to resolve $TOB_object
         # ok to try to resolve tob library class as object
