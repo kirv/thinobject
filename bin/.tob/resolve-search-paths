@@ -34,5 +34,5 @@ resolve_search_paths () { # resolve (proto)type(s) into types[], apaths[], mpath
         test -L $path/^ && type=$(readlink $path/^)
         test -L $path/.^ && type=$(readlink $path/.^)
     done
-    test -n "${apaths[1]}" || return 1
+    test -n "$mpaths" || return 1
     }
