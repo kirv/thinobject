@@ -65,6 +65,8 @@ main () {
         warn DEBUG: "args1='$args' args2='$*'"
         }
     
+    declare -a attr # this will be set if an attribute object is resolved
+
     # resolve_object() should set TOB_type, TOB_path_to_object
     resolve_object $TOB_object
     return_status=$?
@@ -103,7 +105,12 @@ main () {
     # - first of 2 args is the object, not class, may include mixins
     # - types array is 1:1 with path after skipping paths[0]
     declare -a types mpaths apaths
-    resolve_search_paths . $TOB_type
+    if test -n "$attr"; then
+        unset attr[0]   # this is TOB_type, any other entries are envars
+        resolve_search_paths $TOB_type
+    else
+        resolve_search_paths . $TOB_type
+    fi
 
     test -n "$DEBUG" && { # all of these should now be set:
         warn DEBUG: top types="<$types>",    ${#types[*]} entries

@@ -1,0 +1,38 @@
+resolve_attr_declaration () { 
+    # set TOB_type, leave envars to set in array attr; return 1 on failure
+    local path=$1
+    local ob=$2
+
+    # use TOB_search_paths or resolve class link(s) or shadow declaration:
+
+    if test $path = ./ -a -n "$TOB_search_paths"; then
+        for p in ${TOB_search_paths/:/ }; do
+            for f in $p/$ob $p/.$ob; do
+                test -L $f -a ! -e $f || continue
+                attr=($(readlink $f))
+                test ${attr:0:1} = '=' || break 2
+                unset attr
+            done
+        done
+
+    elif resolve_search_paths $path; then
+        for p in ${apaths[*]}; do
+            for f in $p/$ob $p/.$ob; do
+                test -L $f -a ! -e $f || continue
+                attr=($(readlink $f))
+                test ${attr:0:1} = '=' || break 2
+                unset attr
+            done
+        done
+
+    elif test -L $path/.$ob -a ! -e $path/.$ob; then
+        attr=($(readlink $path/.$ob))
+        test ${attr:0:1} = '=' && unset attr
+
+    fi
+
+    test -n "$attr" || return 1
+
+    TOB_type=$attr
+    TOB_path_to_object=$path/$ob
+    }

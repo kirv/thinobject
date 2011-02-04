@@ -1,8 +1,7 @@
 resolve_object () { 
+    #               resolve directory or attribute object or return code 6
     #               return values 0 to 4 are from get_type()
     #               get_type() sets TOB_type, TOB_path_to_object
-    #               return 6 if unable to resolve anything
-    #
     local obspec=$1
     local path=. # assume path is relative
     test ${obspec:0:1} = / && path="" # no, path is absolute
@@ -43,56 +42,6 @@ resolve_object () {
         get_type $path
         return
         }
-
-    # look for attribute declaration shadowing object:
-    resolve_attr_shadow_declaration $path $prefix || 
-        resolve_attr_class_declaration $path $prefix ||
-            return 
-
-    resolve_attr_shadow_declaration $path $prefix
-
-    # look for attribute declaration in class definition
-    resolve_attr_class_declaration $path $prefix
-
-    # look for matching attribute declaration in the parent object's lineage
-    # the declaration must be a non-resolving symlink identifying a class
-    # 'path' variable identifies directory containing object 'prefix' 
-    unset shadow_type
-    if test $path = ./ -a -n "$TOB_search_paths"; then
-        resolve_shadow_type $prefix
-    elif test -L $path/^; then
-        resolve_shadow_type $prefix $path/^
-    elif test -L $path/.^; then
-        resolve_shadow_type $prefix $path/.^
-    fi
-        
-
-    # try to resolve $path.$prefix as a regular or special file object...
-    test -e $path/$prefix && {              # regular or special file
-        get_type $path/$prefix
-        return
-        }
-    test -e $path/.$prefix && {             # hidden regular or special file
-        get_type $path/.$prefix
-        return
-        }
-    test -L $path/$prefix && {              # hidden ob behind symlink?
-        target=$(readlink -f $path/$prefix)
-        leaf=${target##*/}
-        target=${target%/*}
-        test -e $target/.$leaf && {
-            get_type $target/.$leaf
-            return
-            }
-        }
-    test -L $path/.$prefix && {             # hidden ob behind dot-symlink?
-        target=$(readlink -f $path/.$prefix)
-        leaf=${target##*/}
-        target=${target%/*}
-        test -e $target/.$leaf && {
-            get_type $target/.$leaf
-            return
-            }
-        }
+    resolve_attr_declaration $path $prefix || return
     return 6                                # no object was resolved
     }
