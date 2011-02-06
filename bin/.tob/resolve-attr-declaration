@@ -1,0 +1,55 @@
+resolve_attr_declaration () { 
+    # set TOB_type, leave envars to set in array attr; return 1 on failure
+    local path=$1
+    local ob=$2
+  # warn "PATH:<$path> OB:<$ob>"
+
+    # use TOB_search_paths or resolve class link(s) or shadow declaration:
+
+    if test $path = ./ -a -n "$TOB_search_paths"; then
+      # warn CASE 1
+        for p in ${TOB_search_paths/:/ }; do
+            for f in $p/$ob $p/.$ob; do
+                test -L $f -a ! -e $f || continue
+                attr=($(readlink $f))
+                test ${attr:0:1} = '=' || break 2
+                unset attr
+            done
+        done
+
+    elif resolve_search_paths $path; then
+      # warn CASE 2
+      # warn "TYPES:  ${types[@]}"
+      # warn "APATHS: ${apaths[@]}"
+      # warn "MPATHS: ${mpaths[@]}"
+        for p in ${apaths[*]}; do
+            for f in $p/$ob $p/.$ob; do
+                test -L $f -a ! -e $f || continue
+                attr=($(readlink $f))
+                test ${attr:0:1} = '=' || break 2
+                unset attr
+            done
+        done
+
+        test -n "$attr" || test -L $path/.$ob -a ! -e $path/.$ob && {
+          # warn CASE 2b ... CHECKING: $path/.$ob
+            attr=($(readlink $path/.$ob))
+          # warn "ATTR: ${attr[@]}"
+            test ${attr:0:1} = '=' && unset attr
+          # warn "ATTR: ${attr[@]}"
+            }
+
+    elif test -L $path/.$ob -a ! -e $path/.$ob; then
+      # warn CASE 3
+        attr=($(readlink $path/.$ob))
+        test ${attr:0:1} = '=' && unset attr
+
+    fi
+
+    test -n "$attr" || return 1
+
+    TOB_type=$attr
+    TOB_path_to_object=$path/$ob
+  # warn "TOB_type:$attr"
+  # warn "TOB_path_to_object:$path/$ob"
+    }

@@ -7,9 +7,13 @@
 
 #< get-type
 
-#< resolve-object
+#< resolve-library
 
-#< resolve-type
+#< resolve-search-paths
+
+#< resolve-attr-declaration
+
+#< resolve-object
 
 #< cull-duplicate-paths
 

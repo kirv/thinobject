@@ -1,4 +1,5 @@
 #!/bin/bash
+
 # tob -- thinobject 'enabler' program
 # Copyright (C) 2010 Ken Irving
 #
@@ -57,15 +58,120 @@ get_type () {
     return 4
     }
 
+resolve_library () {
+    for lib in ${TOBLIB/:/ }; do
+        test -d $lib/$1 && path=$lib/$1 && return
+    done
+    return 1
+    }
+
+resolve_search_paths () { # resolve (proto)type(s) into types[], apaths[], mpaths[]
+    local type=$1 && shift
+    local path
+    shopt -s nullglob
+    while test -n "$type"; do
+        warn CHECKING: $type
+        if test -d "$type"; then
+            # ... a 'prototype' only provides attributes, not methods
+            path=$type
+            apaths+=($path)
+        else
+            resolve_library $type || return 1
+            types+=($type)
+            apaths+=($path)
+            mpaths+=($path)
+        fi
+        unset type
+        warn PATH: $path
+
+        for mixin in $path/{,.}^?*; do # ... e.g., ^Cron or .^settings, etc.
+            warn MIXIN: $mixin
+            test -z "$TOB_NO_MIXINS" || break
+            test -L $mixin || continue # ... skip if not a symlink
+
+            if test -d $mixin; then # ... prototype object
+                mixin=$(readlink $mixin)
+                if test ${mixin:0:1} = /; then # ... absolute path
+                    resolve_search_paths $mixin
+                else
+                    resolve_search_paths $path/$mixin
+                fi
+            else # does not resolve, so assume it's a type
+                resolve_search_paths $(readlink $mixin)
+            fi
+        done
+
+        test -n "$1" && type=$1 && shift && continue # ... use arg for type
+        test -L $path/^ && type=$(readlink $path/^)
+        test -L $path/.^ && type=$(readlink $path/.^)
+    done
+    test -n "$mpaths" || return 1
+    }
+
+<<<<<<< HEAD
+=======
+resolve_attr_declaration () { 
+    # set TOB_type, leave envars to set in array attr; return 1 on failure
+    local path=$1
+    local ob=$2
+  # warn "PATH:<$path> OB:<$ob>"
+
+    # use TOB_search_paths or resolve class link(s) or shadow declaration:
+
+    if test $path = ./ -a -n "$TOB_search_paths"; then
+      # warn CASE 1
+        for p in ${TOB_search_paths/:/ }; do
+            for f in $p/$ob $p/.$ob; do
+                test -L $f -a ! -e $f || continue
+                attr=($(readlink $f))
+                test ${attr:0:1} = '=' || break 2
+                unset attr
+            done
+        done
+
+    elif resolve_search_paths $path; then
+      # warn CASE 2
+      # warn "TYPES:  ${types[@]}"
+      # warn "APATHS: ${apaths[@]}"
+      # warn "MPATHS: ${mpaths[@]}"
+        for p in ${apaths[*]}; do
+            for f in $p/$ob $p/.$ob; do
+                test -L $f -a ! -e $f || continue
+                attr=($(readlink $f))
+                test ${attr:0:1} = '=' || break 2
+                unset attr
+            done
+        done
+
+        test -n "$attr" || test -L $path/.$ob -a ! -e $path/.$ob && {
+          # warn CASE 2b ... CHECKING: $path/.$ob
+            attr=($(readlink $path/.$ob))
+          # warn "ATTR: ${attr[@]}"
+            test ${attr:0:1} = '=' && unset attr
+          # warn "ATTR: ${attr[@]}"
+            }
+
+    elif test -L $path/.$ob -a ! -e $path/.$ob; then
+      # warn CASE 3
+        attr=($(readlink $path/.$ob))
+        test ${attr:0:1} = '=' && unset attr
+
+    fi
+
+    test -n "$attr" || return 1
+
+    TOB_type=$attr
+    TOB_path_to_object=$path/$ob
+  # warn "TOB_type:$attr"
+  # warn "TOB_path_to_object:$path/$ob"
+    }
+
 resolve_object () { 
+    #               resolve directory or attribute object or return code 6
     #               return values 0 to 4 are from get_type()
     #               get_type() sets TOB_type, TOB_path_to_object
-    #               return 5 if $hidden > 0 and --no-hidden was given
-    #               return 6 if unable to resolve anything
-    #
     local obspec=$1
     local path=. # assume path is relative
-    declare -i hidden=0
     test ${obspec:0:1} = / && path="" # no, path is absolute
     unset prefix
     for elem in ${obspec//./ }; do          # split into elements on dots
@@ -76,17 +182,14 @@ resolve_object () {
             path+=/$elem
         elif test -d $path/${elem%/*}/.${elem##*/}; then # hidden directory
             path="$path/${elem%/*}/.${elem##*/}"
-            hidden+=1
         elif test -d $path/.$elem; then # hidden directory
             path="$path/.$elem"
-            hidden+=1
         elif test -L $path/$elem; then      # hidden dir behind symlink?
             target="$(readlink -f $path/$elem)"
             leaf="${target##*/}"
             target="${target%/*}"
             if test -d "$target/.$leaf"; then
                 path="$target/.$leaf"
-                hidden+=1
             else
                 prefix=$elem
             fi
@@ -96,7 +199,6 @@ resolve_object () {
             target=${target%/*}
             if test -d $target/.$leaf; then
                 path=$target/.$leaf
-                hidden+=1
             else
                 prefix=$elem
             fi
@@ -104,99 +206,21 @@ resolve_object () {
             prefix=$elem
         fi
     done
-    test $hidden -gt 0 && test -n "$NO_HIDDEN" && return 5
     test -z "$prefix" && {  # a directory object was resolved
         get_type $path
         return
         }
-    # look for matching attribute declaration in the parent object's lineage
-    # the declaration must be a non-resolving symlink identifying a class
-    # 'path' variable identifies directory containing object 'prefix' 
-    unset shadow_type
-    if test $path = ./ -a -n "$TOB_search_paths"; then
-        resolve_shadow_type $prefix
-    elif test -L $path/^; then
-        resolve_shadow_type $prefix $path/^
-    elif test -L $path/.^; then
-        resolve_shadow_type $prefix $path/.^
-    fi
-        
-
-    # try to resolve $path.$prefix as a regular or special file object...
-    test -e $path/$prefix && {              # regular or special file
-        get_type $path/$prefix
-        return
+    test -n "$path" || {
+      # warn "START PREFIX:<$prefix>"
+        path=${prefix%/*}
+        prefix=${prefix##/*/}
         }
-    test -n "$NO_HIDDEN" && return 5        # anything left must be hidden...
-    test -e $path/.$prefix && {             # hidden regular or special file
-        get_type $path/.$prefix
-        return
-        }
-    test -L $path/$prefix && {              # hidden ob behind symlink?
-        target=$(readlink -f $path/$prefix)
-        leaf=${target##*/}
-        target=${target%/*}
-        test -e $target/.$leaf && {
-            get_type $target/.$leaf
-            return
-            }
-        }
-    test -L $path/.$prefix && {             # hidden ob behind dot-symlink?
-        target=$(readlink -f $path/.$prefix)
-        leaf=${target##*/}
-        target=${target%/*}
-        test -e $target/.$leaf && {
-            get_type $target/.$leaf
-            return
-            }
-        }
+  # warn "PATH:<$path> PREFIX:<$prefix>"
+    resolve_attr_declaration $path $prefix && return
     return 6                                # no object was resolved
     }
 
-resolve_type () { # resolve (proto)type(s) into types[], apaths[], mpaths[]
-    local type=$1 && shift
-    local path
-    while test -n "$type"; do
-        if test -d "$type"; then
-            # ... a 'prototype' only provides attributes, not methods
-            path=$type
-            apaths+=($path)
-        else
-            unset path
-            for lib in $TOBLIB; do
-                test -d $lib/$type/ || continue
-                path=$lib/$type
-                break
-            done
-            test -n "$path" || return 1
-            types+=($type)
-            apaths+=($path)
-            mpaths+=($path)
-        fi
-        unset type
-
-        for mixin in $path/{,.}^?*; do # ... e.g., ^Cron or .^settings, etc.
-            test -z "$TOB_NO_MIXINS" || break
-            test -L $mixin || continue # ... skip if not a symlink
-
-            if test -d $mixin; then # ... prototype object
-                mixin=$(readlink $mixin)
-                if test ${mixin:0:1} = /; then # ... absolute path
-                    resolve_type $mixin
-                else
-                    resolve_type $path/$mixin
-                fi
-            else # does not resolve, so assume it's a type
-                resolve_type $(readlink $mixin)
-            fi
-        done
-
-        test -n "$1" && type=$1 && shift && continue # ... use arg for type
-        test -L $path/^ && type=$(readlink $path/^)
-        test -L $path/.^ && type=$(readlink $path/.^)
-    done
-    }
-
+>>>>>>> c3ea37b24e96456f9f5929aef073d355b905e6cc
 cull_duplicate_paths () {
     local entry
     local unique
@@ -240,7 +264,8 @@ resolve_method_path () {
 
 TOB_resolve_method_path () {
     local method=$1
-    local super=0
+    local -i super=0
+    echo looking for $method >2
     while test "${method:0:6}" = "super."; do
         method=${method:6}
         super+=1
@@ -277,7 +302,6 @@ main () {
     arg=$1 && shift
     while test "${arg:0:1}" = -; do # handle option...
         case $arg in
-            -H | --no-hidden)   NO_HIDDEN=1;    opt="$opt -H" ;;
             -q | --quiet)       QUIET=1;        opt="$opt -q" ;;
             -v | --verbose)     VERBOSE=1;      opt="$opt -v" ;;
             -d | --debug)       DEBUG=1;        opt="$opt -d" ;;
@@ -338,6 +362,8 @@ main () {
         warn DEBUG: "args1='$args' args2='$*'"
         }
     
+    declare -a types=() mpaths=() apaths=() attr=()
+
     # resolve_object() should set TOB_type, TOB_path_to_object
     resolve_object $TOB_object
     return_status=$?
@@ -346,7 +372,6 @@ main () {
     2)  error --exit 112 $TOB_object at $TOB_path_to_object is $TOB_type ;;
     3)  error --exit 113 broken symlink: $TOB_object at $TOB_path_to_object ;;
     4)  error --exit 114 no $TOB_object type at $TOB_path_to_object ;;
-    5)  error --exit 115 "hidden element or elements ($hidden) in $obspec" ;;
     6)  test -z "$TOBLIB_NOT_OBJECT" ||
             error --exit 116 failed to resolve $TOB_object
         # ok to try to resolve tob library class as object
@@ -370,12 +395,17 @@ main () {
     test -n "$DEBUG" && { # all of these should now be set:
         warn DEBUG: TOB_type=$TOB_type
         warn DEBUG: TOB_path_to_object=$TOB_path_to_object
+<<<<<<< HEAD
         warn DEBUG: calling: resolve_type . $TOB_type
+=======
+        warn DEBUG: calling: resolve_search_paths . $TOB_type
+>>>>>>> c3ea37b24e96456f9f5929aef073d355b905e6cc
         }
     
     # resolve_paths() builds arrays: types and paths, recursing on mixins
     # - first of 2 args is the object, not class, may include mixins
     # - types array is 1:1 with path after skipping paths[0]
+<<<<<<< HEAD
     declare -a types mpaths apaths
     resolve_type . $TOB_type
 
@@ -383,8 +413,35 @@ main () {
         warn DEBUG: top types="<$types>",    ${#types[*]} entries
         warn DEBUG: top mpaths="<$mpaths>", ${#mpaths[*]} entries
         warn DEBUG: top apaths="<$apaths>", ${#apaths[*]} entries
+=======
+    declare -a types=() mpaths=() apaths=()
+    if test -n "$attr"; then
+        unset attr[0]   # this is TOB_type, any other entries are envars
+      # warn "CASE 1: resolve_search_paths $TOB_type"
+        resolve_search_paths $TOB_type
+      # warn "TYPES:  <${types[@]}>"
+      # warn "APATHS: <${apaths[@]}>"
+      # warn "MPATHS: <${mpaths[@]}>"
+        TOB_object=$TOB_path_to_object
+    else
+      # warn CASE 2
+        unset attr[0]   # this is TOB_type, any other entries are envars
+        resolve_search_paths . $TOB_type
+    fi
+
+    test -n "$DEBUG" && { # all of these should now be set:
+        warn DEBUG: TYPES="<$types>",    ${#types[*]} entries
+        warn DEBUG: MPATH="<$mpaths>", ${#mpaths[*]} entries
+        warn DEBUG: APATH="<$apaths>", ${#apaths[*]} entries
+>>>>>>> c3ea37b24e96456f9f5929aef073d355b905e6cc
         }
     
+    test -n "$types" || {
+        test "${#apaths[@]}" -gt 1 &&
+            error --exit 120 prototype but no type resolved for $TOB_object
+        error --exit 121 no type or prototype resolved for $TOB_object
+        }
+
     test "$types" || {
         test "${#apaths[@]}" -gt 1 &&
             error --exit 120 prototype but no type resolved for $TOB_object
@@ -420,8 +477,13 @@ main () {
         warn DEBUG: TOB_type=$TOB_type
         }
     
-    resolve_method_path $TOB_method &&
+  # resolve_method_path $TOB_method &&
+  #     exec $TOB_method_path $args "$@"
+    
+    resolve_method_path $TOB_method && {
+        warn "INVOKING $TOB_method as $TOB_method_path"
         exec $TOB_method_path $args "$@"
+        }
     
     ## no executable method was resolved, so try some built-ins:
     
@@ -583,4 +645,3 @@ BUGS
 
 AUTHOR
     Ken.Irving@alaska.edu (c) 2007-2010
-

@@ -1,38 +1,39 @@
-resolve_type () { # resolve (proto)type(s) into types[], apaths[], mpaths[]
+resolve_search_paths () { # resolve (proto)type(s) into types[], apaths[], mpaths[]
     local type=$1 && shift
     local path
+    shopt -s nullglob
     while test -n "$type"; do
+<<<<<<< HEAD:bin/.tob/resolve-type
+=======
+        warn CHECKING: $type
+>>>>>>> c3ea37b24e96456f9f5929aef073d355b905e6cc:bin/.tob/resolve-search-paths
         if test -d "$type"; then
             # ... a 'prototype' only provides attributes, not methods
             path=$type
             apaths+=($path)
         else
-            unset path
-            for lib in $TOBLIB; do
-                test -d $lib/$type/ || continue
-                path=$lib/$type
-                break
-            done
-            test -n "$path" || return 1
+            resolve_library $type || return 1
             types+=($type)
             apaths+=($path)
             mpaths+=($path)
         fi
         unset type
+        warn PATH: $path
 
         for mixin in $path/{,.}^?*; do # ... e.g., ^Cron or .^settings, etc.
+            warn MIXIN: $mixin
             test -z "$TOB_NO_MIXINS" || break
             test -L $mixin || continue # ... skip if not a symlink
 
             if test -d $mixin; then # ... prototype object
                 mixin=$(readlink $mixin)
                 if test ${mixin:0:1} = /; then # ... absolute path
-                    resolve_type $mixin
+                    resolve_search_paths $mixin
                 else
-                    resolve_type $path/$mixin
+                    resolve_search_paths $path/$mixin
                 fi
             else # does not resolve, so assume it's a type
-                resolve_type $(readlink $mixin)
+                resolve_search_paths $(readlink $mixin)
             fi
         done
 
@@ -40,4 +41,5 @@ resolve_type () { # resolve (proto)type(s) into types[], apaths[], mpaths[]
         test -L $path/^ && type=$(readlink $path/^)
         test -L $path/.^ && type=$(readlink $path/.^)
     done
+    test -n "$mpaths" || return 1
     }
