@@ -98,11 +98,7 @@ main () {
     test -n "$DEBUG" && { # all of these should now be set:
         warn DEBUG: TOB_type=$TOB_type
         warn DEBUG: TOB_path_to_object=$TOB_path_to_object
-<<<<<<< HEAD
-        warn DEBUG: calling: resolve_type . $TOB_type
-=======
         warn DEBUG: calling: resolve_search_paths . $TOB_type
->>>>>>> c3ea37b24e96456f9f5929aef073d355b905e6cc
         }
     
     # resolve_paths() builds arrays: types and paths, recursing on mixins

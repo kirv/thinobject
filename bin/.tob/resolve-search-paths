@@ -3,10 +3,7 @@ resolve_search_paths () { # resolve (proto)type(s) into types[], apaths[], mpath
     local path
     shopt -s nullglob
     while test -n "$type"; do
-<<<<<<< HEAD:bin/.tob/resolve-type
-=======
         warn CHECKING: $type
->>>>>>> c3ea37b24e96456f9f5929aef073d355b905e6cc:bin/.tob/resolve-search-paths
         if test -d "$type"; then
             # ... a 'prototype' only provides attributes, not methods
             path=$type
