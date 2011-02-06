@@ -42,6 +42,12 @@ resolve_object () {
         get_type $path
         return
         }
-    resolve_attr_declaration $path $prefix || return
+    test -n "$path" || {
+      # warn "START PREFIX:<$prefix>"
+        path=${prefix%/*}
+        prefix=${prefix##/*/}
+        }
+  # warn "PATH:<$path> PREFIX:<$prefix>"
+    resolve_attr_declaration $path $prefix && return
     return 6                                # no object was resolved
     }

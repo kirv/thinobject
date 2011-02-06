@@ -1,16 +1,38 @@
 #!/bin/bash
 
-synopsis="Attribute/Integer.set VALUE..."
+synopsis="Attr/Integer.set VALUE..."
 
-ln -sf "=$(($*))" $TOB_object
+test -n "$1" || exit 1
+int=$1
+test $((int)) = $int || exit 2
+
+test -n "$INT_MIN" && {
+    test $INT_MIN -le $int || exit 3
+    }
+
+test -n "$INT_MAX" && {
+    test $int -le $INT_MAX || exit 4
+    }
+
+
+echo "CALLING: tob $TOB_object.super.set $int"
+
+superset=$(TOB_resolve_method_path super.set)
+
+echo "RESOLVED: $superset"
+
+exit 18
+
+
+tob $TOB_object.super.set $int
 
 exit
     
 NAME
-    Attribute/Integer.set -- set Integer attribute to given value
+    Attr/Integer.set -- set Integer attribute to given value
 
 SYNOPSIS
-    Attribute/Integer.set VALUE ...
+    Attr/Integer.set VALUE ...
 
 AUTHOR
     ken.irving@alaska.edu (c) 2011
