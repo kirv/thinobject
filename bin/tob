@@ -197,60 +197,6 @@ resolve_type () { # resolve (proto)type(s) into types[], apaths[], mpaths[]
     done
     }
 
-resolve_paths () { # process type or prototype object into types, apaths, mpaths
-    local type=$1 && shift
-    local path
-    while test -n $type; do
-        # a 'type' should not resolve as a directory, but only under TOBLIB
-        # a 'prototype' resolves as a directory, but is used only for attributes
-        if test -d $type; then
-            path=$type
-            apaths+=($path)
-        else
-            unset path
-            for toblib in $TOBLIB; do
-                test -d $toblib/$type/ || continue
-                path=$toblib/$type
-                break
-            done
-            test -n "$path" || return 1
-            types+=($type)
-            apaths+=($path)
-            mpaths+=($path)
-        fi
-
-        for mixin in $path/{,.}^?*; do # e.g., ^Cron or .^Web or ^settings
-            test -z "$TOB_NO_MIXINS" || break
-            test -L $mixin || continue # has to be a symlink
-
-            if test -d $mixin; then # prototype object
-                mixin=$(readlink $mixin)
-                if test ${mixin:0:1} = /; then # absolute path
-                    resolve_paths $mixin
-                else
-                    resolve_paths $path/$mixin
-                fi
-            else # does not resolve, so assume it's a type
-                resolve_paths $(readlink $mixin)
-            fi
-        done
-
-        # if 2 args were passed, the 2nd is the already-known type of the first,
-        # so do not look for class links in the 1st, but skip ahead to the 2nd...
-        test -n "$1" && type=$1 && shift && continue
-
-        # type has already been resolved to path, so look there for ^ or .^
-
-        if test -L $path/^; then
-            type=$(readlink $path/^)
-        elif test -L $path/.^; then
-            type=$(readlink $path/.^)
-        else
-            return 0
-        fi
-    done
-    }
-
 cull_duplicate_paths () {
     local entry
     local unique
@@ -325,7 +271,7 @@ TOB_get_attr () {
     }
 
 main () {
-
+    test -n "$TOBLIB" || error --exit 102 "TOBLIB is not set"
     ## process argument list options:
     unset method
     arg=$1 && shift
@@ -424,6 +370,7 @@ main () {
     test -n "$DEBUG" && { # all of these should now be set:
         warn DEBUG: TOB_type=$TOB_type
         warn DEBUG: TOB_path_to_object=$TOB_path_to_object
+        warn DEBUG: calling: resolve_type . $TOB_type
         }
     
     # resolve_paths() builds arrays: types and paths, recursing on mixins
@@ -431,12 +378,11 @@ main () {
     # - types array is 1:1 with path after skipping paths[0]
     declare -a types mpaths apaths
     resolve_type . $TOB_type
-  # resolve_paths . $TOB_type
 
     test -n "$DEBUG" && { # all of these should now be set:
-        warn DEBUG: "types=[${types[*]}]"
-        warn DEBUG: "apaths=[${apaths[*]}]"
-        warn DEBUG: "mpaths=[${mpaths[*]}]"
+        warn DEBUG: top types="<$types>",    ${#types[*]} entries
+        warn DEBUG: top mpaths="<$mpaths>", ${#mpaths[*]} entries
+        warn DEBUG: top apaths="<$apaths>", ${#apaths[*]} entries
         }
     
     test "$types" || {

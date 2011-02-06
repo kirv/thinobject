@@ -2,7 +2,7 @@ resolve_type () { # resolve (proto)type(s) into types[], apaths[], mpaths[]
     local type=$1 && shift
     local path
     while test -n "$type"; do
-        if test -d $type; then
+        if test -d "$type"; then
             # ... a 'prototype' only provides attributes, not methods
             path=$type
             apaths+=($path)
