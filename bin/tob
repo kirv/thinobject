@@ -26,6 +26,7 @@ error () {
     warn "$*"
     exit $exitvalue
     }
+export -f error
 
 get_type () {
     #               set TOB_path_to_object from arg 1
@@ -355,11 +356,11 @@ main () {
     TOB_caller_path=$PWD
 
     test -n "$DEBUG" && { # all of these should now be set:
-        warn DEBUG: TOB_object=$TOB_object
-        warn DEBUG: TOB_method=$TOB_method
-        warn DEBUG: super count: $super
-        warn DEBUG: TOB_caller_path=$TOB_caller_path
-        warn DEBUG: "args1='$args' args2='$*'"
+        warn "DEBUG: TOB_object=$TOB_object"
+        warn "DEBUG: TOB_method=$TOB_method"
+        warn "DEBUG: super count: $super"
+        warn "DEBUG: TOB_caller_path=$TOB_caller_path"
+        warn "DEBUG: args1='$args' args2='$*'"
         }
     
     declare -a types=() mpaths=() apaths=() attr=()
@@ -394,10 +395,12 @@ main () {
     test -n "$TOB_path_to_object" ||
         error --exit 119 failed to resolve path to $TOB_object
     
+warn "NOW IN $PWD"
+
     test -n "$DEBUG" && { # all of these should now be set:
-        warn DEBUG: TOB_type=$TOB_type
-        warn DEBUG: TOB_path_to_object=$TOB_path_to_object
-        warn DEBUG: calling: resolve_search_paths . $TOB_type
+        warn "DEBUG: TOB_type=$TOB_type"
+        warn "DEBUG: TOB_path_to_object=$TOB_path_to_object"
+        warn "DEBUG: calling: resolve_search_paths . $TOB_type"
         }
     
     # resolve_paths() builds arrays: types and paths, recursing on mixins
@@ -413,15 +416,15 @@ main () {
       # warn "MPATHS: <${mpaths[@]}>"
         TOB_object=$TOB_path_to_object
     else
-      # warn CASE 2
+      # warn "CASE 2"
         unset attr[0]   # this is TOB_type, any other entries are envars
         resolve_search_paths . $TOB_type
     fi
 
     test -n "$DEBUG" && { # all of these should now be set:
-        warn DEBUG: TYPES="<$types>",    ${#types[*]} entries
-        warn DEBUG: MPATH="<$mpaths>", ${#mpaths[*]} entries
-        warn DEBUG: APATH="<$apaths>", ${#apaths[*]} entries
+        warn "DEBUG: TYPES=<$types>,    ${#types[*]} entries"
+        warn "DEBUG: MPATH=<$mpaths>, ${#mpaths[*]} entries"
+        warn "DEBUG: APATH=<$apaths>, ${#apaths[*]} entries"
         }
     
     test -n "$types" || {
@@ -431,9 +434,9 @@ main () {
         }
 
     test -n "$DEBUG" && { # all of these should now be set:
-        warn DEBUG: top types="<$types>",    ${#types[*]} entries
-        warn DEBUG: top mpaths="<$mpaths>", ${#mpaths[*]} entries
-        warn DEBUG: top apaths="<$apaths>", ${#apaths[*]} entries
+        warn "DEBUG: top types=<$types>,    ${#types[*]} entries"
+        warn "DEBUG: top mpaths=<$mpaths>, ${#mpaths[*]} entries"
+        warn "DEBUG: top apaths=<$apaths>, ${#apaths[*]} entries"
         }
     
     test "$types" || {
@@ -467,9 +470,9 @@ main () {
     IFS="$save_IFS"
     
     test -n "$DEBUG" && {
-        warn DEBUG: TOB_search_paths=$TOB_search_paths
-        warn DEBUG: TOB_method_paths=$TOB_method_paths
-        warn DEBUG: TOB_type=$TOB_type
+        warn "DEBUG: TOB_search_paths=$TOB_search_paths"
+        warn "DEBUG: TOB_method_paths=$TOB_method_paths"
+        warn "DEBUG: TOB_type=$TOB_type"
         }
     
     for envar in "${attr[@]}"; do
@@ -504,7 +507,7 @@ main () {
         ## ASSERT: class exists
         test -e $path/_default && {
             test -x $path/_default && {
-              # warn DEBUG tob: exec $path/_default $TOB_object $TOB_method $*
+              # warn "DEBUG tob: exec $path/_default $TOB_object $TOB_method $*"
                 exec $path/_default $TOB_method "$@"
                 }
             ## ASSERT: _default exists but is not executable

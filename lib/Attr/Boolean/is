@@ -1,6 +1,6 @@
 #!/bin/bash
 
-synopsis="Boolean.is [STATE]"
+synopsis="Boolean.is true|false"
 
 if test -n "$boolean_states"; then
     states=(${boolean_states/:/ })

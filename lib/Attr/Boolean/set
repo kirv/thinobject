@@ -1,14 +1,15 @@
 #!/bin/bash
 
-synopsis="Boolean.set"
+synopsis="Boolean.set [true|false]"
+state=true
+test -n "$1" && {
+    test $1 = true -o $1 = false ||
+        error --exit 2 invalid boolean value: $1
+    state=$1
+    }
 
-if test -n "$boolean_states"; then
-    states=(${boolean_states/:/ })
-else
-    states=(true false)
-fi
-
-ln -sf "=${states[0]}" $TOB_object
+TOB_resolve_method_path super.set &&
+    exec $TOB_method_path $state
 
 exit
     
@@ -16,7 +17,7 @@ NAME
     Boolean.set -- set boolean attribute to true value
 
 SYNOPSIS
-    Boolean.set [STATE]
+    Boolean.set [true|false]
 
 AUTHOR
     ken.irving@alaska.edu (c) 2011

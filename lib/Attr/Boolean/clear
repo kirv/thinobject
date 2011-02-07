@@ -2,15 +2,8 @@
 
 synopsis="Boolean.clear"
 
-test -n "$1" && echo synopsis: $synopsis >&2 && exit 1
-
-if test -n "$boolean_remove"; then
-    test -L $TOB_object && rm $TOB_object
-elif test -n "$boolean_states"; then
-    ln -sf "=${boolean_states#*:}" $TOB_object
-else
-    ln -sf =false $TOB_object
-fi
+TOB_resolve_method_path set && 
+    exec $TOB_method_path false
 
 exit
     

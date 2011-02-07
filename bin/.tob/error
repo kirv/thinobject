@@ -4,3 +4,4 @@ error () {
     warn "$*"
     exit $exitvalue
     }
+export -f error
