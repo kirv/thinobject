@@ -1,0 +1,40 @@
+#!/bin/bash
+
+synopsis="Attr/Integer.add VALUE"
+
+error() {
+    exitvalue=1
+    test -n "$1" -a $1 = --exit && shift && exitvalue=$1 && shift
+    printf "%s\n" "$@" >&2
+    exit $exitvalue
+    }
+
+test -n "$1" ||
+    error --exit 1 "required integer argument missing"
+
+int=$1
+
+test $int -eq $int 2>/dev/null ||
+    error --exit 2 "non-integer argument: $int"
+
+TOB_resolve_method_path get &&
+    value=$($TOB_method_path)
+
+TOB_resolve_method_path set &&
+    exec $TOB_method_path $((value+int))
+
+exit
+    
+NAME
+    Attr/Integer.add -- add argument to existing value
+
+SYNOPSIS
+    Attr/Integer.add VALUE
+
+EXIT VALUES
+    1 -- required argument is missing
+    2 -- argument is not an integer
+
+AUTHOR
+    ken.irving@alaska.edu (c) 2011
+

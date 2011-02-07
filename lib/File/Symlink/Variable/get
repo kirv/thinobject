@@ -1,7 +1,4 @@
 #!/bin/bash
-warn() {
-    echo "$*" >&2
-    }
 
 synopsis="File/Symlink/Variable.get"
 

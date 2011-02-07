@@ -1,32 +1,32 @@
 #!/bin/bash
 
-synopsis="Attr/Integer.set VALUE..."
+synopsis="Attr/Integer.set VALUE"
 
-test -n "$1" || exit 1
+error() {
+    exitvalue=1
+    test -n "$1" -a $1 = --exit && shift && exitvalue=$1 && shift
+    printf "%s\n" "$@" >&2
+    exit $exitvalue
+    }
+
+test -n "$1" ||
+    error --exit 1 "required integer argument missing"
+
 int=$1
 
-# echo "RUNNING Attr/Integer.set $int"
+test $int -eq $int 2>/dev/null ||
+    error --exit 2 "non-integer argument: $int"
 
-test $((int)) = $int || exit 2
-
-test -n "$INT_MIN" && {
-    echo "ASSERT: $INT_MIN -le $int or exit 3"
-    test $INT_MIN -le $int || exit 3
+test -n "$INT_MIN" && { test $INT_MIN -le $int ||
+    error --exit 3 "$int is less than INT_MIN=$INT_MIN"
     }
 
-test -n "$INT_MAX" && {
-    echo "ASSERT: $int -le $INT_MAX or exit 4"
-    test $int -le $INT_MAX || exit 4
+test -n "$INT_MAX" && { test $int -le $INT_MAX ||
+    error --exit 4 "$int is greater than INT_MAX=$INT_MAX"
     }
 
-TOB_resolve_method_path super.set || exit
-
-# echo "RESOLVED super.set as $TOB_method_path"
-exec $TOB_method_path $int
-
-# pwd
-
-tob $TOB_object.super.set $int
+TOB_resolve_method_path super.set &&
+    exec $TOB_method_path $int
 
 exit
     
@@ -34,8 +34,14 @@ NAME
     Attr/Integer.set -- set Integer attribute to given value
 
 SYNOPSIS
-    Attr/Integer.set VALUE ...
+    Attr/Integer.set VALUE
 
+EXIT VALUES
+    1 -- required argument is missing
+    2 -- argument is not an integer
+    3 -- argument is less than INT_MIN value
+    4 -- argument is greater than INT_MAX value
+    
 AUTHOR
     ken.irving@alaska.edu (c) 2011
 
