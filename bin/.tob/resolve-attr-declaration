@@ -46,7 +46,8 @@ resolve_attr_declaration () {
 
     fi
 
-    test -n "$attr" || return 1
+  # warn "ATTR: ${attr[*]}"
+    test -n "${attr[*]}" || return 1
 
     TOB_type=$attr
     TOB_path_to_object=$path/$ob

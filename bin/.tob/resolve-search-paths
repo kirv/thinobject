@@ -1,9 +1,10 @@
 resolve_search_paths () { # resolve (proto)type(s) into types[], apaths[], mpaths[]
     local type=$1 && shift
+  # warn " " "    RESOLVE: $type"
     local path
     shopt -s nullglob
     while test -n "$type"; do
-        warn CHECKING: $type
+      # warn "        CHECKING: $type"
         if test -d "$type"; then
             # ... a 'prototype' only provides attributes, not methods
             path=$type
@@ -15,10 +16,10 @@ resolve_search_paths () { # resolve (proto)type(s) into types[], apaths[], mpath
             mpaths+=($path)
         fi
         unset type
-        warn PATH: $path
+      # warn PATH: $path
 
         for mixin in $path/{,.}^?*; do # ... e.g., ^Cron or .^settings, etc.
-            warn MIXIN: $mixin
+          # warn MIXIN: $mixin
             test -z "$TOB_NO_MIXINS" || break
             test -L $mixin || continue # ... skip if not a symlink
 

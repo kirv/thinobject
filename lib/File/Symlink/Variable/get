@@ -1,0 +1,27 @@
+#!/bin/bash
+warn() {
+    echo "$*" >&2
+    }
+
+warn OKOK
+
+synopsis="File/Symlink/Variable.get"
+
+warn "TARGET: $TOB_object"
+
+test -L $TOB_object || exit 1
+
+value="$(readlink $TOB_object)"
+echo ${value#=}
+
+exit
+
+NAME
+    File/Symlink/Variable.get -- print attribute value to standard output
+
+SYNOPSIS
+    File/Symlink/Variable.get
+
+AUTHOR
+    ken.irving@alaska.edu (c) 2011
+

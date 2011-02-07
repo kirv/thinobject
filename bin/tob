@@ -17,7 +17,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 warn () {
-    test -z "$QUIET" && printf "%s\n" "$*" >&2
+    test -z "$QUIET" && printf "%s\n" "$@" >&2
     }
 
 error () {
@@ -67,10 +67,11 @@ resolve_library () {
 
 resolve_search_paths () { # resolve (proto)type(s) into types[], apaths[], mpaths[]
     local type=$1 && shift
+  # warn " " "    RESOLVE: $type"
     local path
     shopt -s nullglob
     while test -n "$type"; do
-        warn CHECKING: $type
+      # warn "        CHECKING: $type"
         if test -d "$type"; then
             # ... a 'prototype' only provides attributes, not methods
             path=$type
@@ -82,10 +83,10 @@ resolve_search_paths () { # resolve (proto)type(s) into types[], apaths[], mpath
             mpaths+=($path)
         fi
         unset type
-        warn PATH: $path
+      # warn PATH: $path
 
         for mixin in $path/{,.}^?*; do # ... e.g., ^Cron or .^settings, etc.
-            warn MIXIN: $mixin
+          # warn MIXIN: $mixin
             test -z "$TOB_NO_MIXINS" || break
             test -L $mixin || continue # ... skip if not a symlink
 
@@ -156,7 +157,8 @@ resolve_attr_declaration () {
 
     fi
 
-    test -n "$attr" || return 1
+  # warn "ATTR: ${attr[*]}"
+    test -n "${attr[*]}" || return 1
 
     TOB_type=$attr
     TOB_path_to_object=$path/$ob
@@ -205,6 +207,7 @@ resolve_object () {
         fi
     done
     test -z "$prefix" && {  # a directory object was resolved
+      # warn "CALLING: get_type $path"
         get_type $path
         return
         }
@@ -364,6 +367,7 @@ main () {
     # resolve_object() should set TOB_type, TOB_path_to_object
     resolve_object $TOB_object
     return_status=$?
+  # warn "RESOLVE_OBJECT($TOB_object) returned $return_status, type $TOB_type"
     case $return_status in
     1)  error --exit 111 failed to cd to $TOB_object at $TOB_path_to_object ;;
     2)  error --exit 112 $TOB_object at $TOB_path_to_object is $TOB_type ;;
@@ -372,6 +376,7 @@ main () {
     6)  test -z "$TOBLIB_NOT_OBJECT" ||
             error --exit 116 failed to resolve $TOB_object
         # ok to try to resolve tob library class as object
+      # warn "TRY TO RESOLVE library class as object"
         # first dot-delimited element must exist as a directory
         prefix=${TOB_object%%.*}
         for toblib in $TOBLIB; do
@@ -399,7 +404,7 @@ main () {
     # - first of 2 args is the object, not class, may include mixins
     # - types array is 1:1 with path after skipping paths[0]
     declare -a types=() mpaths=() apaths=()
-    if test -n "$attr"; then
+    if test -n "${attr[*]}"; then
         unset attr[0]   # this is TOB_type, any other entries are envars
       # warn "CASE 1: resolve_search_paths $TOB_type"
         resolve_search_paths $TOB_type
@@ -425,6 +430,12 @@ main () {
         error --exit 121 no type or prototype resolved for $TOB_object
         }
 
+    test -n "$DEBUG" && { # all of these should now be set:
+        warn DEBUG: top types="<$types>",    ${#types[*]} entries
+        warn DEBUG: top mpaths="<$mpaths>", ${#mpaths[*]} entries
+        warn DEBUG: top apaths="<$apaths>", ${#apaths[*]} entries
+        }
+    
     test "$types" || {
         test "${#apaths[@]}" -gt 1 &&
             error --exit 120 prototype but no type resolved for $TOB_object
@@ -442,8 +453,9 @@ main () {
     export TOB_caller_path
     export TOB_caller_path_to_object=$TOB_path_to_object
     
-    ## export thinobject utility functions
+    ## export thinobject utility functions and associated variables:
     export -f TOB_resolve_method_path
+    export TOB_method_path
     export -f TOB_get_attr
     
     # create pseudo-arrays for export, with colon as delimiter:
@@ -464,7 +476,7 @@ main () {
   #     exec $TOB_method_path $args "$@"
     
     resolve_method_path $TOB_method && {
-        warn "INVOKING $TOB_method as $TOB_method_path"
+      # warn "INVOKING $TOB_method as $TOB_method_path"
         exec $TOB_method_path $args "$@"
         }
     

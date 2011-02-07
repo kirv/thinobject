@@ -4,6 +4,9 @@ synopsis="Attr/Integer.set VALUE..."
 
 test -n "$1" || exit 1
 int=$1
+
+# echo "RUNNING Attr/Integer.set $int"
+
 test $((int)) = $int || exit 2
 
 test -n "$INT_MIN" && {
@@ -14,15 +17,12 @@ test -n "$INT_MAX" && {
     test $int -le $INT_MAX || exit 4
     }
 
+TOB_resolve_method_path super.set || exit
 
-echo "CALLING: tob $TOB_object.super.set $int"
+# echo "RESOLVED super.set as $TOB_method_path"
+exec $TOB_method_path $int
 
-superset=$(TOB_resolve_method_path super.set)
-
-echo "RESOLVED: $superset"
-
-exit 18
-
+# pwd
 
 tob $TOB_object.super.set $int
 

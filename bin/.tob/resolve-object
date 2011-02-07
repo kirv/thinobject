@@ -39,6 +39,7 @@ resolve_object () {
         fi
     done
     test -z "$prefix" && {  # a directory object was resolved
+      # warn "CALLING: get_type $path"
         get_type $path
         return
         }
