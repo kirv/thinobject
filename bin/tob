@@ -472,13 +472,15 @@ main () {
         warn DEBUG: TOB_type=$TOB_type
         }
     
-  # resolve_method_path $TOB_method &&
-  #     exec $TOB_method_path $args "$@"
+    for envar in "${attr[@]}"; do
+        tag=${envar%%=*}
+        test $tag = $envar && continue
+        val=${envar#*=}
+        export $tag=$val
+    done
     
-    resolve_method_path $TOB_method && {
-      # warn "INVOKING $TOB_method as $TOB_method_path"
+    resolve_method_path $TOB_method &&
         exec $TOB_method_path $args "$@"
-        }
     
     ## no executable method was resolved, so try some built-ins:
     

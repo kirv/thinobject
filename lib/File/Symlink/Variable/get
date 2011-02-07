@@ -3,11 +3,7 @@ warn() {
     echo "$*" >&2
     }
 
-warn OKOK
-
 synopsis="File/Symlink/Variable.get"
-
-warn "TARGET: $TOB_object"
 
 test -L $TOB_object || exit 1
 

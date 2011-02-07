@@ -10,10 +10,12 @@ int=$1
 test $((int)) = $int || exit 2
 
 test -n "$INT_MIN" && {
+    echo "ASSERT: $INT_MIN -le $int or exit 3"
     test $INT_MIN -le $int || exit 3
     }
 
 test -n "$INT_MAX" && {
+    echo "ASSERT: $int -le $INT_MAX or exit 4"
     test $int -le $INT_MAX || exit 4
     }
 
