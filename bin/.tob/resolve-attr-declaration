@@ -6,6 +6,18 @@ resolve_attr_declaration () {
 
     # use TOB_search_paths or resolve class link(s) or shadow declaration:
 
+    if test -L $path/$ob -a ! -e $path/$ob; then
+        attr=($(readlink $path/$ob))
+        test ${attr:0:1} = '=' || {
+            # assume attr[0] is the type, and the declaration dot-shadows ob
+            TOB_type=$attr
+            # special fix: drop leading '.' if present in $ob:
+            TOB_path_to_object=$path/${ob#.}
+            return
+            }
+        unset attr
+    fi
+
     if test $path = ./ -a -n "$TOB_search_paths"; then
       # warn CASE 1
         for p in ${TOB_search_paths/:/ }; do
