@@ -2,8 +2,6 @@
 
 synopsis="Boolean.get"
 
-echo OBJECT IS $TOB_object
-
 TOB_resolve_method_path super.get && {
     $TOB_method_path || echo false
     }
