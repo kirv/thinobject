@@ -1,6 +1,6 @@
 #!/bin/bash
 
-synopsis="Attribute/String.clear"
+synopsis="Attr/String.clear"
 
 test -n "$1" && echo synopsis: $synopsis >&2 && exit 1
 
@@ -9,13 +9,13 @@ ln -sf = $TOB_object
 exit
     
 NAME
-    Attribute/String.clear -- set string attribute to the empty value
+    Attr/String.clear -- set string attribute to the empty value
 
 SYNOPSIS
-    Attribute/String.clear
+    Attr/String.clear
 
 SEE ALSO
-    Attribute/String.help
+    Attr/String.help
 
 AUTHOR
     ken.irving@alaska.edu (c) 2011

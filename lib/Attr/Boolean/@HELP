@@ -1,0 +1,17 @@
+NAME
+    Attr/Boolean -- implement boolean attribute
+
+DESCRIPTION
+    Attribute object is true if it exists as a regular file, otherwise
+    it is false.  Valid values for the *set* and *is* methods are 'true'
+    or 'false'.
+
+METHODS
+    get     -- print attribute value to stdout
+    set     -- set the attribute to the given value, true or false
+    is      -- assert attribute has the given value, true or false
+    help    -- display this help screen
+
+AUTHOR
+    Ken.Irving@alaska.edu (c) 2011
+    Licensed under the GPL (Gnu Public Library)

@@ -1,16 +1,16 @@
 #!/bin/bash
 
-synopsis="Attribute/Integer.is VALUE"
+synopsis="Attr/Integer.is VALUE"
 
 test "$(readlink $TOB_object)" = "=$(($*))" && exit
 
 exit 1
 
 NAME
-    Attribute/Integer.is -- compare attribute value to argument value
+    Attr/Integer.is -- compare attribute value to argument value
 
 SYNOPSIS
-    Attribute/Integer.is VALUE
+    Attr/Integer.is VALUE
 
 AUTHOR
     ken.irving@alaska.edu (c) 2011

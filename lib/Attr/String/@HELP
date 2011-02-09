@@ -1,5 +1,5 @@
 NAME
-    Attribute/String -- implement string attribute using symlink 
+    Attr/String -- implement string attribute using symlink 
 
 METHODS
     set     -- set the attribute to the given string value
@@ -9,7 +9,7 @@ METHODS
     help    -- display this help screen
 
 IMPLEMENTATION
-    An Attribute object is a symlink file with it's target set to a string
+    An Attr/String object is a symlink file with it's target set to a string
     value with prefix =.  The prefix is intended to make collisions with
     actual files unlikely. 
 
