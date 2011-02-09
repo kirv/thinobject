@@ -1,6 +1,6 @@
 #!/bin/bash
 
-synopsis="Boolean.is true|false"
+synopsis="Attr/Boolean.is true|false"
 
 case "$1" in
     true)   test -e $TOB_object; exit;;
@@ -16,32 +16,13 @@ case "$1" in
             ;;
 esac
 
-
-test -n "$1" ||
-    error --exit 1 "missing required value argument"
-
-# make sure argument does not include any colons:
-value="${1//:/ }"
-
-# bracket Boolean value 'array' with colons for subsequent test:
-ENUM=":$ENUM:"
-
-# make sure the value is legit:
-test "${ENUM/:$value:/}" = "$ENUM" &&
-    error --exit 2 "invalid Attr/Enum value: $value"
-
-TOB_resolve_method_path get || exit
-   
-state=$($TOB_method_path)
-
-test "$value" = "$state"
 exit
 
 NAME
-    Boolean.is -- compare state to given argument
+    Attr/Boolean.is -- compare state to given argument
 
 SYNOPSIS
-    Boolean.is VALUE
+    Attr/Boolean.is true|false
 
 AUTHOR
     ken.irving@alaska.edu (c) 2010

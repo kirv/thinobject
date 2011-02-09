@@ -1,6 +1,6 @@
 #!/bin/bash
 
-synopsis="Boolean.set true|false"
+synopsis="Attr/Boolean.set true|false"
 
 case "$1" in
 
@@ -20,17 +20,16 @@ esac
 exit
     
 NAME
-    Boolean.set -- set Boolean attribute to given value
+    Attr/Boolean.set -- set boolean attribute to given value, true or false
 
 SYNOPSIS
-    Boolean.set true|false
+    Attr/Boolean.set true|false
 
 DESCRIPTION
     Create or remove a file named for the object depending on if
     the argument is true or false.
 
     The object will only exist if set to true.
-
 
 AUTHOR
     ken.irving@alaska.edu (c) 2011

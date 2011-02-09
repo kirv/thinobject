@@ -1,6 +1,6 @@
 #!/bin/bash
 
-synopsis="Boolean.get"
+synopsis="Attr/Boolean.get"
 
 state=false
 test -e $TOB_object && state=true
@@ -10,10 +10,10 @@ echo $state
 exit
 
 NAME
-    Boolean.get -- print attribute state to standard output
+    Attr/Boolean.get -- print attribute state to standard output
 
 SYNOPSIS
-    Boolean.get
+    Attr/Boolean.get
 
 DESCRIPTION
     Value 'true' is displayed if attribute exists, otherwise 'false' is 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-synopsis="Enum.set VALUE"
+synopsis="Attr/Enum.set VALUE"
 
 test -n "$1" ||
     error --exit 1 "missing required value argument"
@@ -21,7 +21,7 @@ TOB_resolve_method_path super.set &&
 exit
     
 NAME
-    Enum.set -- set enum attribute to given value
+    Attr/Enum.set -- set enum attribute to given value
 
 DESCRIPTION
     Enumeration values are given in the ENUM environment variable,
@@ -31,7 +31,7 @@ DESCRIPTION
         enumvar -> Attr/Enum ENUM=red:green:blue
 
 SYNOPSIS
-    Enum.set VALUE
+    Attr/Enum.set VALUE
 
 AUTHOR
     ken.irving@alaska.edu (c) 2011

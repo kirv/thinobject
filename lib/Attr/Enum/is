@@ -1,6 +1,6 @@
 #!/bin/bash
 
-synopsis="Enum.is VALUE"
+synopsis="Attr/Enum.is VALUE"
 
 test -n "$1" ||
     error --exit 1 "missing required value argument"
@@ -23,10 +23,10 @@ test "$value" = "$state"
 exit
 
 NAME
-    Enum.is -- compare state to given argument
+    Attr/Enum.is -- compare state to given argument
 
 SYNOPSIS
-    Enum.is VALUE
+    Attr/Enum.is VALUE
 
 AUTHOR
     ken.irving@alaska.edu (c) 2010

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-synopsis="Enum.get"
+synopsis="Attr/Enum.get"
 
 TOB_resolve_method_path super.get && 
     $TOB_method_path
@@ -8,10 +8,10 @@ TOB_resolve_method_path super.get &&
 exit
 
 NAME
-    Enum.get -- print attribute state to standard output
+    Attr/Enum.get -- print attribute state to standard output
 
 SYNOPSIS
-    Enum.get
+    Attr/Enum.get
 
 DESCRIPTION
     True value is displayed if attribute exists and exactly matches the
