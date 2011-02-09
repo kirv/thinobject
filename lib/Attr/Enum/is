@@ -1,0 +1,33 @@
+#!/bin/bash
+
+synopsis="Enum.is VALUE"
+
+test -n "$1" ||
+    error --exit 1 "missing required value argument"
+
+# make sure argument does not include any colons:
+value="${1//:/ }"
+
+# bracket ENUM value 'array' with colons for subsequent test:
+ENUM=":$ENUM:"
+
+# make sure the value is legit:
+test "${ENUM/:$value:/}" = "$ENUM" &&
+    error --exit 2 "invalid Attr/Enum value: $value"
+
+TOB_resolve_method_path get || exit
+   
+state=$($TOB_method_path)
+
+test "$value" = "$state"
+exit
+
+NAME
+    Enum.is -- compare state to given argument
+
+SYNOPSIS
+    Enum.is VALUE
+
+AUTHOR
+    ken.irving@alaska.edu (c) 2010
+

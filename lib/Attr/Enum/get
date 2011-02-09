@@ -1,18 +1,17 @@
 #!/bin/bash
 
-synopsis="Boolean.get"
+synopsis="Enum.get"
 
-TOB_resolve_method_path super.get && {
-    $TOB_method_path || echo false
-    }
+TOB_resolve_method_path super.get && 
+    $TOB_method_path
 
 exit
 
 NAME
-    Boolean.get -- print attribute state to standard output
+    Enum.get -- print attribute state to standard output
 
 SYNOPSIS
-    Boolean.get
+    Enum.get
 
 DESCRIPTION
     True value is displayed if attribute exists and exactly matches the
