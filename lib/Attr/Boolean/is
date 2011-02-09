@@ -1,0 +1,48 @@
+#!/bin/bash
+
+synopsis="Boolean.is true|false"
+
+case "$1" in
+    true)   test -e $TOB_object; exit;;
+
+    false)  test ! -e $TOB_object; exit;;
+
+    "")     echo "missing required value argument" >&2
+            exit 1
+            ;;
+
+    *)      echo "invalid value: $1, must be true or false" >&2
+            exit 2
+            ;;
+esac
+
+
+test -n "$1" ||
+    error --exit 1 "missing required value argument"
+
+# make sure argument does not include any colons:
+value="${1//:/ }"
+
+# bracket Boolean value 'array' with colons for subsequent test:
+ENUM=":$ENUM:"
+
+# make sure the value is legit:
+test "${ENUM/:$value:/}" = "$ENUM" &&
+    error --exit 2 "invalid Attr/Enum value: $value"
+
+TOB_resolve_method_path get || exit
+   
+state=$($TOB_method_path)
+
+test "$value" = "$state"
+exit
+
+NAME
+    Boolean.is -- compare state to given argument
+
+SYNOPSIS
+    Boolean.is VALUE
+
+AUTHOR
+    ken.irving@alaska.edu (c) 2010
+

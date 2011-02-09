@@ -1,0 +1,37 @@
+#!/bin/bash
+
+synopsis="Boolean.set true|false"
+
+case "$1" in
+
+    true)   touch $TOB_object;;
+
+    false)  rm -f $TOB_object;;
+
+    "")     echo "missing required value argument" >&2
+            exit 2
+            ;;
+
+    *)      echo "invalid value: $1, must be true or false" >&2
+            exit 2
+            ;;
+esac
+
+exit
+    
+NAME
+    Boolean.set -- set Boolean attribute to given value
+
+SYNOPSIS
+    Boolean.set true|false
+
+DESCRIPTION
+    Create or remove a file named for the object depending on if
+    the argument is true or false.
+
+    The object will only exist if set to true.
+
+
+AUTHOR
+    ken.irving@alaska.edu (c) 2011
+
