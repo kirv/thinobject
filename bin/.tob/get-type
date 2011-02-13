@@ -1,12 +1,10 @@
 get_type () {
-    #               return 0 for regular or special file
-    #               return 1 if no type resolved using stat
-    #               return 2 for symbolic link that does not resolve
-    #               return 3 for unexpected output from stat -L =c %F
-    type="$(stat -L -c %F $1 2> /dev/null)" ||
-        type="$(stat -c %F $1 2> /dev/null)" ||
-            return 1
-    case "${type%% *}" in   # inspect first word from stat(1) filetype:
+    # synopsis: get_type FILE
+    # return 0 for regular or special file
+    # return 1 if no type resolved using stat
+    # return 2 for symbolic link that does not resolve
+    type=($(stat -L -c %F $1 2> /dev/null || stat -c %F $1 2> /dev/null))
+    case "$type" in   # inspect first word from stat(1) -c %F filetype:
         directory) type=Directory ;;
         regular)   type=File;;
         socket)    type=Socket;;
@@ -14,6 +12,6 @@ get_type () {
         block)     type=BlockSpecial;;
         character) type=CharacterSpecial;;
         symbolic)  type=SymLink && return 2;;
-        *)         return 3;;
+        *)         return 1;;
     esac
     }
