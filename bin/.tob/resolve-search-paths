@@ -39,6 +39,7 @@ resolve_search_paths () { # resolve (proto)type(s) into types[], apaths[], mpath
         test -L $path/^ && type=$(readlink $path/^)
         test -L $path/.^ && type=$(readlink $path/.^)
     done
+    cull_duplicate_paths
     test -n "$apaths[*]" || return 1
     test -n "$mpaths[*]" || return 2
     }

@@ -35,20 +35,14 @@ main () {
 
     resolve_query $qry || exit
 
-    debug "object: $object" "method: $method" "args: $*" "type: ${type[*]}"
+    debug "path: $path" "object: $object" "method: $method" "args: $*"
+    debug "type: ${type[*]}"
    
 exit 118
     
-    ## a couple of assertion checks, probably redundant:
-    test -n "$type" ||
-        error -x 118 "failed to resolve $object type"
-    test -n "$TOB_path_to_object" ||
-        error -x 119 "failed to resolve path to $object"
-    
     debug "TOB_path_to_object: $TOB_path_to_object"
-    debug "calling: resolve_search_paths . $type"
     
-    # resolve_paths() builds arrays: types and paths, recursing on mixins
+    # resolve_search_paths() builds arrays: types and paths, recursing on mixins
     # - first of 2 args is the object, not class, may include mixins
     # - types array is 1:1 with path after skipping paths[0]
     if test -n "${attr[*]}"; then
@@ -56,14 +50,13 @@ exit 118
         resolve_search_paths $type
         object=$TOB_path_to_object
     else
-      # warn "CASE 2"
         unset attr[0]   # this is type, any other entries are envars
         resolve_search_paths . $type
     fi
 
-    debug "TYPES=<$types>, ${#types[*]} entries"
-    debug "MPATH=<$mpaths>, ${#mpaths[*]} entries"
-    debug "APATH=<$apaths>, ${#apaths[*]} entries"
+    debug "${#types[*]} TYPES=$types ..."
+    debug "${#mpaths[*]} MPATH=$mpaths ..."
+    debug "${#apaths[*]} APATH=$apaths ..."
     
     test -n "$types" || {
         test "${#apaths[@]}" -gt 1 &&
@@ -81,9 +74,6 @@ exit 118
         error -x 121 "no type or prototype resolved for $object"
         }
 
-    # arrays may have duplicate entries, so leave only the last such entry
-    cull_duplicate_paths
-    
     ## export thinobject variables
     export TOB_object=$object
     export TOB_method=$method
