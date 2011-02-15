@@ -1,43 +1,41 @@
 main () {
     test -n "$TOBLIB" || error -x 102 "TOBLIB is not set"
-    ## process argument list options:
-    declare path= object= method=
-    declare -a args=() types=() mpaths=() apaths=() attr=()
-    declare -i super=0
-    qry=$1 && shift
-    while test "${qry:0:1}" = -; do # handle option...
-        case $qry in
-            -q | --quiet)       QUIET=1;        opt="$opt -q" ;;
-            -v | --verbose)     VERBOSE=1;      opt="$opt -v" ;;
-            -d | --debug)       DEBUG=1;        opt="$opt -d" ;;
+    declare path= object= method= 
+    declare -a opts=() args=() types=() mpaths=() apaths=() attr=()
+    while test "${1:0:1}" = -; do # process option...
+        case $1 in
+            -q | --quiet)       QUIET=1;        opts+=(-q) ;;
+            -v | --verbose)     VERBOSE=1;      opts+=(-v) ;;
+            -d | --debug)       DEBUG=1;        opts+=(-d) ;;
             -h | --help)        exec awk '/^NAME$/,0' $0 ;;
-            -a | --arg)         args+=($1) && shift ;;
-            -m | --method)      method=$1 && shift
-                test $method || error -x 101 "no method argument" ;;
-            *) error -x 102 "unsupported option $qry" ;;
+            -a | --arg)         args+=($2) && shift ;;
+            -m | --method)      method="$2" && shift
+                                test -n "$method" ||
+                                    error -x 101 "no method argument" ;;
+            *) error -x 102 "unsupported option: $1" ;;
         esac
-        qry=$1 && shift # try again...
+        shift
     done
     
-    test -n "$qry" || error -x 103 "no object specified"
-    
-    test -n "$method" && method_option $qry "$@"  # ... will not return!
+    test -n "$method" && method_option "$@"  # ... will not return!
+    test ${#args[*]} -eq 0 ||
+        error -x 102 "--arg option used without --method option"
 
-    test ${qry/.//} = $qry && # no dot found, so exec as, i.e., self.method
-        exec $0 ..$qry "$@"
+    test -n "$DEBUG" || alias debug=\#
+
+    test -n "$1" || error -x 103 "no object specified"
+    
+    declare qry=$1 && shift # expecting: OBJECT.METHOD
+
+    # if no dot found, exec as self.method, where self is current dir
+    test ${qry#.} = $qry &&
+        exec $0 "${opts[@]}" ..$qry "$@"
 
     declare -x TOB_caller_path=$PWD
 
-    # set: path, object, method, super
+    resolve_query $qry || exit
 
-    resolve_query $qry # will set: path, object, method, super
-    return_status=$?
-
-    test -n "$DEBUG" && printf "DEBUG: %15s = %s\n" \
-        object $object      method $method \
-        super $super        type "${type[*]}" \
-        TOB_caller_path     $TOB_caller_path \
-        args1 "${args[*]}"  args2 "$*"
+    debug "object: $object" "method: $method" "args: $*" "type: ${type[*]}"
    
 exit 118
     
@@ -47,10 +45,8 @@ exit 118
     test -n "$TOB_path_to_object" ||
         error -x 119 "failed to resolve path to $object"
     
-    test -n "$DEBUG" && { # all of these should now be set:
-        warn "DEBUG: TOB_path_to_object=$TOB_path_to_object"
-        warn "DEBUG: calling: resolve_search_paths . $type"
-        }
+    debug "TOB_path_to_object: $TOB_path_to_object"
+    debug "calling: resolve_search_paths . $type"
     
     # resolve_paths() builds arrays: types and paths, recursing on mixins
     # - first of 2 args is the object, not class, may include mixins
@@ -65,11 +61,9 @@ exit 118
         resolve_search_paths . $type
     fi
 
-    test -n "$DEBUG" && { # all of these should now be set:
-        warn "DEBUG: TYPES=<$types>,    ${#types[*]} entries"
-        warn "DEBUG: MPATH=<$mpaths>, ${#mpaths[*]} entries"
-        warn "DEBUG: APATH=<$apaths>, ${#apaths[*]} entries"
-        }
+    debug "TYPES=<$types>, ${#types[*]} entries"
+    debug "MPATH=<$mpaths>, ${#mpaths[*]} entries"
+    debug "APATH=<$apaths>, ${#apaths[*]} entries"
     
     test -n "$types" || {
         test "${#apaths[@]}" -gt 1 &&
@@ -77,11 +71,9 @@ exit 118
         error -x 121 "no type or prototype resolved for $object"
         }
 
-    test -n "$DEBUG" && { # all of these should now be set:
-        warn "DEBUG: top types=<$types>,    ${#types[*]} entries"
-        warn "DEBUG: top mpaths=<$mpaths>, ${#mpaths[*]} entries"
-        warn "DEBUG: top apaths=<$apaths>, ${#apaths[*]} entries"
-        }
+    debug "top types=<$types>, ${#types[*]} entries"
+    debug "top mpaths=<$mpaths>, ${#mpaths[*]} entries"
+    debug "top apaths=<$apaths>, ${#apaths[*]} entries"
     
     test "$types" || {
         test "${#apaths[@]}" -gt 1 &&
@@ -113,11 +105,9 @@ exit 118
     export TOB_type="${types[*]}"
     IFS="$save_IFS"
     
-    test -n "$DEBUG" && {
-        warn "DEBUG: TOB_search_paths=$TOB_search_paths"
-        warn "DEBUG: TOB_method_paths=$TOB_method_paths"
-        warn "DEBUG: TOB_type=$TOB_type"
-        }
+    debug "TOB_type: $TOB_type"
+    debug "TOB_search_paths: $TOB_search_paths"
+    debug "TOB_method_paths: $TOB_method_paths"
     
     for envar in "${attr[@]}"; do
         tag=${envar%%=*}
@@ -151,7 +141,7 @@ exit 118
         ## ASSERT: class exists
         test -e $path/_default && {
             test -x $path/_default && {
-              # warn "DEBUG tob: exec $path/_default $TOB_object $TOB_method $*"
+                debug "tob: exec $path/_default $TOB_object $TOB_method $*"
                 exec $path/_default $TOB_method "$@"
                 }
             ## ASSERT: _default exists but is not executable
