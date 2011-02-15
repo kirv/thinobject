@@ -23,6 +23,8 @@
 
 #< TOB-get-attribute
 
+#< method-option
+
 #< main
 
 main "$@"

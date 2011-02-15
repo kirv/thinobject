@@ -1,124 +1,68 @@
 main () {
-    test -n "$TOBLIB" || error --exit 102 "TOBLIB is not set"
+    test -n "$TOBLIB" || error -x 102 "TOBLIB is not set"
     ## process argument list options:
-    unset method
-    arg=$1 && shift
-    while test "${arg:0:1}" = -; do # handle option...
-        case $arg in
+    declare path= object= method=
+    declare -a args=() types=() mpaths=() apaths=() attr=()
+    declare -i super=0
+    qry=$1 && shift
+    while test "${qry:0:1}" = -; do # handle option...
+        case $qry in
             -q | --quiet)       QUIET=1;        opt="$opt -q" ;;
             -v | --verbose)     VERBOSE=1;      opt="$opt -v" ;;
             -d | --debug)       DEBUG=1;        opt="$opt -d" ;;
             -h | --help)        exec awk '/^NAME$/,0' $0 ;;
-            -a | --arg)         args="$args $1" && shift ;;
+            -a | --arg)         args+=($1) && shift ;;
             -m | --method)      method=$1 && shift
-                test $method || error --exit 101 "no method argument" ;;
-            *) error --exit 102 "unsupported option $arg" ;;
+                test $method || error -x 101 "no method argument" ;;
+            *) error -x 102 "unsupported option $qry" ;;
         esac
-        arg=$1 && shift # try again...
+        qry=$1 && shift # try again...
     done
     
-    test -z "$arg" && error --exit 103 "no object specified"
+    test -n "$qry" || error -x 103 "no object specified"
     
-    test $method && { ## dispatch method from -m or --method option on objects:
-        while [ $arg ]; do
-            if [ ${arg/=} != $arg ]; then # tag=value form detected
-                args="$args $arg"
-            else
-                test $VERBOSE &&
-                    echo $0 $opt $arg.$method $args
-                $0 $opt $ob.$method $args ||
-                    error --exit 104 "failed in $arg.$method"
-            fi
-            arg=$1 && shift
-        done
-        exit
-        }
-    
-    test ${arg/.//} = $arg && # no dot found, so exec as ..method in 'self' object
-        exec $0 ..$arg "$@"
-    
-    ## parse the method and object from the object.method specification:
-    TOB_method=${arg##*.}
-    TOB_object=${arg%.*}
-    
-    ## count and remove 'super' modifier(s) if at end of object:
-    declare -i super=0
-    while test "${TOB_object: -6}" = ".super"; do
-        TOB_object=${TOB_object%.super}
-        super+=1
-    done
+    test -n "$method" && method_option $qry "$@"  # ... will not return!
 
-    test -n "$TOB_object" ||
-        error --exit 105 "no object parsed from $arg with method $TOB_method"
-    
-    test -n "$TOB_method" ||
-        error --exit 106 "no method parsed from $arg, object $TOB_object"
-    
-    ## resolve_object() may change directories, so store caller's location:
-    TOB_caller_path=$PWD
+    test ${qry/.//} = $qry && # no dot found, so exec as, i.e., self.method
+        exec $0 ..$qry "$@"
 
-    test -n "$DEBUG" && { # all of these should now be set:
-        warn "DEBUG: TOB_object=$TOB_object"
-        warn "DEBUG: TOB_method=$TOB_method"
-        warn "DEBUG: super count: $super"
-        warn "DEBUG: TOB_caller_path=$TOB_caller_path"
-        warn "DEBUG: args1='$args' args2='$*'"
-        }
-    
-    declare -a types=() mpaths=() apaths=() attr=()
+    declare -x TOB_caller_path=$PWD
 
-    # resolve_object() should set TOB_type, TOB_path_to_object
-    resolve_object $TOB_object
+    # set: path, object, method, super
+
+    resolve_query $qry # will set: path, object, method, super
     return_status=$?
-  # warn "RESOLVE_OBJECT($TOB_object) returned $return_status, type $TOB_type"
-    case $return_status in
-    1)  error --exit 111 failed to cd to $TOB_object at $TOB_path_to_object ;;
-    2)  error --exit 112 $TOB_object at $TOB_path_to_object is $TOB_type ;;
-    3)  error --exit 113 broken symlink: $TOB_object at $TOB_path_to_object ;;
-    4)  error --exit 114 no $TOB_object type at $TOB_path_to_object ;;
-    6)  test -z "$TOBLIB_NOT_OBJECT" ||
-            error --exit 116 failed to resolve $TOB_object
-        # ok to try to resolve tob library class as object
-      # warn "TRY TO RESOLVE library class as object"
-        # first dot-delimited element must exist as a directory
-        prefix=${TOB_object%%.*}
-        for toblib in $TOBLIB; do
-            test -d $toblib/$prefix/ || continue
-            exec $0 $toblib/$TOB_object.$TOB_method 
-            # to fix: the above exec call is missing args...
-        done
-        error --exit 117 failed to resolve $TOB_object
-        ;;
-    esac
 
+    test -n "$DEBUG" && printf "DEBUG: %15s = %s\n" \
+        object $object      method $method \
+        super $super        type "${type[*]}" \
+        TOB_caller_path     $TOB_caller_path \
+        args1 "${args[*]}"  args2 "$*"
+   
+exit 118
+    
     ## a couple of assertion checks, probably redundant:
-    test -n "$TOB_type" ||
-        error --exit 118 failed to resolve $TOB_object type
+    test -n "$type" ||
+        error -x 118 "failed to resolve $object type"
     test -n "$TOB_path_to_object" ||
-        error --exit 119 failed to resolve path to $TOB_object
+        error -x 119 "failed to resolve path to $object"
     
     test -n "$DEBUG" && { # all of these should now be set:
-        warn "DEBUG: TOB_type=$TOB_type"
         warn "DEBUG: TOB_path_to_object=$TOB_path_to_object"
-        warn "DEBUG: calling: resolve_search_paths . $TOB_type"
+        warn "DEBUG: calling: resolve_search_paths . $type"
         }
     
     # resolve_paths() builds arrays: types and paths, recursing on mixins
     # - first of 2 args is the object, not class, may include mixins
     # - types array is 1:1 with path after skipping paths[0]
-    declare -a types=() mpaths=() apaths=()
     if test -n "${attr[*]}"; then
-        unset attr[0]   # this is TOB_type, any other entries are envars
-      # warn "CASE 1: resolve_search_paths $TOB_type"
-        resolve_search_paths $TOB_type
-      # warn "TYPES:  <${types[@]}>"
-      # warn "APATHS: <${apaths[@]}>"
-      # warn "MPATHS: <${mpaths[@]}>"
-        TOB_object=$TOB_path_to_object
+        unset attr[0]   # this is type, any other entries are envars
+        resolve_search_paths $type
+        object=$TOB_path_to_object
     else
       # warn "CASE 2"
-        unset attr[0]   # this is TOB_type, any other entries are envars
-        resolve_search_paths . $TOB_type
+        unset attr[0]   # this is type, any other entries are envars
+        resolve_search_paths . $type
     fi
 
     test -n "$DEBUG" && { # all of these should now be set:
@@ -129,8 +73,8 @@ main () {
     
     test -n "$types" || {
         test "${#apaths[@]}" -gt 1 &&
-            error --exit 120 prototype but no type resolved for $TOB_object
-        error --exit 121 no type or prototype resolved for $TOB_object
+            error -x 120 "prototype but no type resolved for $object"
+        error -x 121 "no type or prototype resolved for $object"
         }
 
     test -n "$DEBUG" && { # all of these should now be set:
@@ -141,17 +85,17 @@ main () {
     
     test "$types" || {
         test "${#apaths[@]}" -gt 1 &&
-            error --exit 120 prototype but no type resolved for $TOB_object
-        error --exit 121 no type or prototype resolved for $TOB_object
+            error -x 120 "prototype but no type resolved for $object"
+        error -x 121 "no type or prototype resolved for $object"
         }
 
     # arrays may have duplicate entries, so leave only the last such entry
     cull_duplicate_paths
     
     ## export thinobject variables
-    export TOB_object
-    export TOB_method
-    export TOB_type
+    export TOB_object=$object
+    export TOB_method=$method
+    export TOB_type=$type
     export TOB_class_path
     export TOB_caller_path
     export TOB_caller_path_to_object=$TOB_path_to_object
@@ -183,7 +127,7 @@ main () {
     done
     
     resolve_method_path $TOB_method &&
-        exec $TOB_method_path $args "$@"
+        exec $TOB_method_path "${args[@]}" "$@"
     
     ## no executable method was resolved, so try some built-ins:
     
@@ -191,7 +135,7 @@ main () {
         test -z "$*" && echo $TOB_path_to_object/
         for arg in $*; do
             test -e $arg ||
-                error --exit 121 $arg not found
+                error -x 121 "$arg not found"
             echo $TOB_path_to_object/$arg
         done
         exit
@@ -212,9 +156,9 @@ main () {
                 }
             ## ASSERT: _default exists but is not executable
             ## maybe it can contain a recipe to be executed?
-            error --exit 122 'non-executable _default "method" found'
+            error -x 122 "non-executable _default method found"
             }
     done
     
-    error --exit 123 "no method $TOB_method found"
+    error -x 123 "no method $TOB_method found"
     } # end main()

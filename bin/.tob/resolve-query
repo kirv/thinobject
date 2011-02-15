@@ -1,0 +1,62 @@
+resolve_object () { # try to resolve path, object, type, and method from query
+  # echo "QUERY: $1"
+    local -a query=${1//\//\/.}         # substitute /. for /
+    query=(${query//./ })               # split on dot into array
+  # echo "QUERY: ${query[*]}"
+    test ${query:0:1} = / && path='' || path=.
+    local -i i p=0 n=${#query[*]}
+    for (( i=0; i<n; i+=1 )); do 
+        dir="${query[*]:i-p:p+1}"       # p previous elements + element i
+        dir=${dir// /.}                 # change "a b" to "a.b"
+        test -d $path/$dir && path+=/$dir && p=0 && continue
+        test ${dir: -1:1} = / && return 1
+        test -d $path/.$dir && path+=/.$dir && p=0 && continue
+        p+=1
+    done
+    i=n-p  # i now points to element past path portion, i.e., the object
+
+  # echo " PATH: $path"
+  # echo "    i: $i"
+
+    # existing attribute search path is useful only if path is .
+    test -n "${apaths[*]}" -a $path != . && apaths=()
+
+    test -n "${apaths[*]}" || resolve_search_paths $path || {
+        test $? -eq 1 && return 1
+        }
+
+    # work back from all-object + no-method to no-object + all-method
+    # m will start at the last query element, then decrement on each pass
+    # object is extracted from query[i] to query[m]
+    local -i m
+    for (( m=n-1; m>=i; m+=-1 )); do
+        # index m points to last element of object in query
+        object="${query[*]:i:m-i+1}"
+        object=${object// /.}
+      # echo "RESOLVE_DECLARATION $path $object ... is it an object?"
+        resolve_declaration $path $object && {
+            # success, so what is the method...?
+            method="${query[*]:m+1}"
+            method=${method// /.}
+            test -n "$method" || method=default
+          # printf "%s\t%s\n" CASE A PATH $path  TYPE "${type[*]}"  OBJECT $object  METHOD "<$method>"
+            break
+            }
+    done
+
+    return
+
+    # if $path itself is a dir object with a ^ link, we're done:
+    test -L $path/^ -o -L $path/.^ && {
+        type=$(readlink $path/^ || readlink $path/.^)
+      # echo LINK in $path for TYPE $type
+        method="${query[*]:i}"
+        method="${method// /.}"
+      # printf "%s\t%s\n" CASE B PATH $path  TYPE "$type"  METHOD $method
+        cd $path || return 2
+        TOB_path_to_object=$path
+        TOB_method=$method
+        }
+
+    }
+
