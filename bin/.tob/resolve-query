@@ -1,11 +1,14 @@
-resolve_object () { # try to resolve path, object, type, and method from query
-  # echo "QUERY: $1"
-    local -a query=${1//\//\/.}         # substitute /. for /
+resolve_query () { # try to resolve path, object, type, and method from query
+    debug "QUERY $1"
+    local -a query=${1//\//\/.}         # change all / to /. for splitting ...
+    debug "QUERY ${query[@]}"
     query=(${query//./ })               # split on dot into array
-  # echo "QUERY: ${query[*]}"
+    debug "QUERY ${query[@]}"
     test ${query:0:1} = / && path='' || path=.
-    local -i i p=0 n=${#query[*]}
-    for (( i=0; i<n; i+=1 )); do 
+    local -i i p=0 n=${#query[*]} m=n-1
+    debug "n $n" "m $m"
+    # analyze query from left to identify directories in variable path:
+    for (( i=0; i<m; i+=1 )); do 
         dir="${query[*]:i-p:p+1}"       # p previous elements + element i
         dir=${dir// /.}                 # change "a b" to "a.b"
         test -d $path/$dir && path+=/$dir && p=0 && continue
@@ -13,46 +16,52 @@ resolve_object () { # try to resolve path, object, type, and method from query
         test -d $path/.$dir && path+=/.$dir && p=0 && continue
         p+=1
     done
-    i=n-p  # i now points to element past path portion, i.e., the object
+    # set o to point to element just past path portion, the object + method:
+    o=n-p
 
-  # echo " PATH: $path"
-  # echo "    i: $i"
+    # if o=m, then this directory is an anonymous object, no name
+    # if $path itself is a dir object with a ^ link, we're done:
+    test $o -eq $m && test -L $path/^ -o -L $path/.^ && {
+        type=$(readlink $path/^ || readlink $path/.^)
+        method="${query[*]:o}"
+        method="${method// /.}"
+        cd $path || return 2
+        TOB_path_to_object=$path
+        TOB_method=$method
+        }
 
     # existing attribute search path is useful only if path is .
     test -n "${apaths[*]}" -a $path != . && apaths=()
 
+    # look for object or .object in the attribute search paths for path:
+    # obtain attribute search paths for the query path object:
     test -n "${apaths[*]}" || resolve_search_paths $path || {
         test $? -eq 1 && return 1
         }
 
-    # work back from all-object + no-method to no-object + all-method
+    # work right to left from all-object + no-method to no-object + all-method
     # m will start at the last query element, then decrement on each pass
-    # object is extracted from query[i] to query[m]
+    # object is extracted from query[o] to query[m], using dot separator
     local -i m
-    for (( m=n-1; m>=i; m+=-1 )); do
+    for (( m=n-1; m>=o; m+=-1 )); do
         # index m points to last element of object in query
-        object="${query[*]:i:m-i+1}"
+        object="${query[*]:o:m-o+1}"
         object=${object// /.}
-      # echo "RESOLVE_DECLARATION $path $object ... is it an object?"
         resolve_declaration $path $object && {
             # success, so what is the method...?
             method="${query[*]:m+1}"
             method=${method// /.}
             test -n "$method" || method=default
-          # printf "%s\t%s\n" CASE A PATH $path  TYPE "${type[*]}"  OBJECT $object  METHOD "<$method>"
-            break
+            TOB_path_to_object=$path
+            return
             }
     done
-
-    return
 
     # if $path itself is a dir object with a ^ link, we're done:
     test -L $path/^ -o -L $path/.^ && {
         type=$(readlink $path/^ || readlink $path/.^)
-      # echo LINK in $path for TYPE $type
-        method="${query[*]:i}"
+        method="${query[*]:o}"
         method="${method// /.}"
-      # printf "%s\t%s\n" CASE B PATH $path  TYPE "$type"  METHOD $method
         cd $path || return 2
         TOB_path_to_object=$path
         TOB_method=$method

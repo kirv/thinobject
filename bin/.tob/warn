@@ -1,3 +1,4 @@
 warn () {
-    test -z "$QUIET" && printf "%s\n" "$@" >&2
+    test -n "$QUIET" && return
+    printf "%s\n" "$@" >&2
     }

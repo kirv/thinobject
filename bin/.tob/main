@@ -1,7 +1,7 @@
 main () {
     test -n "$TOBLIB" || error -x 102 "TOBLIB is not set"
     declare path= object= method= 
-    declare -a opts=() args=() types=() mpaths=() apaths=() attr=()
+    declare -a opts=() args=() types=() mpaths=() apaths=() envars=()
     while test "${1:0:1}" = -; do # process option...
         case $1 in
             -q | --quiet)       QUIET=1;        opts+=(-q) ;;
@@ -16,32 +16,33 @@ main () {
         esac
         shift
     done
-    
+    test -n "$DEBUG" || alias debug=\#
+
     test -n "$method" && method_option "$@"  # ... will not return!
+
     test ${#args[*]} -eq 0 ||
         error -x 102 "--arg option used without --method option"
 
-    test -n "$DEBUG" || alias debug=\#
-
     test -n "$1" || error -x 103 "no object specified"
     
-    declare qry=$1 && shift # expecting: OBJECT.METHOD
+    declare qry=$1 && shift # expecting OBJECT.METHOD
 
-    # if no dot found, exec as self.method, where self is current dir
+    # if no dot is found, exec as self.method, where self is current dir
     test ${qry#.} = $qry &&
         exec $0 "${opts[@]}" ..$qry "$@"
 
     declare -x TOB_caller_path=$PWD
 
-    resolve_query $qry || exit
+    resolve_query $qry
+    result=$?
 
     debug "path: $path" "object: $object" "method: $method" "args: $*"
-    debug "type: ${type[*]}"
+    debug "type and envars:" ${type[*]}
    
-exit 118
-    
     debug "TOB_path_to_object: $TOB_path_to_object"
     
+    types=() mpaths=() apaths=() envars=()
+
     # resolve_search_paths() builds arrays: types and paths, recursing on mixins
     # - first of 2 args is the object, not class, may include mixins
     # - types array is 1:1 with path after skipping paths[0]
@@ -54,9 +55,9 @@ exit 118
         resolve_search_paths . $type
     fi
 
-    debug "${#types[*]} TYPES=$types ..."
-    debug "${#mpaths[*]} MPATH=$mpaths ..."
-    debug "${#apaths[*]} APATH=$apaths ..."
+    debug "${#types[*]} TYPES:" "${types[@]}"
+    debug "${#mpaths[*]} MPATHS:" "${mpaths[@]}"
+    debug "${#apaths[*]} APATHS:" "${apaths[@]}"
     
     test -n "$types" || {
         test "${#apaths[@]}" -gt 1 &&
@@ -64,10 +65,6 @@ exit 118
         error -x 121 "no type or prototype resolved for $object"
         }
 
-    debug "top types=<$types>, ${#types[*]} entries"
-    debug "top mpaths=<$mpaths>, ${#mpaths[*]} entries"
-    debug "top apaths=<$apaths>, ${#apaths[*]} entries"
-    
     test "$types" || {
         test "${#apaths[@]}" -gt 1 &&
             error -x 120 "prototype but no type resolved for $object"
@@ -95,10 +92,6 @@ exit 118
     export TOB_type="${types[*]}"
     IFS="$save_IFS"
     
-    debug "TOB_type: $TOB_type"
-    debug "TOB_search_paths: $TOB_search_paths"
-    debug "TOB_method_paths: $TOB_method_paths"
-    
     for envar in "${attr[@]}"; do
         tag=${envar%%=*}
         test $tag = $envar && continue
@@ -106,13 +99,16 @@ exit 118
         export $tag=$val
     done
     
-    resolve_method_path $TOB_method &&
+    resolve_method_path $TOB_method && {
+        debug "exec $TOB_method_path ${args[*]} $*"
         exec $TOB_method_path "${args[@]}" "$@"
+        }
     
     ## no executable method was resolved, so try some built-ins:
     
     test $TOB_method = path && {
         test -z "$*" && echo $TOB_path_to_object/
+        # list the path to any arguments found in the object:
         for arg in $*; do
             test -e $arg ||
                 error -x 121 "$arg not found"
