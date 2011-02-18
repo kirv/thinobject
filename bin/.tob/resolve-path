@@ -1,0 +1,12 @@
+resolve_path () { # try to resolve path in query, starting at index o
+    local -i i, p=0
+    for (( i=o; i<m; i+=1 )); do 
+        dir="${query[*]:i-p:p+1}"       # p previous elements + element i
+        dir=${dir// /.}                 # change "a b" to "a.b"
+        test -d $path/$dir && path+=/$dir && p=0 && continue
+        test ${dir: -1:1} = / && return 1
+        test -d $path/.$dir && path+=/.$dir && p=0 && continue
+        p+=1
+    done
+    o=$((${#query[*]}-p)) # index o points beyond path to object.method
+    }
