@@ -6,15 +6,38 @@ main () {
 
     test -n "$1" || error -x 103 "no object specified"
     
-    declare qry=$1 && shift # expecting OBJECT.METHOD
+    TOB_query=$1 && shift # expecting OBJECT.METHOD
 
-    test ${qry/./} = $qry &&    # assume method of current dir object if no dot
-        qry=..$qry
+    test ${TOB_query/./} = $TOB_query &&  # no object, so assume self object
+        TOB_query=..$TOB_query
     
     declare -x TOB_caller_path=$PWD
 
-    resolve_query $qry
-    result=$?
+    declare -a TOB_query=${1//\//\/.}   # change all / to /. for splitting
+    query=(${query//./ })               # split on dot into array
+    test ${query:0:1} = / && path='' || path=.
+    declare -i m=$((${#query[*]}-1)) o=0
+
+    resolve_query_path ||   # set path, leave o pointing to next element
+        error -x 1 "failed to resolve path from query after $path"
+
+    test $o -eq $m &&
+        resolve_anonymous_object || {
+            test $? .eq 2 && 
+                error -x 2 "failed to cd into anonymous object at path $path"
+            cd -  # restore original working dir
+            query+=(default)
+            m+=1
+            }
+
+    # assert: o<m
+
+    # we could look for shadow objects, but that should happen with apaths
+
+    resolve_named_object
+
+
+
 
     
     types=() mpaths=() apaths=() envars=()
@@ -37,11 +60,6 @@ main () {
         error -x 121 "no type or prototype resolved for $object"
         }
 
-    test "$types" || {
-        test "${#apaths[@]}" -gt 1 &&
-            error -x 120 "prototype but no type resolved for $object"
-        error -x 121 "no type or prototype resolved for $object"
-        }
 
     ## export thinobject variables
     export TOB_object=$object

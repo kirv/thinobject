@@ -1,34 +1,4 @@
-resolve_query () { # try to resolve path, object, type, and method from query
-    debug "QUERY $1"
-    local -a query=${1//\//\/.}         # change all / to /. for splitting ...
-    debug "QUERY ${query[@]}"
-    query=(${query//./ })               # split on dot into array
-    debug "QUERY ${query[@]}"
-    test ${query:0:1} = / && path='' || path=.
-    local -i i p=0 n=${#query[*]} m=n-1
-    debug "n $n" "m $m"
-    # analyze query from left to identify directories in variable path:
-    for (( i=0; i<m; i+=1 )); do 
-        dir="${query[*]:i-p:p+1}"       # p previous elements + element i
-        dir=${dir// /.}                 # change "a b" to "a.b"
-        test -d $path/$dir && path+=/$dir && p=0 && continue
-        test ${dir: -1:1} = / && return 1
-        test -d $path/.$dir && path+=/.$dir && p=0 && continue
-        p+=1
-    done
-    # set o to point to element just past path portion, the object + method:
-    o=$((n-p))
-
-    # if o=m, then this directory is an anonymous object, no name
-    # if $path itself is a dir object with a ^ link, we're done:
-    test $o -eq $m && test -L $path/^ -o -L $path/.^ && {
-        type=$(readlink $path/^ || readlink $path/.^)
-        method="${query[*]:o}"
-        method="${method// /.}"
-        cd $path || return 2
-        TOB_path_to_object=$path
-        TOB_method=$method
-        }
+resolve_named_object () {
 
     # existing attribute search path is useful only if path is .
     test -n "${apaths[*]}" -a $path != . && apaths=()
