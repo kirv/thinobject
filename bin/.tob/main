@@ -20,27 +20,25 @@ main () {
 
     while test ! -n "$method"; do
 
-        # set path, leave o pointing to next element
+        # set path, leave o pointing to next element, or fail:
         resolve_path ||
-            error -x 1 "failed to resolve path from query after $path"
+            error -x 1 "failed to resolve path from $TOB_query after $path"
     
         if test $o -eq $m; then
-            resolve_anonymous_object || {
-                test $? .eq 2 && 
-                    error -x 2 "failed to cd into anonymous object at path $path"
-                cd -  # restore original working dir
-                }
-    
-        test -n "$method" || {
-    
-            # assert: o<m
-        
-            # we could look for shadow objects, but that should happen with apaths
-        
-            resolve_named_object
-    
-            }
-        
+            resolve_anonymous_object && break
+            test $? .eq 2 && 
+                error -x 2 "failed to cd into anonymous object at path $path"
+            cd -  # restore original working dir
+        else
+            test $path != . && apaths=()
+            test -n "$apaths" ||
+                resolve_attr_search_paths $path ||
+                    apaths=(.)
+            resolve_named_object && break
+        fi
+
+        # assert: method has not been set from ob.m so try ob.m.default...
+
         test -n "tried_default" &&
             error -x 3 "failed to resolve object.method from query"
 
@@ -48,7 +46,6 @@ main () {
         m+=1
         tried_default=1
     done 
-
 
     
     types=() mpaths=() apaths=() envars=()

@@ -1,11 +1,23 @@
 resolve_named_object () {
 
     # existing attribute search path is useful only if path is .
+
+
+    # look for object or .object in the attribute search paths for path:
+    # obtain attribute search paths for the query path object:
+
+    test $path != . && apaths=()
+    test -n "${apaths[*]}" || resolve_attr_search_paths $path || {
+        test $? -eq 1 && return 1
+        }
+
+
+    # existing attribute search path is useful only if path is .
     test -n "${apaths[*]}" -a $path != . && apaths=()
 
     # look for object or .object in the attribute search paths for path:
     # obtain attribute search paths for the query path object:
-    test -n "${apaths[*]}" || resolve_search_paths $path || {
+    test -n "${apaths[*]}" || resolve_attr_search_paths $path || {
         test $? -eq 1 && return 1
         }
 
