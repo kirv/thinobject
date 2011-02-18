@@ -1,5 +1,5 @@
 TOB_resolve_method_path () {
-    test $1 = --super && super=1 && shift || unset super
+    test "$1" = --super && super=1 && shift || unset super
     local method=$1
     for path in ${TOB_method_paths//:/ }; do
         test -x $path/$method && {

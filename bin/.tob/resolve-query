@@ -17,7 +17,7 @@ resolve_query () { # try to resolve path, object, type, and method from query
         p+=1
     done
     # set o to point to element just past path portion, the object + method:
-    o=n-p
+    o=$((n-p))
 
     # if o=m, then this directory is an anonymous object, no name
     # if $path itself is a dir object with a ^ link, we're done:

@@ -1,12 +1,14 @@
 resolve_search_paths () { # resolve (proto)type(s) into types[], apaths[], mpaths[]
+    local path target
     local type=$1 && shift
-  # warn " " "    RESOLVE: $type"
-    local path
     shopt -s nullglob
     while test -n "$type"; do
-      # warn "        CHECKING: $type"
-        if test -d "$type"; then
-            # ... a 'prototype' only provides attributes, not methods
+        test -L $type && {
+            target=$(readlink $type)
+            test -d $type -a ! -d $target && target=${type%/*}/$target
+            type=$target
+            }
+        if test -d "$type"; then # 'prototype' provides attributes, not methods
             path=$type
             apaths+=($path)
         else
@@ -16,30 +18,13 @@ resolve_search_paths () { # resolve (proto)type(s) into types[], apaths[], mpath
             mpaths+=($path)
         fi
         unset type
-      # warn PATH: $path
-
-        for mixin in $path/{,.}^?*; do # ... e.g., ^Cron or .^settings, etc.
-          # warn MIXIN: $mixin
-            test -z "$TOB_NO_MIXINS" || break
-            test -L $mixin || continue # ... skip if not a symlink
-
-            if test -d $mixin; then # ... prototype object
-                mixin=$(readlink $mixin)
-                if test ${mixin:0:1} = /; then # ... absolute path
-                    resolve_search_paths $mixin
-                else
-                    resolve_search_paths $path/$mixin
-                fi
-            else # does not resolve, so assume it's a type
-                resolve_search_paths $(readlink $mixin)
-            fi
+        for mixin in $path/{,.}^?*; do # ^Cron, .^settings, etc.
+            test -L $mixin && resolve_search_paths $mixin
         done
-
         test -n "$1" && type=$1 && shift && continue # ... use arg for type
-        test -L $path/^ && type=$(readlink $path/^)
-        test -L $path/.^ && type=$(readlink $path/.^)
+        test -L $path/^ && type=$path/^ && continue
+        test -L $path/.^ && type=$path/.^
     done
-    cull_duplicate_paths
     test -n "$apaths[*]" || return 1
     test -n "$mpaths[*]" || return 2
     }
