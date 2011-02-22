@@ -17,6 +17,6 @@ resolve_query() {
     test -n "$apaths" || resolve_attr_search_paths $path ||
         apaths=(.)
     resolve_named_object
-
+    apaths=()
     }
 
