@@ -83,12 +83,12 @@ main () {
 
     ## show exported variables as methods
     case $method in
-        type) echo $type && exit;;
-        query) echo $query && exit;;
-        types) printf "%s\n" "${types[@]}" && exit;;
-        search-paths) printf "%s\n" "${apaths[@]}" && exit;;
-        method-paths) printf "%s\n" "${mpaths[@]}" && exit;;
-        envars) echo $envars && exit;;
+        type)           echo $type && exit;;
+        query)          echo $query && exit;;
+        envars)         printf "%s\n" "${envars[@]}" && exit;;
+        types)          printf "%s\n" "${types[@]}" && exit;;
+        search-paths)   printf "%s\n" "${apaths[@]}" && exit;;
+        method-paths)   printf "%s\n" "${mpaths[@]}" && exit;;
     esac
 
     ## no method was found, so check for _default method...
