@@ -85,6 +85,7 @@ main () {
     case $method in
         type)           echo $type && exit;;
         query)          echo $query && exit;;
+        object)         echo $object && exit;;
         envars)         printf "%s\n" "${envars[@]}" && exit;;
         types)          printf "%s\n" "${types[@]}" && exit;;
         search-paths)   printf "%s\n" "${apaths[@]}" && exit;;

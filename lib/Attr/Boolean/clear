@@ -1,0 +1,25 @@
+#!/bin/bash
+
+synopsis="Attr/Boolean.clear -- same as 'Attr/Boolean.set false'"
+
+test -n "$1" && {
+    echo "invalid value: $1, must be true or false" >&2
+    exit 2
+    }
+
+rm -f $TOB_object
+
+exit
+    
+NAME
+    Attr/Boolean.clear -- set boolean attribute to false value
+
+SYNOPSIS
+    Attr/Boolean.clear
+
+DESCRIPTION
+    Remove a file named for the object.
+
+AUTHOR
+    ken.irving@alaska.edu (c) 2011
+

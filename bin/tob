@@ -148,13 +148,17 @@ resolve_named_object () {
     while (( o < m )); do
         object="${q[*]:o:m-o}"
         object=${object// /.}
-        resolve_declaration $path $object || { m+=-1; continue; }
+        resolve_declaration $path $object || {
+            m+=-1
+            continue
+            }
+        object=$path/$object
         method="${q[*]:m}"
         method=${method// /.}
         return
     done
     object="${q[*]:o}"
-    object=${object// /.}
+    object=$path/${object// /.}
     errmsg+=("    object.method not parsed from $path + $object")
     return 1
     }
@@ -395,6 +399,7 @@ main () {
     case $method in
         type)           echo $type && exit;;
         query)          echo $query && exit;;
+        object)         echo $object && exit;;
         envars)         printf "%s\n" "${envars[@]}" && exit;;
         types)          printf "%s\n" "${types[@]}" && exit;;
         search-paths)   printf "%s\n" "${apaths[@]}" && exit;;
