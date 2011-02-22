@@ -7,10 +7,15 @@ order=(shebang
     warn
     error
     debug
+    parse-query
+    resolve-query
+    resolve-path
+    resolve-anonymous-object
+    resolve-named-object
     resolve-library
+    resolve-attr-search-paths
     resolve-search-paths
     resolve-declaration
-    resolve-query
     cull-duplicate-paths
     resolve-method-path
     TOB-resolve-method-path

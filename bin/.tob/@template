@@ -7,6 +7,14 @@
 
 #< get-type
 
+#< parse-query
+
+#< resolve-query
+
+#< resolve-anonymous-object
+
+#< resolve-named-object
+
 #< resolve-library
 
 #< resolve-search-paths

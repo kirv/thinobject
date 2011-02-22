@@ -17,16 +17,20 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 warn () {
+    # synopsis: warn "ONE-LINE-PER-ARGUMENT" -> then output errmsg[] lines
     test -n "$QUIET" && return
+    printf "?: %s\n" "${errmsg[@]}" >&2
     printf "%s\n" "$@" >&2
     }
+export -f warn
+declare -ax errmsg
 
 error () {
     # synopsis: error [-x N] OUTPUT_LINE ...
-    local -i n=1
-    test "$1" = -x && n=$2 && shift 2
+    test "$1" = -x && x=$2 && shift 2 || x=1
+    errmsg+=("exit $x from $0 ${FUNCNAME[1]}()")
     warn "$@"
-    exit $n
+    exit $x
     }
 export -f error
 
@@ -36,11 +40,156 @@ debug () {
     printf "\t%s\n" "$@" >&2
     }
 
+parse_query() {
+    # synopsis: parse_query QUERY -> set q[], o and m indices
+    errmsg+=("$FUNCNAME($*)")
+    test -n "$1" ||
+        error -x 13 "missing required object.method query"
+    q[0]=$1
+    test ${q/./} = $q && q=..$q     # assume self object
+    q[1]="${q//\///.}"             # change all / to /. for splitting
+    q+=(${q[1]//./ })               # split on dot into array
+    o=2                             # o points to start of parsed query
+    m=$((${#q[*]}-1))               # m points to method
+    test ${q:0:1} = / || path=.
+  # errmsg+=("    $q" "    q[1]: ${q[1]}" "    q[2]: ${q[*]:2}")
+    }
+
+
+resolve_query() {
+    # synopsis: resolve_query -> use q[], set path, set o beyond path
+    errmsg+=("$FUNCNAME($*)")
+    resolve_path || {
+        local -i rtnval=$?
+        errmsg+=("$FUNCNAME(): unable to resolve path for $q")
+        return $rtnval
+        }
+
+    test $o -eq $m && {
+        resolve_anonymous_object
+        return
+        }
+
+    test $path = . -a -n "$TOB_search_paths" &&
+        apaths=(${TOB_search_paths[@]})
+    test -n "$apaths" || resolve_attr_search_paths $path ||
+        apaths=(.)
+    resolve_named_object
+
+    }
+
+
+resolve_path () { # try to resolve path in query, starting at index o
+
+    errmsg+=("$FUNCNAME($*)")
+
+    local -i p=0
+
+    while (( o+p < m )); do
+        dir="${q[*]:o:p+1}"
+        dir=${dir// /.}                 # change "a b" to "a.b"
+      # errmsg+=("    o: $o, p: $p, try: $dir")
+        test -d $path/$dir && {
+            path+=/$dir 
+          # errmsg+=("          path: $path")
+            o+=$((p+1))
+            p=0 
+            continue
+            }
+
+        test ${dir: -1:1} = / &&  # trailing / means: directory or fail
+            error -x 15 "$FUNCNAME(): directory $path/$dir not found"
+
+        test -d $path/.$dir && {
+            path+=/.$dir 
+          # errmsg+=("          path: $path")
+            o+=$((p+1))
+            p=0 
+            continue
+            }
+          # errmsg+=("          ... failed")
+        p+=1
+
+    done
+
+    method="${q[*]:m}"
+    object="${q[*]:o}"
+    object=${object// /.}
+    method="${q[*]:m}"
+  # errmsg+=("    q: ${q[*]:2}")
+  # errmsg+=("    o: $o")
+  # errmsg+=("    m: $m")
+  # errmsg+=("    path: $path")
+  # errmsg+=("    obj.mth: ${q[*]:o:m-o}")
+  # errmsg+=("    method: ${q[*]:m}")
+    }
+
+resolve_anonymous_object () { 
+    # synopsis: resolve_anonymous_object -- try to resolve object type at path
+    errmsg+=("$FUNCNAME($*)")
+    test -L $path/^ -o -L $path/.^ || {
+        errmsg+=("no symlink found: $path/^ or $path/.^")
+        return 1
+        }
+    type=$(readlink $path/^ || readlink $path/.^)
+    cd $path ||
+        error -x 2 "failed: cd $path/"
+
+    object=$path
+    method="${q[*]:m}"
+    method=${method// /.}
+    }
+
+resolve_named_object () {
+    # synopsis: resolve_named_object -- resolve object and its type, or fail
+    errmsg+=("$FUNCNAME($*)")
+    # move m from 
+    while (( o < m )); do
+        object="${q[*]:o:m-o}"
+        object=${object// /.}
+        resolve_declaration $path $object || { m+=-1; continue; }
+        method="${q[*]:m}"
+        method=${method// /.}
+        return
+    done
+    object="${q[*]:o}"
+    object=${object// /.}
+    errmsg+=("    object.method not parsed from $path + $object")
+    return 1
+    }
+
 resolve_library () {
     for lib in ${TOBLIB/:/ }; do
         test -d $lib/$1 && path=$lib/$1 && return
     done
     return 1
+    }
+
+resolve_attr_search_paths () { # resolve (proto)type(s) into apaths[]
+    local path target
+    local type=$1 && shift
+    shopt -s nullglob
+    while test -n "$type"; do
+        test -L $type && {
+            target=$(readlink $type)
+            test -d $type -a ! -d $target && target=${type%/*}/$target
+            type=$target
+            }
+        if test -d "$type"; then # 'prototype' provides attributes, not methods
+            path=$type
+        else
+            resolve_library $type || return 1
+        fi
+        apaths+=($path)
+        unset type
+        for mixin in $path/{,.}^?*; do # ^Cron, .^settings, etc.
+            test -L $mixin && resolve_attr_search_paths $mixin
+        done
+        test -n "$1" && type=$1 && shift && continue # ... use arg for type
+        test -L $path/^ && type=$path/^ && continue
+        test -L $path/.^ && type=$path/.^
+    done
+    test -n "$apaths[*]" || return 1
     }
 
 resolve_search_paths () { # resolve (proto)type(s) into types[], apaths[], mpaths[]
@@ -70,7 +219,6 @@ resolve_search_paths () { # resolve (proto)type(s) into types[], apaths[], mpath
         test -L $path/^ && type=$path/^ && continue
         test -L $path/.^ && type=$path/.^
     done
-    cull_duplicate_paths
     test -n "$apaths[*]" || return 1
     test -n "$mpaths[*]" || return 2
     }
@@ -91,121 +239,28 @@ resolve_declaration () {
     }
 
 
-resolve_query () { # try to resolve path, object, type, and method from query
-    debug "QUERY $1"
-    local -a query=${1//\//\/.}         # change all / to /. for splitting ...
-    debug "QUERY ${query[@]}"
-    query=(${query//./ })               # split on dot into array
-    debug "QUERY ${query[@]}"
-    test ${query:0:1} = / && path='' || path=.
-    local -i i p=0 n=${#query[*]} m=n-1
-    debug "n $n" "m $m"
-    # analyze query from left to identify directories in variable path:
-    for (( i=0; i<m; i+=1 )); do 
-        dir="${query[*]:i-p:p+1}"       # p previous elements + element i
-        dir=${dir// /.}                 # change "a b" to "a.b"
-        test -d $path/$dir && path+=/$dir && p=0 && continue
-        test ${dir: -1:1} = / && return 1
-        test -d $path/.$dir && path+=/.$dir && p=0 && continue
-        p+=1
-    done
-    # set o to point to element just past path portion, the object + method:
-    o=$((n-p))
-
-    # if o=m, then this directory is an anonymous object, no name
-    # if $path itself is a dir object with a ^ link, we're done:
-    test $o -eq $m && test -L $path/^ -o -L $path/.^ && {
-        type=$(readlink $path/^ || readlink $path/.^)
-        method="${query[*]:o}"
-        method="${method// /.}"
-        cd $path || return 2
-        TOB_path_to_object=$path
-        TOB_method=$method
-        }
-
-    # existing attribute search path is useful only if path is .
-    test -n "${apaths[*]}" -a $path != . && apaths=()
-
-    # look for object or .object in the attribute search paths for path:
-    # obtain attribute search paths for the query path object:
-    test -n "${apaths[*]}" || resolve_search_paths $path || {
-        test $? -eq 1 && return 1
-        }
-
-    # work right to left from all-object + no-method to no-object + all-method
-    # m will start at the last query element, then decrement on each pass
-    # object is extracted from query[o] to query[m], using dot separator
-    local -i m
-    for (( m=n-1; m>=o; m+=-1 )); do
-        # index m points to last element of object in query
-        object="${query[*]:o:m-o+1}"
-        object=${object// /.}
-        resolve_declaration $path $object && {
-            # success, so what is the method...?
-            method="${query[*]:m+1}"
-            method=${method// /.}
-            test -n "$method" || method=default
-            TOB_path_to_object=$path
-            return
-            }
-    done
-
-    # if $path itself is a dir object with a ^ link, we're done:
-    test -L $path/^ -o -L $path/.^ && {
-        type=$(readlink $path/^ || readlink $path/.^)
-        method="${query[*]:o}"
-        method="${method// /.}"
-        cd $path || return 2
-        TOB_path_to_object=$path
-        TOB_method=$method
-        }
-
-    }
-
-
 cull_duplicate_paths () {
-    printf "CULL_DUPLICATE+PATHS()\n"
-    printf "TYPES:\n"; printf "\t%s\n" "${types[@]}"
-    printf "MPATHS:\n"; printf "\t%s\n" "${mpaths[@]}"
-    printf "APATHS:\n"; printf "\t%s\n" "${apaths[@]}"
     local entry unique
     local -i i
     # arrays types and mpaths are 1:1, so scan types, discard from both
-    i=${#types[@]}
-    ct=$i
-    for (( ; i>=0; i-- )); do
-        entry=${types[$i]}
-        printf "\t\ttype: %s...\n" $entry
-        test "${unique/$entry/}" = "$unique" || {
-            # this entry already scanned
-            printf "\t\t\tcull: %s\n" $entry
-            unset types[$i]
-            unset mpaths[$i]
-            continue
-            }
-        unique+=" $entry"
+    for (( i=${#types[@]}-1; i>=0; i-- )); do
+        entry=${types[i]}
+        test "${unique/$entry/}" = "$unique" && unique+=" $entry" && continue
+        unset types[i]
+        unset mpaths[i]
     done
-    unique=
     # apaths array can include duplicates, so scan & discard, leaving last
-    i=${#apaths[@]}
-    ca=$i
-    for (( ; i>=0; i-- )); do
-        entry=${apaths[$i]}
-        printf "\t\tapath: %s...\n" $entry
-        test "${unique/$entry/}" = "$unique" || {
-            # this entry already scanned
-            printf "\t\t\tcull: %s\n" $entry
-            unset apaths[i]
-            printf "\t\t\t\tGONE: <%s>\n" ${apaths[$i]}
-            continue
-            }
-        unique+=" $entry"
+    apaths=("${apaths[@]}") # pack array first, though...
+    unique=
+    for (( i=${#apaths[@]}-1; i>=0; i-- )); do
+        entry=${apaths[i]}
+        test "${unique/$entry/}" = "$unique" && unique+=" $entry" && continue
+        unset apaths[i]
     done
-    printf "APATHS:\t%d to %d entries\n" $ca ${#apaths[@]}
-    printf "TYPES:\t%d to %d entries\n" $ct ${#types[@]}
     }
 
 resolve_method_path () {
+    errmsg+=("$FUNCNAME($*)")
     test "$1" = --super && super=1 && shift || unset super
     local method=$1
     for path in ${mpaths[@]}; do
@@ -221,6 +276,7 @@ resolve_method_path () {
 
 
 TOB_resolve_method_path () {
+    # synopsis: TOB_resolve_method_path [--super] METHOD -> set TOB_method_path
     test "$1" = --super && super=1 && shift || unset super
     local method=$1
     for path in ${TOB_method_paths//:/ }; do
@@ -232,6 +288,8 @@ TOB_resolve_method_path () {
     done
     return 1
     }
+export -f TOB_resolve_method_path
+
 
 TOB_get_attr () {
     # set variable 'attr' to attribute value(s), or return false
@@ -247,26 +305,39 @@ TOB_get_attr () {
     done
     return 1
     }
+export -f TOB_get_attr
 
 main () {
-    test -n "$TOBLIB" || error -x 102 "TOBLIB is not set"
+    errmsg+=("$FUNCNAME($*)")
+    while test ${1:0:1} = -; do
+        case $1 in 
+            -d)     DEBUG=1;;
+            *)  error -x 1 "unknown option $1";;
+        esac && shift
+    done
+    test -n "$TOBLIB" || error -x 1 "TOBLIB is not set"
+    test -n "$DEBUG" || alias debug=\#
     declare path= object= method= 
     declare -a types=() mpaths=() apaths=() envars=()
-    test -n "$DEBUG" || alias debug=\#
 
-    test -n "$1" || error -x 103 "no object specified"
-    
-    declare qry=$1 && shift # expecting OBJECT.METHOD
-
-    test ${qry/./} = $qry &&    # assume method of current dir object if no dot
-        qry=..$qry
-    
     declare -x TOB_caller_path=$PWD
 
-    resolve_query $qry
-    result=$?
+    declare query="$1" && shift
+    declare -a q=()
+    declare -i o m  # index o points to object, m points to method
+    parse_query "$query" || error -x $? parse... 
 
-    
+    resolve_query ||
+        case $? in
+            9)  # try again using method 'default'
+                q+=(default) && m+=1
+                resolve_query || error -x $?
+                ;;
+            *)  error -x $?;;
+        esac
+
+  # warn "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method"
+
     types=() mpaths=() apaths=() envars=()
 
     # resolve_search_paths() builds arrays: types and paths, recursing on mixins
@@ -287,13 +358,7 @@ main () {
         error -x 121 "no type or prototype resolved for $object"
         }
 
-    test "$types" || {
-        test "${#apaths[@]}" -gt 1 &&
-            error -x 120 "prototype but no type resolved for $object"
-        error -x 121 "no type or prototype resolved for $object"
-        }
-
-    ## export thinobject variables
+    export TOB_query=$query
     export TOB_object=$object
     export TOB_method=$method
     export TOB_type=$type
@@ -301,20 +366,17 @@ main () {
     export TOB_caller_path
     export TOB_caller_path_to_object=$TOB_path_to_object
     
-    ## export thinobject utility functions and associated variables:
-    export -f TOB_resolve_method_path
-    export TOB_method_path
-    export -f TOB_get_attr
-    
     # create pseudo-arrays for export, with colon as delimiter:
-    save_IFS="$IFS"
-    IFS=:
+    save_IFS="$IFS" && IFS=:
     export TOB_search_paths="${apaths[*]}"
     export TOB_method_paths="${mpaths[*]}"
-    export TOB_type="${types[*]}"
+    export TOB_types="${types[*]}"
     IFS="$save_IFS"
     
-    for envar in "${attr[@]}"; do
+    test -n "$DEBUG" &&
+        warn "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method"
+
+    for envar in "${envars[@]}"; do
         tag=${envar%%=*}
         test $tag = $envar && continue
         val=${envar#*=}

@@ -12,3 +12,4 @@ TOB_get_attr () {
     done
     return 1
     }
+export -f TOB_get_attr

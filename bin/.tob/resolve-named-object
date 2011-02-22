@@ -1,53 +1,17 @@
 resolve_named_object () {
-
-    # existing attribute search path is useful only if path is .
-
-
-    # look for object or .object in the attribute search paths for path:
-    # obtain attribute search paths for the query path object:
-
-    test $path != . && apaths=()
-    test -n "${apaths[*]}" || resolve_attr_search_paths $path || {
-        test $? -eq 1 && return 1
-        }
-
-
-    # existing attribute search path is useful only if path is .
-    test -n "${apaths[*]}" -a $path != . && apaths=()
-
-    # look for object or .object in the attribute search paths for path:
-    # obtain attribute search paths for the query path object:
-    test -n "${apaths[*]}" || resolve_attr_search_paths $path || {
-        test $? -eq 1 && return 1
-        }
-
-    # work right to left from all-object + no-method to no-object + all-method
-    # m will start at the last query element, then decrement on each pass
-    # object is extracted from query[o] to query[m], using dot separator
-    local -i m
-    for (( m=n-1; m>=o; m+=-1 )); do
-        # index m points to last element of object in query
-        object="${query[*]:o:m-o+1}"
+    # synopsis: resolve_named_object -- resolve object and its type, or fail
+    errmsg+=("$FUNCNAME($*)")
+    # move m from 
+    while (( o < m )); do
+        object="${q[*]:o:m-o}"
         object=${object// /.}
-        resolve_declaration $path $object && {
-            # success, so what is the method...?
-            method="${query[*]:m+1}"
-            method=${method// /.}
-            test -n "$method" || method=default
-            TOB_path_to_object=$path
-            return
-            }
+        resolve_declaration $path $object || { m+=-1; continue; }
+        method="${q[*]:m}"
+        method=${method// /.}
+        return
     done
-
-    # if $path itself is a dir object with a ^ link, we're done:
-    test -L $path/^ -o -L $path/.^ && {
-        type=$(readlink $path/^ || readlink $path/.^)
-        method="${query[*]:o}"
-        method="${method// /.}"
-        cd $path || return 2
-        TOB_path_to_object=$path
-        TOB_method=$method
-        }
-
+    object="${q[*]:o}"
+    object=${object// /.}
+    errmsg+=("    object.method not parsed from $path + $object")
+    return 1
     }
-

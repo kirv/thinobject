@@ -1,53 +1,34 @@
 main () {
-    test -n "$TOBLIB" || error -x 102 "TOBLIB is not set"
+    errmsg+=("$FUNCNAME($*)")
+    while test ${1:0:1} = -; do
+        case $1 in 
+            -d)     DEBUG=1;;
+            *)  error -x 1 "unknown option $1";;
+        esac && shift
+    done
+    test -n "$TOBLIB" || error -x 1 "TOBLIB is not set"
+    test -n "$DEBUG" || alias debug=\#
     declare path= object= method= 
     declare -a types=() mpaths=() apaths=() envars=()
-    test -n "$DEBUG" || alias debug=\#
 
-    test -n "$1" || error -x 103 "no object specified"
-    
-    TOB_query=$1 && shift # expecting OBJECT.METHOD
-
-    test ${TOB_query/./} = $TOB_query &&  # no object, so assume self object
-        TOB_query=..$TOB_query
-    
     declare -x TOB_caller_path=$PWD
 
-    declare -a TOB_query=${1//\//\/.}   # change all / to /. for splitting
-    query=(${query//./ })               # split on dot into array
-    test ${query:0:1} = / && path='' || path=.
-    declare -i m=$((${#query[*]}-1)) o=0 # o->prospective object, m->method
+    declare query="$1" && shift
+    declare -a q=()
+    declare -i o m  # index o points to object, m points to method
+    parse_query "$query" || error -x $? parse... 
 
-    while test ! -n "$method"; do
+    resolve_query ||
+        case $? in
+            9)  # try again using method 'default'
+                q+=(default) && m+=1
+                resolve_query || error -x $?
+                ;;
+            *)  error -x $?;;
+        esac
 
-        # set path, leave o pointing to next element, or fail:
-        resolve_path ||
-            error -x 1 "failed to resolve path from $TOB_query after $path"
-    
-        if test $o -eq $m; then
-            resolve_anonymous_object && break
-            test $? .eq 2 && 
-                error -x 2 "failed to cd into anonymous object at path $path"
-            cd -  # restore original working dir
-        else
-            test $path != . && apaths=()
-            test -n "$apaths" ||
-                resolve_attr_search_paths $path ||
-                    apaths=(.)
-            resolve_named_object && break
-        fi
+  # warn "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method"
 
-        # assert: method has not been set from ob.m so try ob.m.default...
-
-        test -n "tried_default" &&
-            error -x 3 "failed to resolve object.method from query"
-
-        query+=(default)
-        m+=1
-        tried_default=1
-    done 
-
-    
     types=() mpaths=() apaths=() envars=()
 
     # resolve_search_paths() builds arrays: types and paths, recursing on mixins
@@ -68,8 +49,7 @@ main () {
         error -x 121 "no type or prototype resolved for $object"
         }
 
-
-    ## export thinobject variables
+    export TOB_query=$query
     export TOB_object=$object
     export TOB_method=$method
     export TOB_type=$type
@@ -77,20 +57,17 @@ main () {
     export TOB_caller_path
     export TOB_caller_path_to_object=$TOB_path_to_object
     
-    ## export thinobject utility functions and associated variables:
-    export -f TOB_resolve_method_path
-    export TOB_method_path
-    export -f TOB_get_attr
-    
     # create pseudo-arrays for export, with colon as delimiter:
-    save_IFS="$IFS"
-    IFS=:
+    save_IFS="$IFS" && IFS=:
     export TOB_search_paths="${apaths[*]}"
     export TOB_method_paths="${mpaths[*]}"
-    export TOB_type="${types[*]}"
+    export TOB_types="${types[*]}"
     IFS="$save_IFS"
     
-    for envar in "${attr[@]}"; do
+    test -n "$DEBUG" &&
+        warn "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method"
+
+    for envar in "${envars[@]}"; do
         tag=${envar%%=*}
         test $tag = $envar && continue
         val=${envar#*=}

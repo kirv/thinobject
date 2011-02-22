@@ -1,0 +1,15 @@
+parse_query() {
+    # synopsis: parse_query QUERY -> set q[], o and m indices
+    errmsg+=("$FUNCNAME($*)")
+    test -n "$1" ||
+        error -x 13 "missing required object.method query"
+    q[0]=$1
+    test ${q/./} = $q && q=..$q     # assume self object
+    q[1]="${q//\///.}"             # change all / to /. for splitting
+    q+=(${q[1]//./ })               # split on dot into array
+    o=2                             # o points to start of parsed query
+    m=$((${#q[*]}-1))               # m points to method
+    test ${q:0:1} = / || path=.
+  # errmsg+=("    $q" "    q[1]: ${q[1]}" "    q[2]: ${q[*]:2}")
+    }
+

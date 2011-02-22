@@ -1,8 +1,8 @@
 error () {
     # synopsis: error [-x N] OUTPUT_LINE ...
-    local -i n=1
-    test "$1" = -x && n=$2 && shift 2
+    test "$1" = -x && x=$2 && shift 2 || x=1
+    errmsg+=("exit $x from $0 ${FUNCNAME[1]}()")
     warn "$@"
-    exit $n
+    exit $x
     }
 export -f error

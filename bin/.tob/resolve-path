@@ -1,12 +1,44 @@
 resolve_path () { # try to resolve path in query, starting at index o
-    local -i i, p=0
-    for (( i=o; i<m; i+=1 )); do 
-        dir="${query[*]:i-p:p+1}"       # p previous elements + element i
+
+    errmsg+=("$FUNCNAME($*)")
+
+    local -i p=0
+
+    while (( o+p < m )); do
+        dir="${q[*]:o:p+1}"
         dir=${dir// /.}                 # change "a b" to "a.b"
-        test -d $path/$dir && path+=/$dir && p=0 && continue
-        test ${dir: -1:1} = / && return 1
-        test -d $path/.$dir && path+=/.$dir && p=0 && continue
+      # errmsg+=("    o: $o, p: $p, try: $dir")
+        test -d $path/$dir && {
+            path+=/$dir 
+          # errmsg+=("          path: $path")
+            o+=$((p+1))
+            p=0 
+            continue
+            }
+
+        test ${dir: -1:1} = / &&  # trailing / means: directory or fail
+            error -x 15 "$FUNCNAME(): directory $path/$dir not found"
+
+        test -d $path/.$dir && {
+            path+=/.$dir 
+          # errmsg+=("          path: $path")
+            o+=$((p+1))
+            p=0 
+            continue
+            }
+          # errmsg+=("          ... failed")
         p+=1
+
     done
-    o=$((${#query[*]}-p)) # index o points beyond path to object.method
+
+    method="${q[*]:m}"
+    object="${q[*]:o}"
+    object=${object// /.}
+    method="${q[*]:m}"
+  # errmsg+=("    q: ${q[*]:2}")
+  # errmsg+=("    o: $o")
+  # errmsg+=("    m: $m")
+  # errmsg+=("    path: $path")
+  # errmsg+=("    obj.mth: ${q[*]:o:m-o}")
+  # errmsg+=("    method: ${q[*]:m}")
     }

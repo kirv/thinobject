@@ -1,12 +1,15 @@
-resolve_anonymous_object () { # try to resolve object type at path
-    # if o=m, then this directory is an anonymous object, no name
-    # if $path itself is a dir object with a ^ link, we're done:
-    test -L $path/^ -o -L $path/.^ && {
-        type=$(readlink $path/^ || readlink $path/.^)
-        method="${query[*]:o}"
-        method="${method// /.}"
-        cd $path || return 2
-        TOB_path_to_object=$path
-        TOB_method=$method
+resolve_anonymous_object () { 
+    # synopsis: resolve_anonymous_object -- try to resolve object type at path
+    errmsg+=("$FUNCNAME($*)")
+    test -L $path/^ -o -L $path/.^ || {
+        errmsg+=("no symlink found: $path/^ or $path/.^")
+        return 1
         }
+    type=$(readlink $path/^ || readlink $path/.^)
+    cd $path ||
+        error -x 2 "failed: cd $path/"
 
+    object=$path
+    method="${q[*]:m}"
+    method=${method// /.}
+    }
