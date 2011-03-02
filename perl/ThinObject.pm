@@ -7,14 +7,11 @@ use warnings;
 our $VERSION = '0.03';
 
 # use constant LIB => ( $ENV{HOME} . '/lib', '/usr/local/lib', '/usr/lib' );
-use constant LIB => ( '/usr/local/lib', '/usr/lib' );
-use constant ROOT => 'tob'; # qw( tob thinob ThinObject );
+# use constant LIB => ( '/usr/local/lib', '/usr/lib' );
+# use constant ROOT => 'tob'; # qw( tob thinob ThinObject );
+use constant TOBLIB => ( $ENV{TOBLIB}) ;
 
-my @libroot; # list of all possible valid class library path roots
-foreach my $lib ( LIB ) {
-    foreach my $root ( ROOT ) {
-        push @libroot, "$lib/$root";
-        }
+my @libroot =  split /:/ TOBLIB; # list of all possible valid class library path roots
     }
 my $libroot_pattern = '^(' . join('|', @libroot) . ')/';
 
