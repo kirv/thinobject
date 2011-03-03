@@ -31,17 +31,8 @@ main () {
 
     types=() mpaths=() apaths=() envars=()
 
-    # resolve_search_paths() builds arrays: types and paths, recursing on mixins
-    # - first of 2 args is the object, not class, may include mixins
-    # - types array is 1:1 with path after skipping paths[0]
-    if test -n "${attr[*]}"; then
-        unset attr[0]   # this is type, any other entries are envars
-        resolve_search_paths $type
-        object=$TOB_path_to_object
-    else
-        unset attr[0]   # this is type, any other entries are envars
-        resolve_search_paths . $type
-    fi
+    test -d $object && resolve_search_paths $object
+    resolve_search_paths $type complete
 
     test -n "$types" || {
         test "${#apaths[@]}" -gt 1 &&
@@ -57,11 +48,20 @@ main () {
     export TOB_caller_path
     export TOB_caller_path_to_object=$TOB_path_to_object
 
+    tags=':'
+    warn "envars has ${#envars[@]} entries:" "${envars[@]}"
     for envar in "${envars[@]}"; do
+        test -n "$envar" || continue
         tag=${envar%%=*}
+        warn "trying tag: $tag..."
+        # skip entry if not in tag=value form:
         test $tag = $envar && continue
+        # skip entry if tag has already been set:
+        test $tags = ${tags/:$tag://} || continue
         val=${envar#*=}
         export $tag=$val
+        tags+=$tag:
+        warn "tags is now: $tags"
     done
     
     # create pseudo-arrays for export, with colon as delimiter:

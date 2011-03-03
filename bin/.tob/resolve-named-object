@@ -1,7 +1,5 @@
-resolve_named_object () {
-    # synopsis: resolve_named_object -- resolve object and its type, or fail
+resolve_named_object () { # resolve object and its type, or fail
     errmsg+=("$FUNCNAME($*)")
-    # move m from 
     while (( o < m )); do
         object="${q[*]:o:m-o}"
         object=${object// /.}

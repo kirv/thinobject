@@ -4,7 +4,7 @@ resolve_attr_search_paths () { # resolve (proto)type(s) into apaths[]
     shopt -s nullglob
     while test -n "$type"; do
         test -L $type && {
-            target=$(readlink $type)
+            target=($(readlink $type))
             test -d $type -a ! -d $target && target=${type%/*}/$target
             type=$target
             }

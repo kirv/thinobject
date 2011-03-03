@@ -5,7 +5,7 @@ resolve_anonymous_object () {
         errmsg+=("no symlink found: $path/^ or $path/.^")
         return 1
         }
-    type=$(readlink $path/^ || readlink $path/.^)
+    type=($(readlink $path/^ || readlink $path/.^))
     cd $path ||
         error -x 2 "failed: cd $path/"
 

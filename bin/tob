@@ -57,8 +57,7 @@ parse_query() {
     }
 
 
-resolve_query() {
-    # synopsis: resolve_query -> use q[], set path, set o beyond path
+resolve_query() { # use q[], set path, set o beyond path
     errmsg+=("$FUNCNAME($*)")
     resolve_path || {
         rtnval=$?
@@ -132,7 +131,7 @@ resolve_anonymous_object () {
         errmsg+=("no symlink found: $path/^ or $path/.^")
         return 1
         }
-    type=$(readlink $path/^ || readlink $path/.^)
+    type=($(readlink $path/^ || readlink $path/.^))
     cd $path ||
         error -x 2 "failed: cd $path/"
 
@@ -141,10 +140,8 @@ resolve_anonymous_object () {
     method=${method// /.}
     }
 
-resolve_named_object () {
-    # synopsis: resolve_named_object -- resolve object and its type, or fail
+resolve_named_object () { # resolve object and its type, or fail
     errmsg+=("$FUNCNAME($*)")
-    # move m from 
     while (( o < m )); do
         object="${q[*]:o:m-o}"
         object=${object// /.}
@@ -176,7 +173,7 @@ resolve_attr_search_paths () { # resolve (proto)type(s) into apaths[]
     shopt -s nullglob
     while test -n "$type"; do
         test -L $type && {
-            target=$(readlink $type)
+            target=($(readlink $type))
             test -d $type -a ! -d $target && target=${type%/*}/$target
             type=$target
             }
@@ -198,14 +195,16 @@ resolve_attr_search_paths () { # resolve (proto)type(s) into apaths[]
     }
 
 resolve_search_paths () { # resolve (proto)type(s) into types[], apaths[], mpaths[]
-    local path target
-    local type=$1 && shift
+    local -a type=($1)
+    local depth_search=$2 path= target=
     shopt -s nullglob
     while test -n "$type"; do
+        warn "TYPE: ${type[*]}"
         test -L $type && {
-            target=$(readlink $type)
+            target=($(readlink $type))
+            # may need to preserve path to dir type in target:
             test -d $type -a ! -d $target && target=${type%/*}/$target
-            type=$target
+            type=(${target[@]})
             }
         if test -d "$type"; then # 'prototype' provides attributes, not methods
             path=$type
@@ -213,19 +212,23 @@ resolve_search_paths () { # resolve (proto)type(s) into types[], apaths[], mpath
         else
             resolve_library $type || return 1
             types+=($type)
+            envars+=("${type[*]:1}")
             apaths+=($path)
             mpaths+=($path)
         fi
         unset type
         for mixin in $path/{,.}^?*; do # ^Cron, .^settings, etc.
-            test -L $mixin && resolve_search_paths $mixin
+            test -L $mixin && resolve_search_paths $mixin 1
         done
-        test -n "$1" && type=$1 && shift && continue # ... use arg for type
-        test -L $path/^ && type=$path/^ && continue
-        test -L $path/.^ && type=$path/.^
+        test -n "$depth_search" || return 0
+
+        warn "    : {$(readlink $path/^ || readlink $path/.^)}"
+
+        type=($(readlink $path/^ || readlink $path/.^))
+        warn "    : <${type[*]}>"
     done
-    test -n "$apaths[*]" || return 1
-    test -n "$mpaths[*]" || return 2
+    test -n "$apaths" || return 1
+    test -n "$mpaths" || return 2
     }
 
 resolve_declaration () { 
@@ -247,11 +250,14 @@ resolve_declaration () {
 cull_duplicate_paths () {
     local entry unique
     local -i i
-    # arrays types and mpaths are 1:1, so scan types, discard from both
+    test ${#types[@]} = ${#envars[@]} -a ${#types[@]} = ${#mpaths[@]} ||
+        warn "size of types, envars, mpaths differ: ${#types[@]}, ${#envars[@]}, ${#mpaths[@]}"
+    # arrays types, envars, and mpaths are 1:1, so scan types, discard from all
     for (( i=${#types[@]}-1; i>=0; i-- )); do
         entry=${types[i]}
         test "${unique/$entry/}" = "$unique" && unique+=" $entry" && continue
         unset types[i]
+        unset envars[i]
         unset mpaths[i]
     done
     # apaths array can include duplicates, so scan & discard, leaving last
@@ -345,17 +351,8 @@ main () {
 
     types=() mpaths=() apaths=() envars=()
 
-    # resolve_search_paths() builds arrays: types and paths, recursing on mixins
-    # - first of 2 args is the object, not class, may include mixins
-    # - types array is 1:1 with path after skipping paths[0]
-    if test -n "${attr[*]}"; then
-        unset attr[0]   # this is type, any other entries are envars
-        resolve_search_paths $type
-        object=$TOB_path_to_object
-    else
-        unset attr[0]   # this is type, any other entries are envars
-        resolve_search_paths . $type
-    fi
+    test -d $object && resolve_search_paths $object
+    resolve_search_paths $type complete
 
     test -n "$types" || {
         test "${#apaths[@]}" -gt 1 &&
@@ -371,11 +368,20 @@ main () {
     export TOB_caller_path
     export TOB_caller_path_to_object=$TOB_path_to_object
 
+    tags=':'
+    warn "envars has ${#envars[@]} entries:" "${envars[@]}"
     for envar in "${envars[@]}"; do
+        test -n "$envar" || continue
         tag=${envar%%=*}
+        warn "trying tag: $tag..."
+        # skip entry if not in tag=value form:
         test $tag = $envar && continue
+        # skip entry if tag has already been set:
+        test $tags = ${tags/:$tag://} || continue
         val=${envar#*=}
         export $tag=$val
+        tags+=$tag:
+        warn "tags is now: $tags"
     done
     
     # create pseudo-arrays for export, with colon as delimiter:

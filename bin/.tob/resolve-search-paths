@@ -1,12 +1,14 @@
 resolve_search_paths () { # resolve (proto)type(s) into types[], apaths[], mpaths[]
-    local path target
-    local type=$1 && shift
+    local -a type=($1)
+    local depth_search=$2 path= target=
     shopt -s nullglob
     while test -n "$type"; do
+        warn "TYPE: ${type[*]}"
         test -L $type && {
-            target=$(readlink $type)
+            target=($(readlink $type))
+            # may need to preserve path to dir type in target:
             test -d $type -a ! -d $target && target=${type%/*}/$target
-            type=$target
+            type=(${target[@]})
             }
         if test -d "$type"; then # 'prototype' provides attributes, not methods
             path=$type
@@ -14,17 +16,21 @@ resolve_search_paths () { # resolve (proto)type(s) into types[], apaths[], mpath
         else
             resolve_library $type || return 1
             types+=($type)
+            envars+=("${type[*]:1}")
             apaths+=($path)
             mpaths+=($path)
         fi
         unset type
         for mixin in $path/{,.}^?*; do # ^Cron, .^settings, etc.
-            test -L $mixin && resolve_search_paths $mixin
+            test -L $mixin && resolve_search_paths $mixin 1
         done
-        test -n "$1" && type=$1 && shift && continue # ... use arg for type
-        test -L $path/^ && type=$path/^ && continue
-        test -L $path/.^ && type=$path/.^
+        test -n "$depth_search" || return 0
+
+        warn "    : {$(readlink $path/^ || readlink $path/.^)}"
+
+        type=($(readlink $path/^ || readlink $path/.^))
+        warn "    : <${type[*]}>"
     done
-    test -n "$apaths[*]" || return 1
-    test -n "$mpaths[*]" || return 2
+    test -n "$apaths" || return 1
+    test -n "$mpaths" || return 2
     }
