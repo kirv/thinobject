@@ -1,5 +1,5 @@
 resolve_method_path () {
-    errmsg+=("$FUNCNAME($*)")
+  # errmsg+=("$FUNCNAME($*)")
     test "$1" = --super && super=1 && shift || unset super
     local method=$1
     for path in ${mpaths[@]}; do

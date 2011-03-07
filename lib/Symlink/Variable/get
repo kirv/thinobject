@@ -2,9 +2,11 @@
 
 synopsis="File/Symlink/Variable.get"
 
-test -L $TOB_object || exit 1
+ob=$TOB_object
+test -L $ob || ob=$TOB_class_object
+test -L $ob || exit 1
 
-value="$(readlink $TOB_object)"
+value="$(readlink $ob)"
 echo ${value#=}
 
 exit

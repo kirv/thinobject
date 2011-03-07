@@ -1,5 +1,5 @@
 main () {
-    errmsg+=("$FUNCNAME($*)")
+  # errmsg+=("$FUNCNAME($*)")
     while test ${1:0:1} = -; do
         case $1 in 
             -d)     DEBUG=1;;
@@ -31,8 +31,14 @@ main () {
 
     types=() mpaths=() apaths=() envars=()
 
-    test -d $object && resolve_search_paths $object
-    resolve_search_paths $type complete
+    save=(${type[@]})
+    test -n "$anonymous" && {
+        type=(.)
+        resolve_search_paths one-pass
+        type=(${save[@]})
+        }
+    resolve_search_paths
+    type=(${save[@]})
 
     test -n "$types" || {
         test "${#apaths[@]}" -gt 1 &&
@@ -47,21 +53,20 @@ main () {
     export TOB_class_path
     export TOB_caller_path
     export TOB_caller_path_to_object=$TOB_path_to_object
+    test -n "$class_object" && export TOB_class_object=$class_object
 
     tags=':'
-    warn "envars has ${#envars[@]} entries:" "${envars[@]}"
-    for envar in "${envars[@]}"; do
+  # warn "envars has ${#envars[@]} entries:" "${envars[@]}"
+    for envar in ${envars[*]}; do
         test -n "$envar" || continue
         tag=${envar%%=*}
-        warn "trying tag: $tag..."
         # skip entry if not in tag=value form:
-        test $tag = $envar && continue
+        test $tag = "$envar" && continue
         # skip entry if tag has already been set:
         test $tags = ${tags/:$tag://} || continue
         val=${envar#*=}
         export $tag=$val
         tags+=$tag:
-        warn "tags is now: $tags"
     done
     
     # create pseudo-arrays for export, with colon as delimiter:

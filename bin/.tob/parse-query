@@ -1,6 +1,6 @@
 parse_query() {
     # synopsis: parse_query QUERY -> set q[], o and m indices
-    errmsg+=("$FUNCNAME($*)")
+  # errmsg+=("$FUNCNAME($*)")
     test -n "$1" ||
         error -x 13 "missing required object.method query"
     q[0]=$1

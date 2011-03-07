@@ -1,7 +1,5 @@
 resolve_path () { # try to resolve path in query, starting at index o
-
-    errmsg+=("$FUNCNAME($*)")
-
+  # errmsg+=("$FUNCNAME($*)")
     local -i p=0
 
     while (( o+p < m )); do

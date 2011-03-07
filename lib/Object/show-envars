@@ -1,12 +1,7 @@
-#!/bin/sh
+#!/bin/bash
 
 prefix=$1
 test -z "$prefix" && prefix=TOB_
 
 set | grep ^$prefix
-
-declare -F | awk "
-    \$3 ~ /^$prefix/ {
-        print \$3 \"()\"
-        }
-    "
+declare -Fp | grep ^$prefix
