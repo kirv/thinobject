@@ -55,20 +55,42 @@ main () {
     export TOB_caller_path_to_object=$TOB_path_to_object
     test -n "$class_object" && export TOB_class_object=$class_object
 
-    tags=':'
+  # tags=':'
   # warn "envars has ${#envars[@]} entries:" "${envars[@]}"
-    for envar in ${envars[*]}; do
-        test -n "$envar" || continue
-        tag=${envar%%=*}
-        # skip entry if not in tag=value form:
-        test $tag = "$envar" && continue
-        # skip entry if tag has already been set:
-        test $tags = ${tags/:$tag://} || continue
-        val=${envar#*=}
-        export $tag=$val
+  # for envar in ${envars[*]}; do
+  #     warn "ENVAR: $envar"
+  #     test -n "$envar" || continue
+  #     tag=${envar%%=*}
+  #     # skip entry if not in tag=value form:
+  #     test $tag = "$envar" && continue
+  #     # skip entry if tag has already been set:
+  #     test $tags = ${tags/:$tag://} || continue
+  #     val=${envar#*=}
+  #     export $tag=$val
+  #     tags+=$tag:
+  # done
+    
+    tags=':'
+    for envarset in "${envars[@]}"; do
+        tag= val=
+        for word in $envarset; do
+            test ${word%%=*} = $word && val+=" $word" && continue
+            # word contains '=', so export pending tag if not already done
+            test -n "$tag" -a $tags = ${tags/:$tag://} && {
+                export $tag="$val" ||
+                    error -x $? "bad assignment: $tag=$val"
+                tags+=$tag:
+                }
+            # now parse new tag and val:
+            tag=${word%%=*}
+            val=${word#*=}
+        done
+        test -n "$tag" && test $tags = ${tags/:$tag://} || continue
+        export $tag="$val" ||
+            error -x $? "bad assignment: $tag=$val"
         tags+=$tag:
     done
-    
+
     # create pseudo-arrays for export, with colon as delimiter:
     save_IFS="$IFS" && IFS=:
     export TOB_search_paths="${apaths[*]}"
