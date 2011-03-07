@@ -1,6 +1,6 @@
 main () {
   # errmsg+=("$FUNCNAME($*)")
-    while test ${1:0:1} = -; do
+    while test "${1:0:1}" = -; do
         case $1 in 
             -d)     DEBUG=1;;
             *)  error -x 1 "unknown option $1";;

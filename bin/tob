@@ -76,15 +76,12 @@ resolve_query() { # use q[], set path, set o beyond path
     test -n "$apaths" || resolve_attr_search_paths $path ||
         apaths=(.)
     resolve_named_object
-    test ! -e $object -a ! -L $object && {
-        # object is virtual, so look for class object...
-        ob=${object##*/}
-        for p in "${apaths[@]}"; do
-            test -e $p/$ob -o -L $p/$ob || continue
-            class_object=$p/$ob
+    test -e $object -o -L $object || # look for class object ...
+        for ob in "${apaths[@]/%//${object##*/}}"; do
+            test -e $ob -o -L $ob || continue
+            class_object=$ob
             break
         done
-        }
     apaths=()
     }
 
@@ -324,7 +321,7 @@ export -f TOB_get_attr
 
 main () {
   # errmsg+=("$FUNCNAME($*)")
-    while test ${1:0:1} = -; do
+    while test "${1:0:1}" = -; do
         case $1 in 
             -d)     DEBUG=1;;
             *)  error -x 1 "unknown option $1";;

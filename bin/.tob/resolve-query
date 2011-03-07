@@ -18,7 +18,7 @@ resolve_query() { # use q[], set path, set o beyond path
         apaths=(.)
     resolve_named_object
     test -e $object -o -L $object || # look for class object ...
-        for ob in "${apaths[@]/%//${object##*/}"; do
+        for ob in "${apaths[@]/%//${object##*/}}"; do
             test -e $ob -o -L $ob || continue
             class_object=$ob
             break
