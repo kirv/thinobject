@@ -72,7 +72,7 @@ resolve_query() { # use q[], set path, set o beyond path
         }
 
     test $path = . -a -n "$TOB_search_paths" &&
-        apaths=(${TOB_search_paths[@]})
+        apaths=(${TOB_search_paths[@]//:/ })
     test -n "$apaths" || resolve_attr_search_paths $path ||
         apaths=(.)
     resolve_named_object
