@@ -1,33 +1,31 @@
 #!/bin/bash
 
-self=.
-tob=/usr/local/bin/tob
-
 ## gather all the web page elements from object and classes in arrays:
 
-declare -a html_css
-declare -a html_javascript
-declare -a html_body
+declare -a html_css html_javascript html_body
 
-## also check for the xml "hook" method:
-declare xml
-
-path='./'
-while test -n "$path"; do
+for path in ${TOB_search_paths//:/ }; do
     test -e "$path/@html-css" && 
-        html_css=( ${html_css[@]} "$path/@html-css" )
+        html_css+=("$path/@html-css")
 
     test -e "$path/@html-javascript" && 
-        html_javascript=( ${html_javascript[@]} "$path/@html-javascript" )
+        html_javascript+=("$path/@html-javascript")
 
     test -e "$path/@html-body" && 
-        html_body=( ${html_body[@]} "$path/@html-body" )
+        html_body+=("$path/@html-body")
 
     test -z "$xml" && test -d "$path/^" && test -x "$path/^/xml" &&
         xml="$path/^/xml"
 
-    path="$path/^"
-    test -d $path || unset path
+done
+
+## also check for the xml "hook" method:
+declare xml=
+# TOB_resolve_method_path xml && xml=$TOB_method_path
+for path in ${TOB_method_paths//:/ }; do
+    test -x $path/xml || continue
+    xml=$path/$method
+    break
 done
 
 ## begin output of the web page...
@@ -38,7 +36,7 @@ echo '<title>'
 
 ## use object name for the title unless @html-title exists:
 
-if [ -e @html-title ]; then
+if test -e @html-title; then
     cat @html-title
 else
     echo $TOB_object
@@ -46,24 +44,20 @@ fi
 
 echo '</title>'
 
-## now output css (if any)
-
+## output css (if any)
 n=${#html_css[@]}
-while (( $n > 0 )); do
-    n=$(($n - 1))
-    echo '<style type="text/css">'
-    cat ${html_css[$n]}
-    echo '</style>'
+while (( n > 0 )); do
+    n+=-1
+    printf '<style type="text/css">\n%s</style>\n' \
+        "$(<${html_css[n]})"
 done
 
-## now output javascript (if any)
-
+## output javascript (if any)
 n=${#html_javascript[@]}
-while (( $n > 0 )); do
-    n=$(($n - 1))
-    echo '<script> language="javascript"'
-    cat ${html_javascript[$n]}
-    echo '</script>'
+while (( n > 0 )); do
+    n+=-1
+    printf '<script> language="javascript"\n%s</script>\n' \
+        $(<${html_javascript[n]})
 done
 
 echo '</head>'
@@ -85,8 +79,7 @@ test -n "$xml" && {
 
     test "$UPDATE_HTML_BODY" == "1" && {
         printf '<div id="%s">' $TOB_object_path > @html-body
-      # $xml $self >> @html-body
-        $tob $self.xml >> @html-body
+        $xml >> @html-body
         echo '</div>' >> @html-body
         }
         
@@ -94,18 +87,14 @@ test -n "$xml" && {
 
 ## now output the html page body, perhaps just the object name
 
-n=${#html_body[@]}
-if (( $n == 0 )); then
-
+if test -z "$html_body"; then
     echo $TOB_object
-
 else
-
-    while (( $n > 0 )); do
-        n=$(($n - 1))
-        cat ${html_body[$n]}
+    n=${#html_body[@]}
+    while (( n > 0 )); do
+        n+=-1
+        printf "%s" $(<${html_body[n]})
     done
-
 fi
 
 echo '</body>'
