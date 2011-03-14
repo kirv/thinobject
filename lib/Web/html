@@ -13,10 +13,6 @@ for path in ${TOB_search_paths//:/ }; do
 
     test -e "$path/@html-body" && 
         html_body+=("$path/@html-body")
-
-    test -z "$xml" && test -d "$path/^" && test -x "$path/^/xml" &&
-        xml="$path/^/xml"
-
 done
 
 ## also check for the xml "hook" method:

@@ -21,13 +21,18 @@ main () {
     resolve_query ||
         case $? in
             9)  # try again using method 'default'
+                warn 'trying again'
                 q+=(default) && m+=1
                 resolve_query || error -x $?
                 ;;
             *)  error -x $?;;
         esac
 
-  # warn "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method"
+  # warn "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method" "ANONYMOUS=$anonymous" "PWD=$PWD"
+
+  # errmsg+=("<<< AFTER resolve_query():"
+  #     "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method"
+  #     "ANONYMOUS=$anonymous" "PWD=$PWD" o=$o m=$m ">>>" )
 
     types=() mpaths=() apaths=() envars=()
 
@@ -86,10 +91,13 @@ main () {
         warn "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method" \
             TYPES=$TOB_types
     
+    warn "RESOLVE_METHOD_PATH $TOB_method"
     resolve_method_path $TOB_method &&
         exec $TOB_method_path "${args[@]}" "$@"
     
     ## no executable method was resolved, so try some built-ins:
+
+    warn "CONTINUING with method $TOB_method"
 
     ## show exported variables as methods
     case $method in

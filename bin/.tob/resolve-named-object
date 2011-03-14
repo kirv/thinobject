@@ -13,7 +13,6 @@ resolve_named_object () { # resolve object and its type, or fail
         return
     done
     object="${q[*]:o}"
-    object=$path/${object// /.}
-    errmsg+=("    object.method not parsed from $path + $object")
+    object=${object// /.}
     return 1
     }

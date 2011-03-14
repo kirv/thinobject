@@ -2,6 +2,8 @@
 
 method=$1 && shift
 
+warn "running: _default $method"
+
 ## ob.method did not resolve, so check for indirect method or attribute type:
 
 for path in ${TOB_method_paths//:/ }; do
@@ -114,4 +116,7 @@ test -n "$property" && {
         }
     }
 
-echo $object.$method not found
+default=${0#*lib/}
+default=${default//\//.}
+echo $default: method $method not found for object $TOB_object
+exit 1

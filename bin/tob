@@ -75,14 +75,20 @@ resolve_query() { # use q[], set path, set o beyond path
         apaths=(${TOB_search_paths[@]//:/ })
     test -n "$apaths" || resolve_attr_search_paths $path ||
         apaths=(.)
-    resolve_named_object
-    test -e $object -o -L $object || # look for class object ...
-        for ob in "${apaths[@]/%//${object##*/}}"; do
-            test -e $ob -o -L $ob || continue
-            class_object=$ob
-            break
-        done
+    resolve_named_object && {
+        test -e $object -o -L $object || # look for class object ...
+            for ob in "${apaths[@]/%//${object##*/}}"; do
+                test -e $ob -o -L $ob || continue
+                class_object=$ob
+                break
+            done
+        }
     apaths=()
+
+    test -n "$type" && return
+
+    test $o -eq $m &&
+        resolve_anonymous_object
     }
 
 
@@ -138,7 +144,6 @@ resolve_anonymous_object () { # try to resolve object type at path
     type=($(readlink $path/^ || readlink $path/.^))
     cd $path ||
         error -x 2 "failed: cd $path/"
-
     anonymous=1
     object=$path
     method="${q[*]:m}"
@@ -160,8 +165,7 @@ resolve_named_object () { # resolve object and its type, or fail
         return
     done
     object="${q[*]:o}"
-    object=$path/${object// /.}
-    errmsg+=("    object.method not parsed from $path + $object")
+    object=${object// /.}
     return 1
     }
 
@@ -292,11 +296,10 @@ TOB_resolve_method_path () {
     test "$1" = --super && super=1 && shift || unset super
     local method=$1
     for path in ${TOB_method_paths//:/ }; do
-        test -x $path/$method && {
-            test -n "$super" && unset super && continue
-            TOB_method_path=$path/$method
-            return
-            }
+        test -x $path/$method || continue
+        test -n "$super" && unset super && continue
+        TOB_method_path=$path/$method
+        return
     done
     return 1
     }
@@ -342,13 +345,18 @@ main () {
     resolve_query ||
         case $? in
             9)  # try again using method 'default'
+                warn 'trying again'
                 q+=(default) && m+=1
                 resolve_query || error -x $?
                 ;;
             *)  error -x $?;;
         esac
 
-  # warn "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method"
+  # warn "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method" "ANONYMOUS=$anonymous" "PWD=$PWD"
+
+  # errmsg+=("<<< AFTER resolve_query():"
+  #     "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method"
+  #     "ANONYMOUS=$anonymous" "PWD=$PWD" o=$o m=$m ">>>" )
 
     types=() mpaths=() apaths=() envars=()
 
@@ -376,21 +384,6 @@ main () {
     export TOB_caller_path_to_object=$TOB_path_to_object
     test -n "$class_object" && export TOB_class_object=$class_object
 
-  # tags=':'
-  # warn "envars has ${#envars[@]} entries:" "${envars[@]}"
-  # for envar in ${envars[*]}; do
-  #     warn "ENVAR: $envar"
-  #     test -n "$envar" || continue
-  #     tag=${envar%%=*}
-  #     # skip entry if not in tag=value form:
-  #     test $tag = "$envar" && continue
-  #     # skip entry if tag has already been set:
-  #     test $tags = ${tags/:$tag://} || continue
-  #     val=${envar#*=}
-  #     export $tag=$val
-  #     tags+=$tag:
-  # done
-    
     for envarset in "${envars[@]}"; do
         tag= val=
         for word in $envarset; do
@@ -422,10 +415,13 @@ main () {
         warn "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method" \
             TYPES=$TOB_types
     
+    warn "RESOLVE_METHOD_PATH $TOB_method"
     resolve_method_path $TOB_method &&
         exec $TOB_method_path "${args[@]}" "$@"
     
     ## no executable method was resolved, so try some built-ins:
+
+    warn "CONTINUING with method $TOB_method"
 
     ## show exported variables as methods
     case $method in
