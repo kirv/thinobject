@@ -1,8 +1,7 @@
 #!/bin/bash
 
 method=$1 && shift
-
-warn "running: _default $method"
+# warn "RUNNING: _default $method"
 
 ## ob.method did not resolve, so check for indirect method or attribute type:
 

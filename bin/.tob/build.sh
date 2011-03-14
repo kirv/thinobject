@@ -18,6 +18,7 @@ order=(shebang
     resolve-declaration
     cull-duplicate-paths
     resolve-method-path
+    resolve-chained-methods
     TOB-resolve-method-path
     TOB-get-attribute
     main

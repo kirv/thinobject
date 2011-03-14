@@ -1,0 +1,12 @@
+resolve_chained_methods () {
+    chain=(${TOB_method//./ })
+    test ${#chain[*]} -gt 1 || return 2
+    
+    for mthd in ${chain[*]}; do
+      # warn "resolve_method_path $mthd || return 1"
+        resolve_method_path $mthd || return 1
+        methods+=($TOB_method_path)
+    done
+
+    return
+    }
