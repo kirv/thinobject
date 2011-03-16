@@ -1,0 +1,39 @@
+run_chained_methods () {
+    ## scan arguments for --tag entries to allocate args per method
+    local tag=$order
+    local -i p=1 a0=1   # p points to arg in $@, a0 is first arg for tag
+    declare -iA ap ac   # ap is arg pointer, ac is arg count for tag
+    while test -n "${!p}"; do
+        test ${!p} = --tag || p+=1 && continue
+        test -n "$tag" && (( p>a0 )) && 
+            ap[$tag]=$a0 &&
+            ac[$tag]=$((p-a0))
+        p+=1 && tag="${!p}"
+        p+=1 && a0=$p
+    done
+    test -n "$tag" && (( p>a0 )) && 
+        ap[$tag]=$a0 &&
+        ac[$tag]=$((p-a0))
+
+    ## allocate a named pipe for each pair of methods:
+    declare -a np=( "${order[@]:1}" )
+    np=${np[@]/#//tmp/$$-}
+    trap "rm -f ${np[@]}" EXIT
+    for namedpipe in ${np[@]}; do
+        mkfifo $namedpipe || error -x $? mkfifo $namedpipe failed
+    done
+    
+    ## run the pipeline of methods:
+    declare -i i=0 z=${#order[@]}
+    for m in ${order[@]}; do
+        case $i in
+            0)  ${chain[$m]} "${@:ap[$m]:ac[$m]}" > ${np[i]} &;;
+            $z) ${chain[$m]} "${@:ap[$m]:ac[$m]}" < ${np[i-1]} &;;
+            *)  ${chain[$m]} "${@:ap[$m]:ac[$m]}" < ${np[i-1]} > ${np[i]} &;;
+        esac
+        i+=1
+    done
+
+    chainpid=$!
+    wait $chainpid
+    }

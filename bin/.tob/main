@@ -93,21 +93,13 @@ main () {
     
   # warn "RESOLVE_METHOD_PATH $TOB_method"
     resolve_method_path $TOB_method &&
-        exec $TOB_method_path "${args[@]}" "$@"
+        exec $TOB_method_path "$@"
     
   # warn "CONTINUING with method $TOB_method"
 
     ## try to resolve chained methods in case method contains a dot: 
-    declare -a chain methods
     resolve_chained_methods && {
-      # warn "CHAIN:" "${chain[@]}"
-      # warn "METHODS:" "${methods[@]}"
-        pipeline=($methods "${args[@]}" "$@")
-        for mthd in "${methods[@]:1}"; do
-            pipeline+=('|' "$mthd")
-        done
-      # warn "PIPE: ${pipeline[*]}"
-        eval "${pipeline[@]}"
+        run_chained_methods "$@"
         exit
         }
 

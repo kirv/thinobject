@@ -3,13 +3,12 @@ resolve_method_path () {
     test "$1" = --super && super=1 && shift || unset super
     local method=$1
     for path in ${mpaths[@]}; do
-        test -x $path/$method && {
-            test -n "$super" && unset super && continue
-            TOB_method_path=$path/$method
-            return
-            }
+        test -x $path/$method || continue
+        test -n "$super" && unset super && continue
+        TOB_method_path=$path/$method
+        return
     done
-    return 1
+    return 1 
     }
 
 

@@ -1,12 +1,11 @@
 resolve_chained_methods () {
-    chain=(${TOB_method//./ })
-    test ${#chain[*]} -gt 1 || return 2
-    
-    for mthd in ${chain[*]}; do
-      # warn "resolve_method_path $mthd || return 1"
-        resolve_method_path $mthd || return 1
-        methods+=($TOB_method_path)
+    local -a methods=(${TOB_method//./ })
+    test ${#methods[*]} -gt 1 || return 2
+    declare -a order
+    declare -A chain
+    for m in ${methods[*]}; do
+        resolve_method_path $m || return 1
+        chain+=( [$m]=$TOB_method_path )
+        order+=( $m )
     done
-
-    return
     }
