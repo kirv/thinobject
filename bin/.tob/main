@@ -98,7 +98,9 @@ main () {
   # warn "CONTINUING with method $TOB_method"
 
     ## try to resolve chained methods in case method contains a dot: 
-    resolve_chained_methods && {
+    declare -a order
+    declare -A chain
+    resolve_chained_methods $TOB_method && {
         run_chained_methods "$@"
         exit
         }

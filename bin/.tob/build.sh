@@ -19,6 +19,7 @@ order=(shebang
     cull-duplicate-paths
     resolve-method-path
     resolve-chained-methods
+    run-chained-methods
     TOB-resolve-method-path
     TOB-get-attribute
     main
