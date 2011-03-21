@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 list=$1; shift
 test -e $list || exit 1

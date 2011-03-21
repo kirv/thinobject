@@ -20,7 +20,7 @@ declare xml=
 # TOB_resolve_method_path xml && xml=$TOB_method_path
 for path in ${TOB_method_paths//:/ }; do
     test -x $path/xml || continue
-    xml=$path/$method
+    xml=$path/xml
     break
 done
 
@@ -59,39 +59,45 @@ done
 echo '</head>'
 echo '<body>'
 
-## run xml method if defined and if anything has changed...
-test -n "$xml" && {
-    if [ -e \@html-body ]; then
-        for f in *; do
-            test $f -nt \@html-body && UPDATE_HTML_BODY=1
-        done
-    else
-        ## @html-body file does not exist, so create it
-        ## NOTE: must be done as a logon user, not via web server
-        UPDATE_HTML_BODY=1
-        touch \@html-body
-        chmod og+w \@html-body
-    fi
+## ## run xml method if defined and if anything has changed...
+## test -n "$xml" && {
+##     if [ -e \@html-body ]; then
+##         for f in *; do
+##             test $f -nt \@html-body && UPDATE_HTML_BODY=1
+##         done
+##     else
+##         ## @html-body file does not exist, so create it
+##         ## NOTE: must be done as a logon user, not via web server
+##         UPDATE_HTML_BODY=1
+##         touch \@html-body
+##         chmod og+w \@html-body
+##     fi
+## 
+##     unset UPDATE_HTML_BODY
+##     test "$UPDATE_HTML_BODY" = "1" && {
+##         printf '<div id="%s">' $TOB_object_path > @html-body
+##         $xml >> @html-body
+##         echo '</div>' >> @html-body
+##         }
+## 
+##     test -n "$UPDATE_HTML_BODY" ||
+##         printf '<div id="%s">\n%s\n</div>\n' $TOB_object "$($xml)"
+##         
+##     }
+## 
+## ## now output the html page body, perhaps just the object name
+## 
+## if test -z "$html_body"; then
+##     echo $TOB_object
+## else
+##     n=${#html_body[@]}
+##     while (( n > 0 )); do
+##         n+=-1
+##         printf "%s\n" "$(<${html_body[n]})"
+##     done
+## fi
 
-    test "$UPDATE_HTML_BODY" == "1" && {
-        printf '<div id="%s">' $TOB_object_path > @html-body
-        $xml >> @html-body
-        echo '</div>' >> @html-body
-        }
-        
-    }
-
-## now output the html page body, perhaps just the object name
-
-if test -z "$html_body"; then
-    echo $TOB_object
-else
-    n=${#html_body[@]}
-    while (( n > 0 )); do
-        n+=-1
-        printf "%s" $(<${html_body[n]})
-    done
-fi
+printf '<div id="%s">\n%s\n</div>\n' $TOB_object "$($xml)"
 
 echo '</body>'
 echo '</html>'
