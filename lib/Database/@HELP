@@ -1,0 +1,15 @@
+NAME
+    Database -- SQLite3 database 
+
+DESCRIPTION
+    Declaration should identify a file to be used as the SQLite3 database.
+
+METHODS
+    db -- general SQL queries 
+    select -- SQL select queries
+    create -- SQL create queries
+
+BUGS
+
+AUTHOR
+    Ken.Irving@alaska.edu 2011

@@ -1,0 +1,18 @@
+#!/bin/bash
+
+test -n "$DB_SCHEMA" || exit 3
+
+echo SCHEMA: $DB_SCHEMA ${DB_SCHEMA:0:1}
+
+test ${DB_SCHEMA:0:1} = @ && { # read from file
+    schema_file=${DB_SCHEMA:1}
+    echo looking for $schema_file ...
+    for p in ${TOB_search_paths//:/ }; do
+        echo checking $p/$schema_file
+        test -e $p/$schema_file || continue
+        sqlite3 $TOB_object $(<$p/$schema_file)
+        exit
+    done
+    }
+
+# sqlite3 $TOB_object $DB_SCHEMA
