@@ -1,0 +1,34 @@
+resolve_query() { # use q[], set path, set o beyond path
+  # errmsg+=("$FUNCNAME($*)")
+    unset anonymous
+    resolve_path || {
+        rtnval=$?
+        errmsg+=("$FUNCNAME(): unable to resolve path for $q")
+        return $rtnval
+        }
+
+    test $o -eq $m && {
+        resolve_anonymous_object
+        return
+        }
+
+    test $path = . -a -n "$TOB_search_paths" &&
+        apaths=(${TOB_search_paths[@]//:/ })
+    test -n "$apaths" || resolve_attr_search_paths $path ||
+        apaths=(.)
+    resolve_named_object && {
+        test -e $object -o -L $object || # look for class object ...
+            for ob in "${apaths[@]/%//${object##*/}}"; do
+                test -e $ob -o -L $ob || continue
+                class_object=$ob
+                break
+            done
+        }
+    apaths=()
+
+    test -n "$type" && return
+
+    test $o -eq $m &&
+        resolve_anonymous_object
+    }
+

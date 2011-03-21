@@ -1,0 +1,11 @@
+resolve_chained_methods () {
+    local -a methods=(${1//./ })
+    test ${#methods[*]} -gt 1 || return 2
+    local m
+    for m in ${methods[*]}; do
+        resolve_method_path $m || return 1
+        chain[$m]=$TOB_method_path
+        order+=($m)
+    done
+    return 0
+    }

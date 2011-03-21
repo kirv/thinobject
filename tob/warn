@@ -1,0 +1,9 @@
+warn () {
+    # synopsis: warn "ONE-LINE-PER-ARGUMENT" -> then output errmsg[] lines
+    test -n "$QUIET" && return
+    printf "?: %s\n" "${errmsg[@]}" >&2
+    errmsg=()
+    printf "%s\n" "$@" >&2
+    }
+export -f warn
+declare -ax errmsg
