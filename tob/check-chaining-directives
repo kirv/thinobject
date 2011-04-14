@@ -1,0 +1,18 @@
+check_chaining_directives() {
+    test ${#chain[@]} = ${#directive[@]} ||
+        error -x 1 "mismatch chained methods and directives:"\
+            "methods: (${chain[*]})"\
+            "directives: (${directives[*]})"
+    case ${directive[-1]} in
+        FORK|WAIT)
+            return
+            ;;
+        AND|OR|PIPE)
+            error -x 1 "invalid last chaining directive"\
+                "methods: (${chain[*]})" \
+                "directives: (${directives[*]})"
+            ;;
+        *)  error -x 1 "invalid last chaining directive: ${directive[-1]}" 
+            ;; 
+    esac
+    }

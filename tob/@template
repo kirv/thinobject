@@ -14,6 +14,8 @@
 #< resolve-declaration
 #< cull-duplicate-paths
 #< resolve-method-path
+#< check-chaining-directives
+#< parse-chain-args
 #< resolve-chained-methods
 #< run-chained-methods
 #< TOB-resolve-method-path

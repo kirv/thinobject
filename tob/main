@@ -98,10 +98,12 @@ main () {
   # warn "CONTINUING with method $TOB_method"
 
     ## try to resolve chained methods in case method contains a dot: 
-    declare -a order
-    declare -A chain
+    declare -a chain methods directive
     resolve_chained_methods $TOB_method && {
-        run_chained_methods "$@"
+        check_chaining_directives
+        declare -iA ap ac   # ap is arg pointer, ac is arg count for method
+        parse_chain_args "$@"
+        run_chained_methods
         exit
         }
 

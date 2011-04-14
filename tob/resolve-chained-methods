@@ -1,11 +1,23 @@
 resolve_chained_methods () {
     local -a methods=(${1//./ })
-    test ${#methods[*]} -gt 1 || return 2
-    local m
-    for m in ${methods[*]}; do
-        resolve_method_path $m || return 1
-        chain[$m]=$TOB_method_path
-        order+=($m)
+    test ${#methods[*]} -gt 1 || return 1
+    local m wantdirective=
+    for m in ${methods[*]}; do {
+        test -n "$wantdirective" && {
+            wantdirective=
+            case $m in
+                FORK|WAIT|AND|OR|PIPE)
+                    directive+=($m)
+                    continue;;
+                *)  directive+=(WAIT);;
+            esac
+            }
+        ## fail if method does not resolve:
+        resolve_method_path $m ||
+            error -x 1 "chained method $m did not resolve"
+        chain+=($TOB_method_path)
+        wantdirective=1
     done
+    test -n "$wantdirective" && directive+=(WAIT)
     return 0
     }

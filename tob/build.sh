@@ -19,6 +19,8 @@ order=(shebang
     cull-duplicate-paths
     resolve-method-path
     resolve-chained-methods
+    check-chaining-directives
+    parse-chain-args
     run-chained-methods
     TOB-resolve-method-path
     TOB-get-attribute
