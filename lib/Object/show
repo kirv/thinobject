@@ -22,7 +22,7 @@ while test -n "$1" -a "${1:0:1}" = -; do
         -a|--all)  export show_hidden=1;;
         --self) export show_self=1;;
         -s|--size) export show_size=1;;
-        -k|--keys) error "$1 option not implemented yet";;
+        -k|--keys) export show_keys=1;;
         -v|--value) export show_value=1;;
         --delim) export delim=$2; shift;;
         --help) exec awk '/^NAME$/{ok=1}ok' $0;;
@@ -50,8 +50,9 @@ for f in "$@"; do
 
     # check prefix or .prefix in [^@%:]
     case ${f:$c:1} in
-        @)  output ${f:$c+1} list "$show_size" "$(wc -l <$f)" && continue;;
-        %)  output ${f:$c+1} dict; continue;;
+        @)  output ${f:$c+1} list "$show_size" "lines:$(wc -l <$f)" && continue;;
+        %)  output ${f:$c+1} dict "$show_keys" \
+                "keys:$(awk '$2=="="{n+=1}END{print n}' $f)" && continue;;
         :)  output ${f:$c+1} json; continue;;
         .)  test "${f:$c+1:1}" = "" && continue;;
         ^)  test "${f:$c+1}" = "" && continue
@@ -72,7 +73,7 @@ for f in "$@"; do
 
     # check for symvar:
     test -e $f || {
-        test -L $f || { output $f nonfile; continue; }
+        test -L $f || { output $f no_file; continue; }
         v=$(readlink $f)
         test "${v:0:1}" = = || { output $f type? 1 "$v"; continue; }
         output $f symvar "$show_value" "${v:1}"
@@ -114,15 +115,20 @@ DESCRIPTION
 OPTIONS
     -v
     --value
-    show value of symvar objects
-
+    --no-value
+    -V
+    show value of symvar objects, or not ($show_value)
     -s
     --size
-    show number of lines in @list objects
+    --no-size
+    -S
+    show number of lines in @list objects, or not ($show_size)
 
     -k
     --keys
-    show number of keys in %dict objects (NOT IMPLEMENTED!)
+    --no-keys
+    -K
+    show number of keys in %dict objects, or not ($show_keys)
 
     --self
     show name (.) and type of object
