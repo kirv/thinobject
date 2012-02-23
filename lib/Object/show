@@ -2,10 +2,21 @@
 
 error() { printf "%s %s\n" ${0##*/} "$@"; exit 1; }
 
+output() {
+    printf "%s%s%s" "$1" "$delim" "$2"
+    test -n "$3" && 
+        printf "%s%s" "$delim" "$3"
+    printf "\n"
+    }
+
+: ${delim:=$'\011'}
+
 while test -n "$1" -a "${1:0:1}" = -; do
     case $1 in
         --all)  export show_hidden=1;;
-        --self) echo . ${TOB_type%%:*};;
+        --self) output . ${TOB_type%%:*};;
+        --size) export show_size=1;;
+        --delim) export delim=$2; shift;;
         *)      error "unknown option: $1";;
     esac
     shift
@@ -27,37 +38,42 @@ for f in "$@"; do
 
     # check for @ % ^ ..
     case ${f:$c:1} in
-        @)  echo ${f:$c+1} list; continue;;
-        %)  echo ${f:$c+1} dict; continue;;
-        :)  echo ${f:$c+1} json; continue;;
+        @)  if test -n "$show_size"; then
+                 output ${f:$c+1} list "$(wc -l < $f)"
+            else
+                 output ${f:$c+1} list
+            fi
+            continue;;
+      # @)  output ${f:$c+1} list; continue;;
+        %)  output ${f:$c+1} dict; continue;;
+        :)  output ${f:$c+1} json; continue;;
         ^)  test "${f:$c+1}" = "" && continue
             m="$(readlink $f)"
-            echo TESTING MIXIN $f '->' $m
             if test -L "$m"; then
                 if test -d "$m"; then
-                    echo $f prototype $m
+                    output $f prototype $m
                 elif test ! -e "$m"; then
-                    echo $f mixin $m
+                    output $f mixin $m
                 else
-                    echo $f bad-mixin-link $m
+                    output $f bad-mixin-link $m
                 fi
             else
-                echo $f bad-mixin-file $m
+                output $f bad-mixin-file $m
             fi
             continue;;
         ^)  test "${f:$c+1}" = "" && continue
             m="$(readlink $f)"
-            echo TESTING MIXIN $f '->' $m
+            output TESTING MIXIN $f '->' $m
             if test -L "$m"; then
                 if test -d "$m"; then
-                    echo $f prototype $m
+                    output $f prototype $m
                 elif test ! -e "$m"; then
-                    echo $f mixin $m
+                    output $f mixin $m
                 else
-                    echo $f bad-mixin-link $m
+                    output $f bad-mixin-link $m
                 fi
             else
-                echo $f bad-mixin-file $m
+                output $f bad-mixin-file $m
             fi
             continue;;
         .)  test "${f:$c+1:1}" = "" && continue;;
@@ -65,23 +81,23 @@ for f in "$@"; do
 
     # check for symvar:
     test -e $f || {
-        test -L $f || { echo $f nonfile; continue; }
+        test -L $f || { output $f nonfile; continue; }
         v=$(readlink $f)
-        test "${v:0:1}" = = || { echo $f badlink; continue; }
-        echo $f symvar = "${v:1}"
+        test "${v:0:1}" = = || { output $f type "$v"; continue; }
+        output $f symvar "${v:1}"
         continue
         }
 
-    test ! ${f#*=} = $f && echo $f attr && continue
+    test ! ${f#*=} = $f && output $f attr && continue
 
     # check for object:
-    type=($(tob $f.type 2>/dev/null)) && echo $f ${type%%:*} && continue
+    type=($(tob $f.type 2>/dev/null)) && output $f ${type%%:*} && continue
 
     if test -f $f; then
-        echo $f file
+        output $f file
     elif test -d $f; then
-        echo $f dir
+        output $f dir
     else
-        echo $f unknown
+        output $f unknown
     fi
 done
