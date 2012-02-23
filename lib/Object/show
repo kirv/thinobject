@@ -23,12 +23,12 @@ while test -n "$1" -a "${1:0:1}" = -; do
     case $1 in
         -a|--all)  export show_hidden=1;;
         --self) export show_self=1;;
-        -f|--full-type) export SHOW_FULL_TYPE=1;;
+        -f|--full-types) NO_SHOW_FULL_TYPES=;;
         -k|--keys) NO_SHOW_KEYS=;;
         -s|--size) NO_SHOW_SIZE=;;
         -t|--type) NO_SHOW_TYPE=;;
         -v|--value) NO_SHOW_VALUE=;;
-        -F|--no-full-type) export SHOW_FULL_TYPE=;;
+        -F|--no-full-types) export NO_SHOW_FULL_TYPES=1;;
         -K|--no-keys) export NO_SHOW_KEYS=1;;
         -S|--no-size) export NO_SHOW_SIZE=1;;
         -T|--no-type) export NO_SHOW_TYPE=1;;
@@ -50,10 +50,10 @@ test -n "$show_self" &&
     if test -n "$NO_SHOW_TYPE"; then
         output . object
     else
-        if test -n "$SHOW_FULL_TYPE"; then
-            output . object ${TOB_types//:/ }
-        else
+        if test -n "$NO_SHOW_FULL_TYPES"; then
             output . object ${TOB_type%%*:}
+        else
+            output . object ${TOB_types//:/ }
         fi
     fi
 
@@ -121,10 +121,10 @@ for f in "$@"; do
             output $f object
         else
             type=${type#TOB_types=}
-            if test -n "$SHOW_FULL_TYPE"; then
-                output $f object ${type//:/ }
-            else
+            if test -n "$NO_SHOW_FULL_TYPES"; then
                 output $f object ${type%%:*}
+            else
+                output $f object ${type//:/ }
             fi
 
         fi
@@ -160,22 +160,29 @@ DESCRIPTION
     options -v, -s, -k, etc., are given.
 
 OPTIONS
-    -v
-    --value
-    --no-value
-    -V
-    show (default) value of symvar objects, or not (envar NO_SHOW_VALUE)
-    -s
-    --size
-    --no-size
-    -S
-    show (default) number of lines in @list objects, or not (envar NO_SHOW_SIZE)
+    -f
+    --full-types
+    --no-full-types
+    -F
+    show (default) only the primary type, or all types (envar SHOW_FULL_TYPES)
 
     -k
     --keys
     --no-keys
     -K
     show (default) number of keys in %dict objects, or not (envar NO_SHOW_KEYS)
+
+    -s
+    --size
+    --no-size
+    -S
+    show (default) number of lines in @list objects, or not (envar NO_SHOW_SIZE)
+
+    -v
+    --value
+    --no-value
+    -V
+    show (default) value of symvar objects, or not (envar NO_SHOW_VALUE)
 
     --self
     show name (.) and type of object
