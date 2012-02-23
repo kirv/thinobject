@@ -11,7 +11,9 @@ usage() {
 
 output() {
     printf "%s%s%s" "$1" "$delim" "$2"
-    test -n "$3" && printf "%s%s" "$delim" "$4"
+    for ((i=3; i<=$#; i+=1)); do
+        printf "%s%s" "$delim" "${!i}"
+    done
     printf "\n"
     }
 
@@ -21,9 +23,16 @@ while test -n "$1" -a "${1:0:1}" = -; do
     case $1 in
         -a|--all)  export show_hidden=1;;
         --self) export show_self=1;;
-        -s|--size) export show_size=1;;
-        -k|--keys) export show_keys=1;;
-        -v|--value) export show_value=1;;
+        -f|--full-type) export SHOW_FULL_TYPE=1;;
+        -k|--keys) NO_SHOW_KEYS=;;
+        -s|--size) NO_SHOW_SIZE=;;
+        -t|--type) NO_SHOW_TYPE=;;
+        -v|--value) NO_SHOW_VALUE=;;
+        -F|--no-full-type) export SHOW_FULL_TYPE=;;
+        -K|--no-keys) export NO_SHOW_KEYS=1;;
+        -S|--no-size) export NO_SHOW_SIZE=1;;
+        -T|--no-type) export NO_SHOW_TYPE=1;;
+        -V|--no-value) export NO_SHOW_VALUE=1;;
         --delim) export delim=$2; shift;;
         --help) exec awk '/^NAME$/{ok=1}ok' $0;;
         -h) usage; exit;;
@@ -37,7 +46,16 @@ test -n "$1" || {
     exec $0 *
     }
 
-test -n "$show_self" && output . type 1 ${TOB_type%%:*}
+test -n "$show_self" &&
+    if test -n "$NO_SHOW_TYPE"; then
+        output . object
+    else
+        if test -n "$SHOW_FULL_TYPE"; then
+            output . object ${TOB_types//:/ }
+        else
+            output . object ${TOB_type%%*:}
+        fi
+    fi
 
 for f in "$@"; do 
 
@@ -50,23 +68,35 @@ for f in "$@"; do
 
     # check prefix or .prefix in [^@%:]
     case ${f:$c:1} in
-        @)  output ${f:$c+1} list "$show_size" "lines:$(wc -l <$f)" && continue;;
-        %)  output ${f:$c+1} dict "$show_keys" \
-                "keys:$(awk '$2=="="{n+=1}END{print n}' $f)" && continue;;
+        @)  test -n "$NO_SHOW_SIZE" || { 
+                output ${f:$c+1} list "lines:$(wc -l <$f)"
+                continue
+                }
+            output ${f:$c+1} list && continue
+            ;;
+
+        %)  test -n "$NO_SHOW_KEYS" || { 
+                output ${f:$c+1} dict \
+                "keys:$(awk 'BEGIN{n=0}BEGIN{n=0}$2=="="{n+=1}END{print n}' $f)"
+                continue
+                }
+            output ${f:$c+1} dict && continue
+            ;;
+
         :)  output ${f:$c+1} json; continue;;
         .)  test "${f:$c+1:1}" = "" && continue;;
         ^)  test "${f:$c+1}" = "" && continue
             m="$(readlink $f)"
             if test -L "$f"; then
                 if test ! -e "$m"; then
-                    output $f type 1 $m
+                    output $f type $m
                 elif test -d "$m"; then
-                    output $f prototype 1 $m
+                    output $f prototype $m
                 elif test -e "$m"; then
-                    output $f prototype 1 $m
+                    output $f prototype $m
                 fi
             else
-                output $f bad-type-file 1 $m
+                output $f bad-type-file $m
             fi
             continue;;
     esac
@@ -75,16 +105,33 @@ for f in "$@"; do
     test -e $f || {
         test -L $f || { output $f no_file; continue; }
         v=$(readlink $f)
-        test "${v:0:1}" = = || { output $f type? 1 "$v"; continue; }
-        output $f symvar "$show_value" "${v:1}"
-        continue
+        test "${v:0:1}" = = || { output $f type? "$v"; continue; }
+        test -n "$NO_SHOW_VALUE" || {
+            output $f symvar "${v:1}"
+            continue
+            }
+        output $f symvar
         }
 
     test ! ${f#*=} = $f && output $f attr && continue
 
     # check for object:
-    type=($(tob $f.type 2>/dev/null)) && output $f object 1 ${type%%:*} && continue
+    type=$(tob $f.show-envars TOB_types 2>/dev/null) && {
+        if test -n "$NO_SHOW_TYPE"; then
+            output $f object
+        else
+            type=${type#TOB_types=}
+            if test -n "$SHOW_FULL_TYPE"; then
+                output $f object ${type//:/ }
+            else
+                output $f object ${type%%:*}
+            fi
 
+        fi
+        continue
+        }
+
+    # chck for regular file or directory, or other (pipe?, socket?):
     if test -f $f; then
         output $f file
     elif test -d $f; then
@@ -117,18 +164,18 @@ OPTIONS
     --value
     --no-value
     -V
-    show value of symvar objects, or not ($show_value)
+    show (default) value of symvar objects, or not (envar NO_SHOW_VALUE)
     -s
     --size
     --no-size
     -S
-    show number of lines in @list objects, or not ($show_size)
+    show (default) number of lines in @list objects, or not (envar NO_SHOW_SIZE)
 
     -k
     --keys
     --no-keys
     -K
-    show number of keys in %dict objects, or not ($show_keys)
+    show (default) number of keys in %dict objects, or not (envar NO_SHOW_KEYS)
 
     --self
     show name (.) and type of object
