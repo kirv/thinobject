@@ -5,7 +5,7 @@ error() { printf "%s %s\n" ${0##*/} "$@"; exit 1; }
 while test -n "$1" -a "${1:0:1}" = -; do
     case $1 in
         --all)  export show_hidden=1;;
-        --self) export show_self=1;;
+        --self) echo . ${TOB_type%%:*};;
         *)      error "unknown option: $1";;
     esac
     shift
@@ -15,8 +15,6 @@ test -n "$1" || {
     test -n "$show_hidden" && exec $0 .* *
     exec $0 *
     }
-
-test -n "$show_self" && echo .  ${TOB_type%%:*}
 
 for f in "$@"; do 
 
