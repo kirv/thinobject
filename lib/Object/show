@@ -1,6 +1,6 @@
 #!/bin/bash
 
-error() { printf "%s %s\n" ${0##*/} "$@"; exit 1; }
+error() { printf "%s: %s\n" ${0##*/} "$@"; exit 1; }
 
 output() {
     printf "%s%s%s" "$1" "$delim" "$2"
@@ -8,13 +8,14 @@ output() {
     printf "\n"
     }
 
-: ${delim:=$'\011'}
+: ${delim:=$'\t'}
 
 while test -n "$1" -a "${1:0:1}" = -; do
     case $1 in
         --all)  export show_hidden=1;;
         --self) output . ${TOB_type%%:*};;
         -s|--size) export show_size=1;;
+        -k|--keys) error "$1 option not implemented yet";;
         -v|--value) export show_value=1;;
         --delim) export delim=$2; shift;;
         *)      error "unknown option: $1";;
@@ -46,16 +47,16 @@ for f in "$@"; do
         :)  output ${f:$c+1} json; continue;;
         ^)  test "${f:$c+1}" = "" && continue
             m="$(readlink $f)"
-            if test -L "$m"; then
+            if test -L "$f"; then
                 if test -d "$m"; then
-                    output $f prototype $m
+                    output $f prototype 1 $m
                 elif test ! -e "$m"; then
-                    output $f mixin $m
+                    output $f mixin 1 $m
                 else
-                    output $f bad-mixin-link $m
+                    output $f bad-mixin-link 1 $m
                 fi
             else
-                output $f bad-mixin-file $m
+                output $f bad-mixin-file 1 $m
             fi
             continue;;
         ^)  test "${f:$c+1}" = "" && continue
