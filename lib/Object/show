@@ -1,88 +1,86 @@
 #!/bin/bash
 
-## declare category or type arrays:
-declare -a list dict attr file dir obname obtype unknown
+error() { printf "%s %s\n" ${0##*/} "$@"; exit 1; }
 
-## scan contents of object, store by type:
-for f in * .*; do 
-    if [ $f == ^ -o $f == .^ -o $f == . -o $f == .. ]; then
-        true
-    elif [ ${f:0:1} == @ ]; then
-        list=(${list[@]} ${f:1})
-    elif [ ${f:0:2} == .@ ]; then
-        list=(${list[@]} ${f:2})
-    elif [ ${f:0:1} == % ]; then
-        dict=(${dict[@]} ${f:1})
-    elif [ ${f:0:2} == .% ]; then
-        dict=(${dict[@]} ${f:2})
-    elif [ ! ${f#*=} == $f ]; then
-        attr=(${attr[@]} $f)
-    elif obclass=($(tob $f.type 2>/dev/null)); then
-      # echo $f -- ${obclass[0]} object
-        obname=(${obname[@]} $f)
-        obtype=(${obtype[@]} ${obclass%%:*})
-    elif [ -f $f ]; then
-        file=(${file[@]} $f)
-    elif [ -d $f ]; then
-        dir=(${dir[@]} $f)
-    else
-        unknown=(${unknown[@]} $f)
-    fi
+while test -n "$1" -a "${1:0:1}" = -; do
+    case $1 in
+        --all)  export show_hidden=1;;
+        *)      error "unknown option: $1";;
+    esac
+    shift
 done
 
-## show elements of each type:
+test -n "$1" || {
+    test -n "$show_hidden" && exec $0 .* *
+    exec $0 *
+    }
 
-type=(self list dict attr file dir ob unknown)
-for t in ${type[@]}; do
+for f in "$@"; do 
 
-  # printf "\n%ss:\n" $t
-    case $t in
-
-        self)
-            echo . ${TOB_type%%:*}
-            ;;
-            
-        list)
-            for el in ${list[@]}; do
-                echo $el list
-            done
-            ;;
-            
-        dict)
-            for el in ${dict[@]}; do
-                echo $el dict
-            done
-            ;;
-            
-        attr)
-            for el in ${attr[@]}; do
-                echo $el attr
-            done
-            ;;
-            
-        file)
-            for el in ${file[@]}; do
-                echo $el file
-            done
-            ;;
-            
-        dir)
-            for el in ${dir[@]}; do
-                echo $el dir
-            done
-            ;;
-            
-        ob)
-            for (( i = 0 ; i < ${#obtype[@]} ; i++ )); do
-                echo ${obname[$i]} ${obtype[$i]}
-            done
-            ;;
-            
-        unknown)
-            for el in ${unknown[@]}; do
-                echo $el unknown
-            done
-            ;;
-
+    case ${f:0:1} in
+        .)  test "$show_hidden" || continue
+            test $f = . && continue
+            c=1;;
+        *)  c=0;;
     esac
+
+    # check for @ % ^ ..
+    case ${f:$c:1} in
+        @)  echo ${f:$c+1} list; continue;;
+        %)  echo ${f:$c+1} dict; continue;;
+        :)  echo ${f:$c+1} json; continue;;
+        ^)  test "${f:$c+1}" = "" && continue
+            m="$(readlink $f)"
+            echo TESTING MIXIN $f '->' $m
+            if test -L "$m"; then
+                if test -d "$m"; then
+                    echo $f prototype $m
+                elif test ! -e "$m"; then
+                    echo $f mixin $m
+                else
+                    echo $f bad-mixin-link $m
+                fi
+            else
+                echo $f bad-mixin-file $m
+            fi
+            continue;;
+        ^)  test "${f:$c+1}" = "" && continue
+            m="$(readlink $f)"
+            echo TESTING MIXIN $f '->' $m
+            if test -L "$m"; then
+                if test -d "$m"; then
+                    echo $f prototype $m
+                elif test ! -e "$m"; then
+                    echo $f mixin $m
+                else
+                    echo $f bad-mixin-link $m
+                fi
+            else
+                echo $f bad-mixin-file $m
+            fi
+            continue;;
+        .)  test "${f:$c+1:1}" = "" && continue;;
+    esac
+
+    # check for symvar:
+    test -e $f || {
+        test -L $f || { echo $f nonfile; continue; }
+        v=$(readlink $f)
+        test "${v:0:1}" = = || { echo $f badlink; continue; }
+        echo $f symvar = "${v:1}"
+        continue
+        }
+
+    test ! ${f#*=} = $f && echo $f attr && continue
+
+    # check for object:
+    type=($(tob $f.type 2>/dev/null)) && echo $f ${type%%:*} && continue
+
+    if test -f $f; then
+        echo $f file
+    elif test -d $f; then
+        echo $f dir
+    else
+        echo $f unknown
+    fi
 done
