@@ -2,6 +2,13 @@
 
 error() { printf "%s: %s\n" ${0##*/} "$@"; exit 1; }
 
+usage() {
+    printf "SYNOPSIS: ob.show"
+    printf " [%s]" '-a|--all' '-s|--size' '-k|--keys' '-v|--value' \
+        '--self' '--delim STRING' '-h|--help' 'OBJECT ...'
+    printf "\n"
+    }
+
 output() {
     printf "%s%s%s" "$1" "$delim" "$2"
     test -n "$3" && printf "%s%s" "$delim" "$4"
@@ -12,13 +19,15 @@ output() {
 
 while test -n "$1" -a "${1:0:1}" = -; do
     case $1 in
-        --all)  export show_hidden=1;;
-        --self) output . ${TOB_type%%:*};;
+        -a|--all)  export show_hidden=1;;
+        --self) export show_self=1;;
         -s|--size) export show_size=1;;
         -k|--keys) error "$1 option not implemented yet";;
         -v|--value) export show_value=1;;
         --delim) export delim=$2; shift;;
-        *)      error "unknown option: $1";;
+        --help) exec awk '/^NAME$/{ok=1}ok' $0;;
+        -h) usage; exit;;
+        *)  error "unknown option: $1";;
     esac
     shift
 done
@@ -27,6 +36,8 @@ test -n "$1" || {
     test -n "$show_hidden" && exec $0 .* *
     exec $0 *
     }
+
+test -n "$show_self" && output . type 1 ${TOB_type%%:*}
 
 for f in "$@"; do 
 
@@ -37,51 +48,33 @@ for f in "$@"; do
         *)  c=0;;
     esac
 
-    # check for @ % ^ ..
+    # check prefix or .prefix in [^@%:]
     case ${f:$c:1} in
         @)  output ${f:$c+1} list "$show_size" "$(wc -l <$f)" && continue;;
-        @)  test -n "$show_size" &&
-                output ${f:$c+1} list "$(wc -l < $f)" && continue
-            output ${f:$c+1} list && continue;;
         %)  output ${f:$c+1} dict; continue;;
         :)  output ${f:$c+1} json; continue;;
+        .)  test "${f:$c+1:1}" = "" && continue;;
         ^)  test "${f:$c+1}" = "" && continue
             m="$(readlink $f)"
             if test -L "$f"; then
-                if test -d "$m"; then
+                if test ! -e "$m"; then
+                    output $f type 1 $m
+                elif test -d "$m"; then
                     output $f prototype 1 $m
-                elif test ! -e "$m"; then
-                    output $f mixin 1 $m
-                else
-                    output $f bad-mixin-link 1 $m
+                elif test -e "$m"; then
+                    output $f prototype 1 $m
                 fi
             else
-                output $f bad-mixin-file 1 $m
+                output $f bad-type-file 1 $m
             fi
             continue;;
-        ^)  test "${f:$c+1}" = "" && continue
-            m="$(readlink $f)"
-            output TESTING MIXIN $f '->' $m
-            if test -L "$m"; then
-                if test -d "$m"; then
-                    output $f prototype $m
-                elif test ! -e "$m"; then
-                    output $f mixin $m
-                else
-                    output $f bad-mixin-link $m
-                fi
-            else
-                output $f bad-mixin-file $m
-            fi
-            continue;;
-        .)  test "${f:$c+1:1}" = "" && continue;;
     esac
 
     # check for symvar:
     test -e $f || {
         test -L $f || { output $f nonfile; continue; }
         v=$(readlink $f)
-        test "${v:0:1}" = = || { output $f type "$v"; continue; }
+        test "${v:0:1}" = = || { output $f type? 1 "$v"; continue; }
         output $f symvar "$show_value" "${v:1}"
         continue
         }
@@ -89,7 +82,7 @@ for f in "$@"; do
     test ! ${f#*=} = $f && output $f attr && continue
 
     # check for object:
-    type=($(tob $f.type 2>/dev/null)) && output $f ${type%%:*} && continue
+    type=($(tob $f.type 2>/dev/null)) && output $f object 1 ${type%%:*} && continue
 
     if test -f $f; then
         output $f file
@@ -99,3 +92,61 @@ for f in "$@"; do
         output $f unknown
     fi
 done
+
+exit
+
+NAME
+    Object.show -- show name and type of all or some object contents
+
+SYNOPSIS
+    ob.show [OPTIONS] [OBJECT ...]
+    
+DESCRIPTION
+    With no arguments, executes 'ob.show *' in the object, or
+    'ob.show .* *' if --all is given.
+
+    Output has 2 fields (name and type) of each contained 
+    object by default, separated by ASCII tab by default.
+
+    A third field (value, size, or other) may be output if
+    options -v, -s, -k, etc., are given.
+
+OPTIONS
+    -v
+    --value
+    show value of symvar objects
+
+    -s
+    --size
+    show number of lines in @list objects
+
+    -k
+    --keys
+    show number of keys in %dict objects (NOT IMPLEMENTED!)
+
+    --self
+    show name (.) and type of object
+
+    --delim STRING
+    field delimiter, default is --delim $'\t' for tab
+
+    -h
+    print a short synopsis
+
+    --help
+    print this manpage
+
+TYPES
+    list -- prefix '@' identifies a list file, one line per entry
+    dict -- prefix '%' identifies a file of key=value pairs
+    json -- prefix ':' identifies a JSON file
+    symvar -- non-resolving symlink with prefix '=' on value 
+    type -- non-resolving symlink with prefix '^', value to resolve via $TOBLIB
+    prototype -- resolving symlink with prefix '^', value points to an object
+    object -- thinobject, typed or prototyped directory or file 
+    dir -- ordinary directory
+    file -- ordinary file
+
+AUTHOR
+    ken.irving@alaska.edu (c) 2012
+
