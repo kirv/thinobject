@@ -20,25 +20,34 @@ output() {
 : ${delim:=$'\t'}
 
 while test -n "$1" -a "${1:0:1}" = -; do
-    case $1 in
-        -a|--all)  export show_hidden=1;;
-        --self) export show_self=1;;
-        -f|--full-types) NO_SHOW_FULL_TYPES=;;
-        -k|--keys) NO_SHOW_KEYS=;;
-        -s|--size) NO_SHOW_SIZE=;;
-        -t|--type) NO_SHOW_TYPE=;;
-        -v|--value) NO_SHOW_VALUE=;;
-        -F|--no-full-types) export NO_SHOW_FULL_TYPES=1;;
-        -K|--no-keys) export NO_SHOW_KEYS=1;;
-        -S|--no-size) export NO_SHOW_SIZE=1;;
-        -T|--no-type) export NO_SHOW_TYPE=1;;
-        -V|--no-value) export NO_SHOW_VALUE=1;;
-        --delim) export delim=$2; shift;;
-        --help) exec awk '/^NAME$/{ok=1}ok' $0;;
-        -h) usage; exit;;
-        *)  error "unknown option: $1";;
-    esac
-    shift
+    opt=$1 && shift
+    test ${#opt} -gt 2 -a ! ${opt:1:1} = - && {
+        unbundled=()
+        for ((i=1; i<${#opt}; i+=1)) {
+            unbundled+=(-${opt:i:1})
+            }
+        opt="${unbundled[*]}"
+        }
+    for opt in $opt; do
+        case $opt in
+            -a|--all)  export show_hidden=1;;
+            --self) export show_self=1;;
+            -f|--full-types) NO_SHOW_FULL_TYPES=;;
+            -k|--keys) NO_SHOW_KEYS=;;
+            -s|--size) NO_SHOW_SIZE=;;
+            -t|--type) NO_SHOW_TYPE=;;
+            -v|--value) NO_SHOW_VALUE=;;
+            -F|--no-full-types) export NO_SHOW_FULL_TYPES=1;;
+            -K|--no-keys) export NO_SHOW_KEYS=1;;
+            -S|--no-size) export NO_SHOW_SIZE=1;;
+            -T|--no-type) export NO_SHOW_TYPE=1;;
+            -V|--no-value) export NO_SHOW_VALUE=1;;
+            --delim) export delim=$1; shift;;
+            --help) exec awk '/^NAME$/{ok=1}ok' $0;;
+            -h) usage; exit;;
+            *)  error "unknown option: $opt";;
+        esac
+    done
 done
 
 test -n "$1" || {
@@ -160,11 +169,14 @@ DESCRIPTION
     options -v, -s, -k, etc., are given.
 
 OPTIONS
+    Options may be short (-k) or long (--keys), and short options can
+    be bundled, e.g., -fKTs expands to -f -K -T -s.
+
     -f
     --full-types
     --no-full-types
     -F
-    show (default) only the primary type, or all types (envar SHOW_FULL_TYPES)
+    show all (default) types, or only the primary types (envar NO_SHOW_FULL_TYPES)
 
     -k
     --keys
