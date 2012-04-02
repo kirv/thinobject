@@ -5,29 +5,23 @@ method=$1 && shift
 
 ## ob.method did not resolve, so check for indirect method or attribute type:
 
+## look for type declaration for method
+test -L .$method && test ! -e .$method && {
+    type=$(readlink $path/$method)
+    for lib in ${TOBLIB//:/ }; do
+        test -d $lib/$type/ || continue
+    done
+
+    }
+
 for path in ${TOB_method_paths//:/ }; do
     test -L $path/$method || continue
-    # assert: the given method exists as a 'class attribute'
-    # we already know it is not executable, or method would have resolved
+    test -e $path/$method && continue
     target=$(readlink $path/$method)
-    # try to resolve target as an indirect method under the object's classes:
-    for path in ${TOB_method_paths//:/ }; do
-        test -x $path/$target && exec $target $method "$@"
-    done
-    # try to resolve target as a thinobject class:
-    for toblib in $TOBLIB; do
+
+    for toblib in ${TOBLIB//:/ }; do
         test -d $toblib/$target/ || continue
-        # class attribute resolves to a thinobject class
-        # check if 'sub-command' exists as a method:
-        test -n "$1" && test -x $toblib/$target/$1 && {
-            command=$1 && shift
-            exec $toblib/$target/$command $method "$@"
-            }
-        test -x $toblib/$target/default || {
-            echo no $target/default method found for $method >&2
-            exit 1
-            }
-        exec $toblib/$target/default $method "$@"
+        exec $toblib/$method.default "$@"
     done
     echo failed to resolve $method as indirect method or attribute type >&2
     exit 1
@@ -37,6 +31,11 @@ done
 
 unset property default_handler
 for path in ${TOB_search_paths//:/ }; do
+    test ! -e $path/$method && test -L $path/$method && { # found symvar?
+        property=$path/$method
+        default_handler=symvar
+        break
+        }
     test -e $path/\@$method && { # found @method
         property=$path/@$method
         default_handler=_default-list

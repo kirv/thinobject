@@ -209,13 +209,13 @@ OPTIONS
     print this manpage
 
 TYPES
-    list -- prefix '@' identifies a list file, one line per entry
-    dict -- prefix '%' identifies a file of key=value pairs
-    json -- prefix ':' identifies a JSON file
+    object -- thinobject, typed or prototyped directory or file 
+    list -- prefix '@' suggests a list file, one line per entry
+    dict -- prefix '%' suggests a file of key=value pairs
+    json -- prefix ':' suggests a JSON file
     symvar -- non-resolving symlink with prefix '=' on value 
     type -- non-resolving symlink with prefix '^', value to resolve via $TOBLIB
     prototype -- resolving symlink with prefix '^', value points to an object
-    object -- thinobject, typed or prototyped directory or file 
     dir -- ordinary directory
     file -- ordinary file
 
