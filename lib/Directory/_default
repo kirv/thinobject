@@ -1,68 +1,63 @@
 #!/bin/bash
 
 method=$1 && shift
-# warn "RUNNING: _default $method"
 
 ## ob.method did not resolve, so check for indirect method or attribute type:
 
-## look for type declaration for method
-test -L .$method && test ! -e .$method && {
-    type=$(readlink $path/$method)
-    for lib in ${TOBLIB//:/ }; do
-        test -d $lib/$type/ || continue
+for p in ${TOB_search_paths//:/ }; do
+    for t in $p/$method $p/.$method; do
+        # thinobject type declaration is symlink, must not exist
+        test -L $t || test ! -e $t || continue 2
+        T=$(readlink $t)
+        # type declaration is not a symvar, must not have prefix '='
+        test "${T:0:1}" = '=' && break 2
+        # assert: symlink T does not exist, is not a symvar value
+        # if T rsolves under TOBLIB, then t is a typed attribute
+
+        # type T has to resolve under TOBLIB:
+        for lib in ${TOBLIB//:/ }; do
+            test -d $lib/$T/ &&
+                exec tob $method.default "$@"
+        done
     done
-
-    }
-
-for path in ${TOB_method_paths//:/ }; do
-    test -L $path/$method || continue
-    test -e $path/$method && continue
-    target=$(readlink $path/$method)
-
-    for toblib in ${TOBLIB//:/ }; do
-        test -d $toblib/$target/ || continue
-        exec $toblib/$method.default "$@"
-    done
-    echo failed to resolve $method as indirect method or attribute type >&2
-    exit 1
 done
-    
-## no class attribute was resolved, so look for @method or %method properties:
+
+## look for implicit attribute type via @ or % prefixes or symvar value = prefix
 
 unset property default_handler
-for path in ${TOB_search_paths//:/ }; do
-    test ! -e $path/$method && test -L $path/$method && { # found symvar?
-        property=$path/$method
+for p in ${TOB_search_paths//:/ }; do
+    test ! -e $p/$method && test -L $p/$method && { # found symvar?
+        property=$p/$method
         default_handler=symvar
         break
         }
-    test -e $path/\@$method && { # found @method
-        property=$path/@$method
+    test -e $p/\@$method && { # found @method
+        property=$p/@$method
         default_handler=_default-list
         break
         }
-    test -e $path/.\@$method && { # found .@method
-        property=$path/.@$method
+    test -e $p/.\@$method && { # found .@method
+        property=$p/.@$method
         default_handler=_default-list
         break
         }
-    test -e $path/\%$method && { # found %method
-        property=$path/%$method
+    test -e $p/\%$method && { # found %method
+        property=$p/%$method
         default_handler=_default-dict
         break
         }
-    test -e $path/.\%$method && { # found .%method
-        property=$path/.%$method
+    test -e $p/.\%$method && { # found .%method
+        property=$p/.%$method
         default_handler=_default-dict
         break
         }
-    test -e $path/\%\@$method && { # found %@method
-        property=$path/%@$method
+    test -e $p/\%\@$method && { # found %@method
+        property=$p/%@$method
         default_handler=_default-dict-list
         break
         }
-    test -e $path/.\%\@$method && { # found .%@method
-        property=$path/.%@$method
+    test -e $p/.\%\@$method && { # found .%@method
+        property=$p/.%@$method
         default_handler=_default-dict-list
         break
         }
@@ -71,10 +66,8 @@ done
 test -n "$property" && {
     # search for _default-list or _default-dict method:
     for path in ${TOB_method_paths//:/ }; do
-        test -e $path/$default_handler && {
-          # echo TODO: /bin/echo exec $path/$default_handler $property $@
+        test -e $path/$default_handler &&
             exec $path/$default_handler $property $@ # found & dispatched
-            }
     done
 
     ## ASSERT: property was found, but no default handler, so handle inline:
