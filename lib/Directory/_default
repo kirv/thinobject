@@ -7,7 +7,8 @@ method=$1 && shift
 for p in ${TOB_search_paths//:/ }; do
     for t in $p/$method $p/.$method; do
         # thinobject type declaration is symlink, must not exist
-        test -L $t || test ! -e $t || continue 2
+        test -L $t || continue 2
+        test ! -e $t || continue 2
         T=$(readlink $t)
         # type declaration is not a symvar, must not have prefix '='
         test "${T:0:1}" = '=' && break 2
