@@ -5,6 +5,7 @@ mkdir dir$$ &&
 
 test "$(tob ..path)" = ./ || exit 2
 
+printf "TEST tob ..type: %s\n" "$(tob ..type)"
 test "$(tob ..type)" = Directory || exit 3
 
 cd - >/dev/null

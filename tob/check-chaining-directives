@@ -3,7 +3,7 @@ check_chaining_directives() {
         error -x 1 "mismatch chained methods and directives:"\
             "methods: (${chain[*]})"\
             "directives: (${directives[*]})"
-    case ${directive[-1]} in
+    case ${directive[@]: -1} in
         FORK|WAIT)
             return
             ;;
@@ -12,7 +12,7 @@ check_chaining_directives() {
                 "methods: (${chain[*]})" \
                 "directives: (${directives[*]})"
             ;;
-        *)  error -x 1 "invalid last chaining directive: ${directive[-1]}" 
+        *)  error -x 1 "invalid last chaining directive: ${directive[@]: -1}" 
             ;; 
     esac
     }

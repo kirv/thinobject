@@ -1,8 +1,8 @@
 resolve_chained_methods () {
-    local -a methods=(${1//./ })
+    methods=(${1//./ })
     test ${#methods[*]} -gt 1 || return 1
     local m wantdirective=
-    for m in ${methods[*]}; do {
+    for m in ${methods[*]}; do
         test -n "$wantdirective" && {
             wantdirective=
             case $m in
@@ -15,7 +15,8 @@ resolve_chained_methods () {
         ## fail if method does not resolve:
         resolve_method_path $m ||
             error -x 1 "chained method $m did not resolve"
-        chain+=($TOB_method_path)
+        chain+=($m)
+        chainpath+=($TOB_method_path)
         wantdirective=1
     done
     test -n "$wantdirective" && directive+=(WAIT)

@@ -2,7 +2,7 @@ parse_query() {
     # synopsis: parse_query QUERY -> set q[], o and m indices
   # errmsg+=("$FUNCNAME($*)")
     test -n "$1" ||
-        error -x 13 "missing required object.method query"
+        error -x 13 "no object or method specified"
     q[0]=$1
     test ${q/./} = $q && q=..$q     # assume self object
     q[1]="${q//\///.}"             # change all / to /. for splitting

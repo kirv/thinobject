@@ -3,6 +3,13 @@
 test -e bad$$ && exit 42
 test -e .bad$$ && exit 43
 
+tob bad$$.path 2>/dev/null
+test $? = 1 || exit
+
+exit 2
+
+## old test code follows:
+
 export TOBLIB_NOT_OBJECT=1
 tob bad$$.path 2>/dev/null
 
