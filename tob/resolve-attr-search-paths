@@ -14,7 +14,7 @@ resolve_attr_search_paths () { # resolve (proto)type(s) into apaths[]
             resolve_library $type || return 1
         fi
         apaths+=($path)
-        unset type
+        unset 'type'
         for mixin in $path/{,.}^?*; do # ^Cron, .^settings, etc.
             test -L $mixin && resolve_attr_search_paths $mixin
         done

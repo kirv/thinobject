@@ -7,9 +7,9 @@ cull_duplicate_paths () {
     for (( i=${#types[@]}-1; i>=0; i-- )); do
         entry=${types[i]}
         test "${unique/$entry/}" = "$unique" && unique+=" $entry" && continue
-        unset types[i]
-        unset envars[i]
-        unset mpaths[i]
+        unset 'types[i]'
+        unset 'envars[i]'
+        unset 'mpaths[i]'
     done
     # apaths array can include duplicates, so scan & discard, leaving last
     apaths=("${apaths[@]}") # pack array first, though...
@@ -17,6 +17,6 @@ cull_duplicate_paths () {
     for (( i=${#apaths[@]}-1; i>=0; i-- )); do
         entry=${apaths[i]}
         test "${unique/$entry/}" = "$unique" && unique+=" $entry" && continue
-        unset apaths[i]
+        unset 'apaths[i]'
     done
     }

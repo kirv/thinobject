@@ -1,6 +1,6 @@
 resolve_query() { # use q[], set path, set o beyond path
   # errmsg+=("$FUNCNAME($*)")
-    unset anonymous
+    unset 'anonymous'
     resolve_path || {
         rtnval=$?
         errmsg+=("$FUNCNAME(): unable to resolve path for $q")
