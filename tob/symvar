@@ -1,0 +1,86 @@
+#!/bin/bash
+
+SYNOPSIS="symvar [-h] [-t|--tag] [-f|--force] [-F ]NAME[=VALUE] ..."
+
+error() { printf "%s\n" "$*"; exit 1; }
+
+debug() { printf "DEBUG: %s\n" "$*"; }
+
+resolve_symvar() {
+    for var in $1 .$1; do
+        for dir in ${TOB_search_paths//:/ }; do
+            test -L $dir/$var && name=$dir/$var && return
+        done
+    done
+    return 1
+    }
+
+read_value() {
+    value="$(readlink $name)"
+    test "${value:0:1}" = '=' || error "symlink $name is not a symvar"
+    value="${value#=}"
+    }
+
+while test "${1:0:1}" = -; do
+    case $1 in
+    -f | --force) FORCE=1;;
+    -F) FORCE_ONCE=1;;
+    -t | --tag)   TAG=1;;
+    -h) echo $SYNOPSIS && exit;;
+    *)  error "SYNOPSIS=$SYNOPSIS"
+    esac
+    shift
+done
+
+test -n "$1" || error "SYNOPSIS: $SYNOPSIS"
+
+for var in "$@"; do
+    name=(${var/=/ })
+    value="${name[1]}"
+
+    test $name = -F && FORCE_ONCE=1 && continue
+
+    resolve_symvar $name || {
+        case ${#name[*]} in
+        1)  # just the name was given
+            test -n "$TAG" && error "$name not found"
+            exit 1
+            ;;
+        2)  # name=value was given
+            test -n "$FORCE" || test -n "$FORCE_ONCE" || error "$name not found"
+            ln -sf "=$value" $name
+            test -n "$TAG" && printf "%s=%s\n" "$name" "$value"
+            test -n "$FORCE_ONCE" && unset FORCE_ONCE
+            continue
+            ;;
+        esac
+        }
+
+    test -e $name && error "symvar $name must not exist as ordinary file"
+
+    case ${#name[*]}$FORCE$FORCE_ONCE in
+    1 | 11 | 111)
+        # output VALUE, or NAME=VALUE if --tag is given
+        read_value $name
+        test -n "$TAG" && value="$name=$value"
+        printf "%s\n" "$value"
+        ;;
+    2)  # value was given, force is not set, so compare given to symvar value:
+        test_value="$value"
+        read_value $name
+        test "$value" = "$test_value" || {
+            test -n "$TAG" && printf "%s!=%s\n" $name "$test_value"
+            exit 1
+            }
+        test -n "$TAG" && value="$name=$value"
+        printf "%s\n" "$value"
+        ;;
+    21 | 211)
+        # name=value was given, force or force_once is set:
+        ln -sf "=$value" $name
+        test -n "$TAG" && printf "%s=%s\n" "$name" "$value"
+        ;;
+    esac
+
+    test -n "$FORCE_ONCE" && unset FORCE_ONCE
+done
