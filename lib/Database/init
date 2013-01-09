@@ -1,0 +1,22 @@
+#!/bin/bash
+
+test -f $TOB_object && exit 2
+
+schema='time INTEGER UNIQUE PRIMARY KEY, path TEXT, imagenum INTEGER'
+
+sqlite3 $TOB_object "create table images ($schema);"
+
+exit
+
+NAME
+    Database.init
+
+DESCRIPTION
+    Create sqlite3 database, table
+
+BUGS
+    Not really sure how to structure this...
+
+AUTHOR
+    Ken.Irving@alaska.edu 2011
+

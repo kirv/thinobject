@@ -3,12 +3,12 @@
 ob=ob$$
 
 mkdir $ob
-ln -s /usr/local/lib/tob/Object $ob/^
+ln -s Object $ob/^
 
 mkdir ldir$$
 
 ln -s ../$ob ldir$$/lfoo
 
-test $(tob ldir$$/lfoo.path) == ./ldir$$/lfoo/ || exit 1
+test $(tob ldir$$/lfoo.path) = ./ldir$$/lfoo/ || exit 1
 
 rm -r $ob ldir$$

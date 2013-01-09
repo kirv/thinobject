@@ -1,0 +1,34 @@
+#!/bin/bash
+
+error() { printf "%s: %s\n" ${0##*/} "$@"; exit 1; }
+
+usage() {
+    printf "SYNOPSIS: ob.show-html"
+    printf " [%s]" '-a|--all' '-s|--size' '-k|--keys' '-v|--value' \
+        '--self' '--delim STRING' '-h|--help' 'OBJECT ...'
+    printf "\n"
+    }
+
+show=$(tob ..method show)
+
+printf "<html><head><title>%s</title><head>\n" "$TOB_object"
+printf "<body>\n"
+
+$show "$@" | while read name type value; do
+
+  # printf "<a href="%s/%s.html">%s</a>" ${TOB_object##*/} $name $name
+  # printf "\t&lt;%s&gt;\t%s<br/>\n" $type "$value"
+
+    case $type in
+        object|dir)
+            printf "<a href="%s/%s.html">%s</a>" ${TOB_object##*/} $name $name
+            printf "\t&lt;%s&gt;\t%s<br/>\n" $type "$value"
+            ;;
+        *)
+            printf "%s\t&lt;%s&gt;\t%s<br/>\n" $name $type "$value"
+            ;;
+    esac
+
+done
+
+printf "</body></html>\n"

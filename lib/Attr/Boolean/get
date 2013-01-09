@@ -1,0 +1,24 @@
+#!/bin/bash
+
+synopsis="Attr/Boolean.get"
+
+state=false
+test -e $TOB_object && state=true
+
+echo $state
+
+exit
+
+NAME
+    Attr/Boolean.get -- print attribute state to standard output
+
+SYNOPSIS
+    Attr/Boolean.get
+
+DESCRIPTION
+    Value 'true' is displayed if attribute exists, otherwise 'false' is 
+    output.
+
+AUTHOR
+    ken.irving@alaska.edu (c) 2010
+

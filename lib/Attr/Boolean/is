@@ -1,0 +1,29 @@
+#!/bin/bash
+
+synopsis="Attr/Boolean.is true|false"
+
+case "$1" in
+    true)   test -e $TOB_object; exit;;
+
+    false)  test ! -e $TOB_object; exit;;
+
+    "")     echo "missing required value argument" >&2
+            exit 1
+            ;;
+
+    *)      echo "invalid value: $1, must be true or false" >&2
+            exit 2
+            ;;
+esac
+
+exit
+
+NAME
+    Attr/Boolean.is -- compare state to given argument
+
+SYNOPSIS
+    Attr/Boolean.is true|false
+
+AUTHOR
+    ken.irving@alaska.edu (c) 2010
+

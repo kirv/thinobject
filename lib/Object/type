@@ -1,0 +1,13 @@
+#!/bin/bash
+
+test -n "$1" || {
+    printf "    %s\n" ${TOB_types//:/ }
+    exit
+    }
+
+types=:${TOB_types}:
+
+for checktype; do
+    test ${types/:$checktype:/} = $types && exit 1
+done
+exit 0

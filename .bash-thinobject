@@ -1,0 +1,7 @@
+
+PATH=$PWD/bin:$PATH
+export PATH
+TOBLIB=$PWD/lib:~/lib/tob:/opt/lib/tob
+export TOBLIB
+
+command_not_found_handle () { exec tob "$@"; }

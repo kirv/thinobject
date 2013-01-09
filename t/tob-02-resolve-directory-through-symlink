@@ -6,7 +6,7 @@ mkdir $d
 
 ln -s $d l$d
 
-test $(tob l$d.path) == ./l$d/ || exit 1
+test $(tob l$d.path) = ./l$d/ || exit 1
 
 rm l$d
 rmdir $d

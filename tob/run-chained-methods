@@ -1,0 +1,43 @@
+run_chained_methods () {
+    declare -i i=0
+    local infifo= fifo
+    # chain[] has names, chainpath[] paths, directive[] directives
+    while test $i -lt ${#chain[@]}; do
+        if test ! -n "$infifo"; then
+            case ${directive[i]} in
+                WAIT)   "${chainpath[i]}" ;;
+                FORK)   "${chainpath[i]}" & ;;
+                AND)    "${chainpath[i]}" || exit ;;
+                OR)     "${chainpath[i]}" && exit ;;
+                PIPE)
+                    fifo=/tmp/$$-$chain
+                    while test -e $fifo; do fifo.=-$i; done
+                    trap "rm -f $fifo" EXIT
+                    mkfifo $fifo || error -x $? mkfifo $fifo failed
+                    "${chainpath[i]}" > $fifo &
+                    infifo=$fifo
+                    ;;
+                *)      error -x 1 "unknown directive: ${directive[i]}" ;;
+            esac
+        else
+            case ${directive[i]} in
+                WAIT)   "${chainpath[i]}" < $infifo ;;
+                FORK)   "${chainpath[i]}" < $infifo & ;;
+                AND)    "${chainpath[i]}" < $infifo || exit ;;
+                OR)     "${chainpath[i]}" < $infifo && exit ;;
+                PIPE)
+                    fifo=/tmp/$$-$chain
+                    while test -e $fifo; do fifo.=-$i; done
+                    trap "rm -f $fifo" EXIT
+                    mkfifo $fifo || error -x $? mkfifo $fifo failed
+                    "${chainpath[i]}" < $infifo > $fifo &
+                    infifo=$fifo
+                    ;;
+                *)      error -x 1 "unknown directive: ${directive[i]}" ;;
+            esac
+        fi
+        i+=1
+    done
+    chainpid=$!
+    wait $chainpid
+    }

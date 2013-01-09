@@ -1,88 +1,224 @@
 #!/bin/bash
 
-## declare category or type arrays:
-declare -a list dict attr file dir obname obtype unknown
+error() { printf "%s: %s\n" ${0##*/} "$@"; exit 1; }
 
-## scan contents of object, store by type:
-for f in * .*; do 
-    if [ $f == ^ -o $f == .^ -o $f == . -o $f == .. ]; then
-        true
-    elif [ ${f:0:1} == @ ]; then
-        list=(${list[@]} ${f:1})
-    elif [ ${f:0:2} == .@ ]; then
-        list=(${list[@]} ${f:2})
-    elif [ ${f:0:1} == % ]; then
-        dict=(${dict[@]} ${f:1})
-    elif [ ${f:0:2} == .% ]; then
-        dict=(${dict[@]} ${f:2})
-    elif [ ! ${f#*=} == $f ]; then
-        attr=(${attr[@]} $f)
-    elif obclass=($(tob $f.type 2>/dev/null)); then
-      # echo $f -- ${obclass[0]} object
-        obname=(${obname[@]} $f)
-        obtype=(${obtype[@]} ${obclass%%:*})
-    elif [ -f $f ]; then
-        file=(${file[@]} $f)
-    elif [ -d $f ]; then
-        dir=(${dir[@]} $f)
+usage() {
+    printf "SYNOPSIS: ob.show"
+    printf " [%s]" '-a|--all' '-s|--size' '-k|--keys' '-v|--value' \
+        '--self' '--delim STRING' '-h|--help' 'OBJECT ...'
+    printf "\n"
+    }
+
+output() {
+    printf "%s%s%s" "$1" "$delim" "$2"
+    for ((i=3; i<=$#; i+=1)); do
+        printf "%s%s" "$delim" "${!i}"
+    done
+    printf "\n"
+    }
+
+: ${delim:=$'\t'}
+
+while test -n "$1" -a "${1:0:1}" = -; do
+    opt=$1 && shift
+    test ${#opt} -gt 2 -a ! ${opt:1:1} = - && {
+        unbundled=()
+        for ((i=1; i<${#opt}; i+=1)) {
+            unbundled+=(-${opt:i:1})
+            }
+        opt="${unbundled[*]}"
+        }
+    for opt in $opt; do
+        case $opt in
+            -a|--all)  export show_hidden=1;;
+            --self) export show_self=1;;
+            -f|--full-types) NO_SHOW_FULL_TYPES=;;
+            -k|--keys) NO_SHOW_KEYS=;;
+            -s|--size) NO_SHOW_SIZE=;;
+            -t|--type) NO_SHOW_TYPE=;;
+            -v|--value) NO_SHOW_VALUE=;;
+            -F|--no-full-types) export NO_SHOW_FULL_TYPES=1;;
+            -K|--no-keys) export NO_SHOW_KEYS=1;;
+            -S|--no-size) export NO_SHOW_SIZE=1;;
+            -T|--no-type) export NO_SHOW_TYPE=1;;
+            -V|--no-value) export NO_SHOW_VALUE=1;;
+            --delim) export delim=$1; shift;;
+            --help) exec awk '/^NAME$/{ok=1}ok' $0;;
+            -h) usage; exit;;
+            *)  error "unknown option: $opt";;
+        esac
+    done
+done
+
+test -n "$1" || {
+    test -n "$show_hidden" && exec $0 .* *
+    exec $0 *
+    }
+
+test -n "$show_self" &&
+    if test -n "$NO_SHOW_TYPE"; then
+        output . object
     else
-        unknown=(${unknown[@]} $f)
+        if test -n "$NO_SHOW_FULL_TYPES"; then
+            output . object ${TOB_type%%*:}
+        else
+            output . object ${TOB_types//:/ }
+        fi
+    fi
+
+for f in "$@"; do 
+
+    case ${f:0:1} in
+        .)  test "$show_hidden" || continue
+            test $f = . && continue
+            c=1;;
+        *)  c=0;;
+    esac
+
+    # check prefix or .prefix in [^@%:]
+    case ${f:$c:1} in
+        @)  test -n "$NO_SHOW_SIZE" || { 
+                output ${f:$c+1} list "lines:$(wc -l <$f)"
+                continue
+                }
+            output ${f:$c+1} list && continue
+            ;;
+
+        %)  test -n "$NO_SHOW_KEYS" || { 
+                output ${f:$c+1} dict \
+                "keys:$(awk 'BEGIN{n=0}BEGIN{n=0}$2=="="{n+=1}END{print n}' $f)"
+                continue
+                }
+            output ${f:$c+1} dict && continue
+            ;;
+
+        :)  output ${f:$c+1} json; continue;;
+        .)  test "${f:$c+1:1}" = "" && continue;;
+        ^)  test "${f:$c+1}" = "" && continue
+            m="$(readlink $f)"
+            if test -L "$f"; then
+                if test ! -e "$m"; then
+                    output $f type $m
+                elif test -d "$m"; then
+                    output $f prototype $m
+                elif test -e "$m"; then
+                    output $f prototype $m
+                fi
+            else
+                output $f bad-type-file $m
+            fi
+            continue;;
+    esac
+
+    # check for symvar:
+    test -e $f || {
+        test -L $f || { output $f no_file; continue; }
+        v=$(readlink $f)
+        test "${v:0:1}" = = || { output $f type? "$v"; continue; }
+        test -n "$NO_SHOW_VALUE" || {
+            output $f symvar "${v:1}"
+            continue
+            }
+        output $f symvar
+        }
+
+    test ! ${f#*=} = $f && output $f attr && continue
+
+    # check for object:
+    type=$(tob $f.show-envars TOB_types 2>/dev/null) && {
+        if test -n "$NO_SHOW_TYPE"; then
+            output $f object
+        else
+            type=${type#TOB_types=}
+            if test -n "$NO_SHOW_FULL_TYPES"; then
+                output $f object ${type%%:*}
+            else
+                output $f object ${type//:/ }
+            fi
+
+        fi
+        continue
+        }
+
+    # chck for regular file or directory, or other (pipe?, socket?):
+    if test -f $f; then
+        output $f file
+    elif test -d $f; then
+        output $f dir
+    else
+        output $f unknown
     fi
 done
 
-## show elements of each type:
+exit
 
-type=(self list dict attr file dir ob unknown)
-for t in ${type[@]}; do
+NAME
+    Object.show -- show name and type of all or some object contents
 
-  # printf "\n%ss:\n" $t
-    case $t in
+SYNOPSIS
+    ob.show [OPTIONS] [OBJECT ...]
+    
+DESCRIPTION
+    With no arguments, executes 'ob.show *' in the object, or
+    'ob.show .* *' if --all is given.
 
-        self)
-            echo . ${TOB_type%%:*}
-            ;;
-            
-        list)
-            for el in ${list[@]}; do
-                echo $el list
-            done
-            ;;
-            
-        dict)
-            for el in ${dict[@]}; do
-                echo $el dict
-            done
-            ;;
-            
-        attr)
-            for el in ${attr[@]}; do
-                echo $el attr
-            done
-            ;;
-            
-        file)
-            for el in ${file[@]}; do
-                echo $el file
-            done
-            ;;
-            
-        dir)
-            for el in ${dir[@]}; do
-                echo $el dir
-            done
-            ;;
-            
-        ob)
-            for (( i = 0 ; i < ${#obtype[@]} ; i++ )); do
-                echo ${obname[$i]} ${obtype[$i]}
-            done
-            ;;
-            
-        unknown)
-            for el in ${unknown[@]}; do
-                echo $el unknown
-            done
-            ;;
+    Output has 2 fields (name and type) of each contained 
+    object by default, separated by ASCII tab by default.
 
-    esac
-done
+    A third field (value, size, or other) may be output if
+    options -v, -s, -k, etc., are given.
+
+OPTIONS
+    Options may be short (-k) or long (--keys), and short options can
+    be bundled, e.g., -fKTs expands to -f -K -T -s.
+
+    -f
+    --full-types
+    --no-full-types
+    -F
+    show all (default) types, or only the primary types (envar NO_SHOW_FULL_TYPES)
+
+    -k
+    --keys
+    --no-keys
+    -K
+    show (default) number of keys in %dict objects, or not (envar NO_SHOW_KEYS)
+
+    -s
+    --size
+    --no-size
+    -S
+    show (default) number of lines in @list objects, or not (envar NO_SHOW_SIZE)
+
+    -v
+    --value
+    --no-value
+    -V
+    show (default) value of symvar objects, or not (envar NO_SHOW_VALUE)
+
+    --self
+    show name (.) and type of object
+
+    --delim STRING
+    field delimiter, default is --delim $'\t' for tab
+
+    -h
+    print a short synopsis
+
+    --help
+    print this manpage
+
+TYPES
+    object -- thinobject, typed or prototyped directory or file 
+    list -- prefix '@' suggests a list file, one line per entry
+    dict -- prefix '%' suggests a file of key=value pairs
+    json -- prefix ':' suggests a JSON file
+    symvar -- non-resolving symlink with prefix '=' on value 
+    type -- non-resolving symlink with prefix '^', value to resolve via $TOBLIB
+    prototype -- resolving symlink with prefix '^', value points to an object
+    dir -- ordinary directory
+    file -- ordinary file
+
+AUTHOR
+    ken.irving@alaska.edu (c) 2012
+

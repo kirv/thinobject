@@ -16,15 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# require class handlers & methods to be under one of these paths:
-libroots=( ~/lib/tob /usr/local/lib/tob /opt/lib/tob /usr/lib/tob /lib/tob )
-
-# the following is for a particular host where /usr/local/ is a symlink...
-libroots=( ${libroots[@]} /home/.usr-local/lib/tob )
-
-function manpage() { # print manpage at end of this script...
-    exec /usr/bin/awk '/^NAME$/{ok=1}ok' $0
-    }
+test -n "$TOBLIB" || TOBLIB=( {$HOME,/usr/local,/opt,/usr,}/lib/tob )
 
 ## provide a mechanism to back out of any changes if necessary:
 declare -a rollback_commands
@@ -50,100 +42,76 @@ function rollback () {
 
 function error () {
     echo $* >&2
-    test -n "$rollback_commands" &&
-        rollback
+    test -n "$rollback_commands" && rollback
     exit 1
     }
 
-## parse options, which must precede target and (optional) class:
-while [ -n "$1" -a ${1#-} != $1 ]; do
-
+# parse options:
+while test "${1:0:1}" = -; do
     opt=$1 && shift
+    case $opt in
+        -s | --hide)        TOB_NEW_DOTDIR=1;;
+        -a | --hide-attr)   TOB_DOT_ATTR=1;;
+        -v | --verbose)     VERBOSE=1;;
+        -d | --debug)       DEBUG=1;;
+        -S | --no-hide)     unset TOB_NEW_DOTDIR;;
+        -A | --no-hide-attr)unset TOB_DOT_ATTR;;
+        -V | --no-verbose)  unset VERBOSE;;
+        -D | --no-debug)    unset DEBUG;;
+        -h | --help)        exec awk '/^NAME$/,0' $0 ;;
+        -m | --init-method) 
+            test -n "$1" ||
+                error "missing argument for -m or --init-method option"
+            test -n "$1" = ${1#*/} ||
+                error init method cannot include a slash: $1
+            TOB_NEW_INIT_METHOD=$1 && shift
+            ;;
+        *) error --exit 102 "unsupported option $opt" ;;
 
-    if [ "$opt" == "-s" -o "$opt" == "--hide" ]
-        then
-        ## create object as dotted directory
-        TOB_NEW_DOTDIR=1
-
-    elif [ "$opt" == "-S" -o "$opt" == "--no-hide" ]
-    then
-        ## create object directly, not dotted...
-        unset TOB_NEW_DOTDIR
-
-    elif [ "$opt" == "-a" -o "$opt" == "--hide-attr" ]; then
-        ## create object directly, not dotted...
-        TOB_DOT_ATTR=1
-
-    elif [ "$opt" == "-A" -o "$opt" == "--no-hide-attr" ]; then
-        ## create object directly, not dotted...
-        unset TOB_DOT_ATTR
-
-    elif [ "$opt" == "-m" -o "$opt" == "--init-method" ]; then
-        test -n "$1" ||
-            error "missing argument for --init-method or -m option"
-        test "$1" == ${1#*/} ||
-            error init method cannot include a slash: $1
-        TOB_NEW_INIT_METHOD=$1 && shift
-
-    elif [ "$opt" == "-v" -o "$opt" == "--verbose" ]; then
-        VERBOSE=1
-
-    elif [ "$opt" == "-V" -o "$opt" == "--no-verbose" ]; then
-        unset VERBOSE
-
-    elif [ "$opt" == "-d" -o "$opt" == "--debug" ]; then
-        DEBUG=1
-
-    elif [ "$opt" == "-D" -o "$opt" == "--no-debug" ]; then
-        unset DEBUG
-
-    elif [ "$opt" == "-h" -o "$opt" == "--help" ]; then
-        manpage
-        exit 0
-    
-    else
-        error "unsupported option $opt"
-    fi
+    esac
 done
 
 target=$1 && shift
+test -n "$target" || error "${0##*/} [OPTIONS] TARGET TYPE"
 
-## an argument specifying the target object to be created is required:
-test -n "$target" ||
-    error "no target specified for object creation"
+test -e $target && test -z "$TOB_FORCE" &&
+    error target $target already exists
+
+tob $target.type 
+
 
 ##  the target must not already be a thinobject:
 tob $target.path > /dev/null 2>&1 &&
     error $target already exists as a thinobject
 
-## second argument specifies class of the new object, or it defaults to Object
-class=$1 && shift
-test -n "$class" || class=Object
+## arg #2 specifies the type of the new object, or defaults to Object
+type=$1 && shift
+test -n "$type" || type=Object
 
-## check that class can be resolved:
+## check that type can be resolved:
 
-for lib in ${libroots[@]}; do
-    classpath=$lib/$class
-    test -d $classpath && break
+unset ok
+for toblib in ${TOBLIB[@]}; do
+    test -d $toblib/$type || continue
+    ok=1
 done
 
-test -d $classpath ||
-    error unable to resolve thinobject class $class
+test "$ok" ||
+    error unable to resolve type $type to a thinobject class
 
-## ASSERT: class resolves
+## ASSERT: type resolves to a thinobject class
 
 ## now try to handle target as a set of cases:
 
 unset DO_THIS
 
 if test ! -e $target; then
-    test -n "$VERBOSE" &&
-        echo "target '$target' does not (yet) exist"
+    test -n "$VERBOSE" && echo "creating $target as type $type
 
     ## create the object as an ordinary or hidden directory:
     if test -z "$TOB_NEW_DOTDIR"; then
         DO_THIS=CREATE_DIR
-    elif test "$TOB_NEW_DOTDIR" == "1"; then
+    elif test "$TOB_NEW_DOTDIR" = "1"; then
         DO_THIS=CREATE_DOT_DIR
     else
         error unexpected value of variable TOB_NEW_DOTDIR: $TOB_NEW_DOTDIR
@@ -162,7 +130,7 @@ elif test -d $target; then
         echo target is a directory
     if test -n "$TOB_NEW_DOTDIR"; then
         DO_THIS=USE_DIR
-    elif test "$TOB_NEW_DOTDIR" == "1"; then
+    elif test "$TOB_NEW_DOTDIR" = "1"; then
         DO_THIS=CREATE_DOT_DIR
     else
         error unexpected value of variable TOB_NEW_DOTDIR: $TOB_NEW_DOTDIR
@@ -174,10 +142,10 @@ fi
 if test -z "$DO_THIS"; then
     error internal error: variable DO_THIS is not set
 
-elif test $DO_THIS == USE_DIR; then
+elif test $DO_THIS = USE_DIR; then
     tob=$target
 
-elif test $DO_THIS == CREATE_DIR; then
+elif test $DO_THIS = CREATE_DIR; then
     tob=$target
     test -d $tob &&
         error thinobject directory $tob already exists
@@ -187,9 +155,9 @@ elif test $DO_THIS == CREATE_DIR; then
         error failed to create thinobject directory: $tob
     push_rollback_command rmdir $tob
 
-elif test $DO_THIS == CREATE_DOT_DIR; then
+elif test $DO_THIS = CREATE_DOT_DIR; then
     ## create potential tob by "dotting" target:
-    if test ${target/\/} == $target; then # no slash in target
+    if test ${target/\/} = $target; then # no slash in target
         tob=.$target
     else # target has a slash in it
         ## insert dot after last slash:
@@ -262,9 +230,6 @@ fi
 
 exit 0
 
-##############
-## manpage follows
-##############
 NAME
     thinob-new -- create a new thinobject
 

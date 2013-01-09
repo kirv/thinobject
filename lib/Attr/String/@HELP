@@ -1,0 +1,18 @@
+NAME
+    Attr/String -- implement string attribute using symlink 
+
+METHODS
+    set     -- set the attribute to the given string value
+    clear   -- set the attribute to the empty value
+    is      -- assert attribute has the given value
+    show    -- print attribute value to stdout
+    help    -- display this help screen
+
+IMPLEMENTATION
+    An Attr/String object is a symlink file with it's target set to a string
+    value with prefix =.  The prefix is intended to make collisions with
+    actual files unlikely. 
+
+AUTHOR
+    Ken.Irving@alaska.edu (c) 2011
+    Licensed under the GPL (Gnu Public Library)

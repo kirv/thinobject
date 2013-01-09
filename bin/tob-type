@@ -1,0 +1,26 @@
+#!/bin/sh
+
+# synopsis: tob-new SYMLINK TYPE tag=val ...
+
+error() { x=$1; shift; printf "%s\n" "$@" >&2; exit $x; }
+
+force=''
+test -n "$1" && test $1 = -f && force="f" && shift
+
+test -n "$2" || error 1 "$synopsis"
+
+target=$1 && shift
+type=$1 && shift
+
+test -n "$TOBLIB" || error 2 "TOBLIB not set"
+
+unset path
+for lib in ${TOBLIB/:/ }; do
+    test -d $lib/$type && path=$lib/$type && break
+done
+test -n "$path" || error 3 "type: $type not found"
+
+test -e $target && error 5 "target $target should not exist"
+
+echo ln -s$force "$type $*" $target
+ln -s$force "$type $*" $target

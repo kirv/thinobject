@@ -1,0 +1,38 @@
+#!/bin/bash
+
+synopsis="Attr/Enum.set VALUE"
+
+test -n "$1" ||
+    error --exit 1 "missing required value argument"
+
+# make sure argument does not include any colons:
+value="${1//:/ }"
+
+# bracket ENUM value 'array' with colons for subsequent test:
+ENUM=":$ENUM:"
+
+# make sure the value is legit:
+test "${ENUM/:$value:/}" = "$ENUM" &&
+    error --exit 2 "invalid Attr/Enum value: $value"
+
+TOB_resolve_method_path super.set &&
+    exec $TOB_method_path $value
+
+exit
+    
+NAME
+    Attr/Enum.set -- set enum attribute to given value
+
+DESCRIPTION
+    Enumeration values are given in the ENUM environment variable,
+    defined in the attribute declaration and using : to separate 
+    them.  E.g.,
+
+        enumvar -> Attr/Enum ENUM=red:green:blue
+
+SYNOPSIS
+    Attr/Enum.set VALUE
+
+AUTHOR
+    ken.irving@alaska.edu (c) 2011
+

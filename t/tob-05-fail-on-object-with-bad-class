@@ -3,13 +3,12 @@
 
 mkdir foo$$
 
-ln -s /usr/local/lib/tob/bad foo$$/^
+ln -s bad foo$$/^
 
 tob foo$$.type 2>/dev/null
 
 result=$?
 
-test $result == 1 ||
-    exit 1
+test $result = 121 || exit
 
 rm -r foo$$

@@ -1,0 +1,15 @@
+TOB_get_attr () {
+    # set variable 'attr' to attribute value(s), or return false
+    # if $arg matches a file, scalar attr is set to its contents
+    # if file(s) matches $arg=value, array attr is set to value(s)
+    local arg=$1 path file
+    test -n "$arg" || return 1
+    for path in ${TOB_search_paths//:/ }; do
+        test -e "$path/$arg" && attr=$(<$path/$arg) && return
+        file=($path/$arg=*)
+        test "${file: -1}" = '*' && continue
+        attr=(${file[@]#$path/$arg=}) && return
+    done
+    return 1
+    }
+export -f TOB_get_attr

@@ -1,0 +1,75 @@
+#!/bin/bash
+
+# tob-new -- a hack to stand in for missing tob-new program
+
+synopsis="tob-new [-v] [-h] OBJECT [TYPE] [ARGS]"
+
+error() {
+    printf "%s\n" "$@" >&2
+    exit 1
+    }
+
+error2() {
+    rm -r $ob
+    error "$@" "object $ob removed"
+    }
+
+while test ${1:0:1} = -; do
+    opt=$1 && shift
+    case $opt in
+        -v) VERBOSE=1;;
+        -h) echo "SYNOPSIS: $synopsis"; exit 0;;
+        *) error "unknown option: $opt $*"
+    esac
+done
+
+test -n "$VERBOSE" &&
+    printf "RUNNING: tob-new %s\n" "$*"
+
+ob="$1" && shift
+type="$1" && shift
+test -n "$type" || type=Object
+
+test -n "$ob" || error "$synopsis"
+test -e "$ob" && error "object $ob already exists"
+test -L "$ob" && error "symvar $ob already exists"
+mkdir $ob || error "failed to create object $ob"
+ln -s $type $ob/.^ && test "$(tob $ob.type 2>/dev/null)" = $type ||
+    error2 "tob cannot resolve type $type"
+
+# we know that $type exists as a directory in a tob lib tree, but it may
+# or may not be a valid type -- it needs to have a resolving class link to be valid
+# 
+# first check to see if method 'method' exists.  If it doesn't, then 'init'
+# will also not be found, nor will 'symvar', as both of those need 'method' to
+# be working.  If not present, then fail the operation.
+
+tob $ob.method method >/dev/null 2>&1 ||
+    error2 "$ob.method failed to resolve, so $type is not a valid thinobject type"
+
+# now we know that method 'method' does exist, so we'll use it to look for the
+# 'init' method, and if it does, we'll invoke it with any arguments, but if it
+# fails the whole operation will fail
+
+tob $ob.method init >/dev/null && {
+    # BUG: above, method should output to stderr, not stdout!
+    tob $ob.init "$@" || error2 "$ob.init failed($?)"
+    exit 0
+    }
+
+# now we know there was no init method
+
+# that's ok if there are no arguments, so just exit:
+test -n "$1" || exit 0
+
+# otherwise try to handle the arguments somehow or fail trying:
+for arg in "$@"; do
+    test "${arg#*=}" = "$arg" &&
+        error2 "don't know what to do with non-symvar args... ...ideas?"
+
+    # args like tag=value are stored as symvars
+    tob $ob.symvar -c "${arg%%=*}" "${arg#*=}" 2>/dev/null
+    test $? = 123 && error2 "no symvar method"
+done
+
+exit 0

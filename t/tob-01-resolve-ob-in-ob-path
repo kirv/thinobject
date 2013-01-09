@@ -4,9 +4,9 @@ p=d$$/x/y/z
 
 mkdir -p $p/foo
 
-ln -s /usr/local/lib/tob/Object $p/foo/^
+ln -s Object $p/foo/^
 
-test $(tob d$$.x.y.z.foo.path) == ./$p/foo/ # || exit 1
+test $(tob d$$.x.y.z.foo.path) = ./$p/foo/ # || exit 1
 
 rm -r d$$
 

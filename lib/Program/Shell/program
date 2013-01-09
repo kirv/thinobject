@@ -1,0 +1,14 @@
+#!/bin/sh
+
+while read line; do
+    test -n "$line" -a "${line:0:2}" = "#<" && {
+        f=${line#\#<}
+        test -e $f && cat $f && continue
+        printf "file %s not found\n" $f
+        exit 1
+        line="#? $line"
+        }
+    printf "%s\n" "$line"
+done <@template
+
+

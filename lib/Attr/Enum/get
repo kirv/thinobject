@@ -1,0 +1,24 @@
+#!/bin/bash
+
+synopsis="Attr/Enum.get"
+
+TOB_resolve_method_path super.get && 
+    $TOB_method_path
+
+exit
+
+NAME
+    Attr/Enum.get -- print attribute state to standard output
+
+SYNOPSIS
+    Attr/Enum.get
+
+DESCRIPTION
+    True value is displayed if attribute exists and exactly matches the
+    true state value, else false value is displayed.  Default states are
+    'true' and 'false', or as specified in the boolean_states variable, 
+    separated by a colon.
+
+AUTHOR
+    ken.irving@alaska.edu (c) 2010
+

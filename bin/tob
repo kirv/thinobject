@@ -1,0 +1,708 @@
+#!/bin/bash
+
+# tob -- thinobject 'enabler' program
+# Copyright (C) 2010 Ken Irving
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+warn () {
+    # synopsis: warn "ONE-LINE-PER-ARGUMENT" -> then output errmsg[] lines
+    test -n "$QUIET" && return
+    test -n "$VERBOSE" &&
+        printf "?: %s\n" "${errmsg[@]}" >&2
+    errmsg=()
+    printf "%s\n" "$@" >&2
+    }
+export -f warn
+declare -ax errmsg
+
+error () {
+    # synopsis: error [-x N] OUTPUT_LINE ...
+    test "$1" = -x && x=$2 && shift 2 || x=1
+    errmsg+=("exit $x from $0 ${FUNCNAME[1]}()")
+    warn "$@"
+    exit $x
+    }
+export -f error
+
+debug () {
+    test -n "$DEBUG" || return
+    printf "DEBUG:" >&2
+    printf "\t%s\n" "$@" >&2
+    }
+
+parse_query() {
+    # synopsis: parse_query QUERY -> set q[], o and m indices
+  # errmsg+=("$FUNCNAME($*)")
+    test -n "$1" ||
+        error -x 13 "no object or method specified"
+    q[0]=$1
+    test ${q/./} = $q && q=..$q     # assume self object
+    q[1]="${q//\///.}"             # change all / to /. for splitting
+    q+=(${q[1]//./ })               # split on dot into array
+    o=2                             # o points to start of parsed query
+    m=$((${#q[*]}-1))               # m points to method
+    test ${q:0:1} = / || path=.
+  # errmsg+=("    $q" "    q[1]: ${q[1]}" "    q[2]: ${q[*]:2}")
+    }
+
+
+resolve_query() { # use q[], set path, set o beyond path
+  # errmsg+=("$FUNCNAME($*)")
+    unset anonymous
+    resolve_path || {
+        rtnval=$?
+        errmsg+=("$FUNCNAME(): unable to resolve path for $q")
+        return $rtnval
+        }
+
+    test $o -eq $m && {
+        resolve_anonymous_object
+        return
+        }
+
+    test $path = . -a -n "$TOB_search_paths" &&
+        apaths=(${TOB_search_paths[@]//:/ })
+    test -n "$apaths" || resolve_attr_search_paths $path ||
+        apaths=(.)
+    resolve_named_object && {
+        test -e $object -o -L $object || # look for class object ...
+            for ob in "${apaths[@]/%//${object##*/}}"; do
+                test -e $ob -o -L $ob || continue
+                class_object=$ob
+                break
+            done
+        }
+    apaths=()
+
+    test -n "$type" && return
+
+    test $o -eq $m &&
+        resolve_anonymous_object
+    }
+
+
+resolve_path () { # try to resolve path in query, starting at index o
+  # errmsg+=("$FUNCNAME($*)")
+    local -i p=0
+
+    while (( o+p < m )); do
+        dir="${q[*]:o:p+1}"
+        dir=${dir// /.}                 # change "a b" to "a.b"
+      # errmsg+=("    o: $o, p: $p, try: $dir")
+        test -d $path/$dir && {
+            path+=/$dir 
+          # errmsg+=("          path: $path")
+            o+=$((p+1))
+            p=0 
+            continue
+            }
+
+        test ${dir: -1:1} = / &&  # trailing / means: directory or fail
+            error -x 15 "$FUNCNAME(): directory $path/$dir not found"
+
+        test -d $path/.$dir && {
+            path+=/.$dir 
+          # errmsg+=("          path: $path")
+            o+=$((p+1))
+            p=0 
+            continue
+            }
+          # errmsg+=("          ... failed")
+        p+=1
+
+    done
+
+    method="${q[*]:m}"
+    object="${q[*]:o}"
+    object=${object// /.}
+    method="${q[*]:m}"
+  # errmsg+=("    q: ${q[*]:2}")
+  # errmsg+=("    o: $o")
+  # errmsg+=("    m: $m")
+  # errmsg+=("    path: $path")
+  # errmsg+=("    obj.mth: ${q[*]:o:m-o}")
+  # errmsg+=("    method: ${q[*]:m}")
+    }
+
+resolve_anonymous_object () { # try to resolve object type at path
+  # errmsg+=("$FUNCNAME($*)")
+
+  # test -L $path/^ -o -L $path/.^ || {
+  #     errmsg+=("no symlink found: $path/^ or $path/.^")
+  #     return 1
+  #     }
+  # type=($(readlink $path/^ || readlink $path/.^))
+
+    if test -L $path/^ -o -L $path/.^; then
+        type=($(readlink $path/^ || readlink $path/.^))
+    else
+        type=Directory
+    fi
+
+    cd $path ||
+        error -x 2 "failed: cd $path/"
+    anonymous=1
+    object=$path
+    method="${q[*]:m}"
+    method=${method// /.}
+    }
+
+resolve_named_object () { # resolve object and its type, or fail
+  # errmsg+=("$FUNCNAME($*)")
+    while (( o < m )); do
+        object="${q[*]:o:m-o}"
+        object=${object// /.}
+        resolve_declaration $path $object || {
+            m+=-1
+            continue
+            }
+        object=$path/$object
+        method="${q[*]:m}"
+        method=${method// /.}
+        return
+    done
+    object="${q[*]:o}"
+    object=${object// /.}
+    return 1
+    }
+
+resolve_library () {
+    for lib in ${TOBLIB/:/ }; do
+        test -d $lib/$1 && path=$lib/$1 && return
+    done
+    return 1
+    }
+
+resolve_attr_search_paths () { # resolve (proto)type(s) into apaths[]
+    local path target
+    local type=$1 && shift
+    shopt -s nullglob
+    while test -n "$type"; do
+        test -L $type && {
+            target=($(readlink $type))
+            test -d $type -a ! -d $target && target=${type%/*}/$target
+            type=$target
+            }
+        if test -d "$type"; then # 'prototype' provides attributes, not methods
+            path=$type
+        else
+            resolve_library $type || return 1
+        fi
+        apaths+=($path)
+        unset type
+        for mixin in $path/{,.}^?*; do # ^Cron, .^settings, etc.
+            test -L $mixin && resolve_attr_search_paths $mixin
+        done
+        test -n "$1" && type=$1 && shift && continue # ... use arg for type
+        test -L $path/^ && type=$path/^ && continue
+        test -L $path/.^ && type=$path/.^
+    done
+    test -n "$apaths[*]" || return 1
+    }
+
+resolve_search_paths () { # from (proto)type(s) to types[], apaths[], mpaths[]
+    local path= target=
+    shopt -s nullglob
+    while test -n "$type"; do
+        test -L $type && {
+            target=($(readlink $type))
+            # may need to preserve path to dir type in target:
+            test -d $type -a ! -d $target && target=${type%/*}/$target
+            type=(${target[@]})
+            test -n "$type" || return
+            }
+        if test -d $type; then # prototype provides attributes, not methods
+            path=$type
+            apaths+=($path)
+        else
+            resolve_library $type || return 1
+            types+=($type)
+            envars+=("${type[*]:1}")
+            apaths+=($path)
+            mpaths+=($path)
+        fi
+        for mixin in $path/{,.}^?*; do # ^cron, .^settings, etc.
+            test -L $mixin || continue
+            type=($mixin)
+            resolve_search_paths 1
+        done
+        test -n "$1" && return 0
+        type=($(readlink $path/^ || readlink $path/.^))
+    done
+    test -n "$apaths" || return 1
+    test -n "$mpaths" || return 2
+    }
+
+resolve_declaration () { 
+    #   synopsis: resolve_declaration path object
+    #   return 0 if declaration found and type identified
+    #   return 1 if no declaration found
+    local path=$1 object=$2 p
+    for p in "${apaths[@]}"; do
+        for symvar in $p/$object $p/.$object; do
+            test -L $symvar -a ! -e $symvar || continue
+            type=($(readlink $symvar))
+            test -n "$type" && test ${type:0:1} != '=' && return
+        done
+    done
+    return 1
+    }
+
+
+cull_duplicate_paths () {
+    local entry unique
+    local -i i
+    test ${#types[@]} = ${#envars[@]} -a ${#types[@]} = ${#mpaths[@]} ||
+        warn "size of types, envars, mpaths differ: ${#types[@]}, ${#envars[@]}, ${#mpaths[@]}"
+    # arrays types, envars, and mpaths are 1:1, so scan types, discard from all
+    for (( i=${#types[@]}-1; i>=0; i-- )); do
+        entry=${types[i]}
+        test "${unique/$entry/}" = "$unique" && unique+=" $entry" && continue
+        unset types[i]
+        unset envars[i]
+        unset mpaths[i]
+    done
+    # apaths array can include duplicates, so scan & discard, leaving last
+    apaths=("${apaths[@]}") # pack array first, though...
+    unique=
+    for (( i=${#apaths[@]}-1; i>=0; i-- )); do
+        entry=${apaths[i]}
+        test "${unique/$entry/}" = "$unique" && unique+=" $entry" && continue
+        unset apaths[i]
+    done
+    }
+
+resolve_method_path () {
+  # errmsg+=("$FUNCNAME($*)")
+    test "$1" = --super && super=1 && shift || unset super
+    local method=$1
+    for path in ${mpaths[@]}; do
+        test -x $path/$method || continue
+        test -n "$super" && unset super && continue
+        TOB_method_path=$path/$method
+        return
+    done
+    return 1 
+    }
+
+
+
+resolve_chained_methods () {
+    methods=(${1//./ })
+    test ${#methods[*]} -gt 1 || return 1
+    local m wantdirective=
+    for m in ${methods[*]}; do
+        test -n "$wantdirective" && {
+            wantdirective=
+            case $m in
+                FORK|WAIT|AND|OR|PIPE)
+                    directive+=($m)
+                    continue;;
+                *)  directive+=(WAIT);;
+            esac
+            }
+        ## fail if method does not resolve:
+        resolve_method_path $m ||
+            error -x 1 "chained method $m did not resolve"
+        chain+=($m)
+        chainpath+=($TOB_method_path)
+        wantdirective=1
+    done
+    test -n "$wantdirective" && directive+=(WAIT)
+    return 0
+    }
+
+check_chaining_directives() {
+    test ${#chain[@]} = ${#directive[@]} ||
+        error -x 1 "mismatch chained methods and directives:"\
+            "methods: (${chain[*]})"\
+            "directives: (${directives[*]})"
+    case ${directive[@]: -1} in
+        FORK|WAIT)
+            return
+            ;;
+        AND|OR|PIPE)
+            error -x 1 "invalid last chaining directive"\
+                "methods: (${chain[*]})" \
+                "directives: (${directives[*]})"
+            ;;
+        *)  error -x 1 "invalid last chaining directive: ${directive[@]: -1}" 
+            ;; 
+    esac
+    }
+
+parse_chain_args() {
+    ## scan arguments for --tag entries to allocate args per method
+    local tag=$chain
+    local -i p=1 a0=1   # p points to arg in $@, a0 is first arg for tag
+    while test -n "${!p}"; do
+        test ${!p} = --tag || {
+            p+=1
+            continue
+            }
+        test -n "$tag" && (( p>a0 )) &&
+            ap[$tag]=$a0 &&
+            ac[$tag]=$((p-a0))
+        p+=1; tag="${!p}"
+        ## should consider warning if tag does not match chain[] method...
+        ## ... or skip it...
+        p+=1; a0=$p
+    done
+    test -n "$tag" && (( p>a0 )) && 
+        ap[$tag]=$a0 &&
+        ac[$tag]=$((p-a0))
+    }
+
+run_chained_methods () {
+    declare -i i=0
+    local infifo= fifo
+    # chain[] has names, chainpath[] paths, directive[] directives
+    while test $i -lt ${#chain[@]}; do
+        if test ! -n "$infifo"; then
+            case ${directive[i]} in
+                WAIT)   "${chainpath[i]}" ;;
+                FORK)   "${chainpath[i]}" & ;;
+                AND)    "${chainpath[i]}" || exit ;;
+                OR)     "${chainpath[i]}" && exit ;;
+                PIPE)
+                    fifo=/tmp/$$-$chain
+                    while test -e $fifo; do fifo.=-$i; done
+                    trap "rm -f $fifo" EXIT
+                    mkfifo $fifo || error -x $? mkfifo $fifo failed
+                    "${chainpath[i]}" > $fifo &
+                    infifo=$fifo
+                    ;;
+                *)      error -x 1 "unknown directive: ${directive[i]}" ;;
+            esac
+        else
+            case ${directive[i]} in
+                WAIT)   "${chainpath[i]}" < $infifo ;;
+                FORK)   "${chainpath[i]}" < $infifo & ;;
+                AND)    "${chainpath[i]}" < $infifo || exit ;;
+                OR)     "${chainpath[i]}" < $infifo && exit ;;
+                PIPE)
+                    fifo=/tmp/$$-$chain
+                    while test -e $fifo; do fifo.=-$i; done
+                    trap "rm -f $fifo" EXIT
+                    mkfifo $fifo || error -x $? mkfifo $fifo failed
+                    "${chainpath[i]}" < $infifo > $fifo &
+                    infifo=$fifo
+                    ;;
+                *)      error -x 1 "unknown directive: ${directive[i]}" ;;
+            esac
+        fi
+        i+=1
+    done
+    chainpid=$!
+    wait $chainpid
+    }
+
+TOB_resolve_method_path () {
+    # synopsis: TOB_resolve_method_path [--super] METHOD -> set TOB_method_path
+    test "$1" = --super && super=1 && shift || unset super
+    local method=$1
+    for path in ${TOB_method_paths//:/ }; do
+        test -x $path/$method || continue
+        test -n "$super" && unset super && continue
+        TOB_method_path=$path/$method
+        return
+    done
+    return 1
+    }
+export -f TOB_resolve_method_path
+
+
+TOB_get_attr () {
+    # set variable 'attr' to attribute value(s), or return false
+    # if $arg matches a file, scalar attr is set to its contents
+    # if file(s) matches $arg=value, array attr is set to value(s)
+    local arg=$1 path file
+    test -n "$arg" || return 1
+    for path in ${TOB_search_paths//:/ }; do
+        test -e "$path/$arg" && attr=$(<$path/$arg) && return
+        file=($path/$arg=*)
+        test "${file: -1}" = '*' && continue
+        attr=(${file[@]#$path/$arg=}) && return
+    done
+    return 1
+    }
+export -f TOB_get_attr
+
+main () {
+  # errmsg+=("$FUNCNAME($*)")
+    while test "${1:0:1}" = -; do
+        case $1 in 
+            -d)     DEBUG=1;;
+            *)  error -x 1 "unknown option $1";;
+        esac && shift
+    done
+    test -n "$TOBLIB" || error -x 1 "TOBLIB is not set"
+    test -n "$DEBUG" || alias debug=\#
+    declare path= object= method= 
+    declare -a types=() mpaths=() apaths=() envars=()
+
+    declare -x TOB_caller_path=$PWD
+
+    declare query="$1" && shift
+    declare -a q=()
+    declare -i o m  # index o points to object, m points to method
+    parse_query "$query" || error -x $? parse... 
+
+    resolve_query ||
+        case $? in
+            9)  # try again using method 'default'
+                warn 'trying again'
+                q+=(default) && m+=1
+                resolve_query || error -x $?
+                ;;
+            *)  error -x $?;;
+        esac
+
+  # warn "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method" "ANONYMOUS=$anonymous" "PWD=$PWD"
+
+  # errmsg+=("<<< AFTER resolve_query():"
+  #     "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method"
+  #     "ANONYMOUS=$anonymous" "PWD=$PWD" o=$o m=$m ">>>" )
+
+    types=() mpaths=() apaths=() envars=()
+
+    save=(${type[@]})
+    test -n "$anonymous" && {
+        type=(.)
+        resolve_search_paths one-pass
+        type=(${save[@]})
+        }
+    resolve_search_paths
+    type=(${save[@]})
+
+    test -n "$types" || {
+        test "${#apaths[@]}" -gt 1 &&
+            error -x 120 "prototype but no type resolved for $object"
+        error -x 121 "no type or prototype resolved for $object"
+        }
+
+    export TOB_query=$query
+    export TOB_object=$object
+    export TOB_method=$method
+    export TOB_type=$type
+    export TOB_class_path
+    export TOB_caller_path
+    export TOB_caller_path_to_object=$TOB_path_to_object
+    test -n "$class_object" && export TOB_class_object=$class_object
+
+    for envarset in "${envars[@]}"; do
+        tag= val=
+        for word in $envarset; do
+            test ${word%%=*} = $word && val+=" $word" && continue
+            # word is a tag, so export pending tag if it exists:
+            test -n "$tag" -a ! -n "${!tag}" && {
+                export $tag="$val" ||
+                    error -x $? "bad assignment: $tag=$val"
+                }
+            # now parse new tag and val:
+            tag=${word%%=*}
+            val=${word#*=}
+        done
+        test -n "$tag" || continue
+        test -n "${!tag}" && continue
+        export $tag="$val" ||
+            error -x $? "bad assignment: $tag=$val"
+    done
+
+    # create pseudo-arrays for export, with colon as delimiter:
+    save_IFS="$IFS" && IFS=:
+    export TOB_search_paths="${apaths[*]}"
+    export TOB_method_paths="${mpaths[*]}"
+    export TOB_types="${types[*]}"
+    export TOB_envars="${envars[*]}"
+    IFS="$save_IFS"
+    
+    test -n "$DEBUG" &&
+        warn "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method" \
+            TYPES=$TOB_types
+    
+  # warn "RESOLVE_METHOD_PATH $TOB_method"
+    resolve_method_path $TOB_method &&
+        exec $TOB_method_path "$@"
+    
+  # warn "CONTINUING with method $TOB_method"
+
+    ## try to resolve chained methods in case method contains a dot: 
+    declare -a chain directive chainpath
+    resolve_chained_methods $TOB_method && {
+        check_chaining_directives
+        declare -iA ap ac   # ap is arg pointer, ac is arg count for method
+        parse_chain_args "$@"
+
+        printf "\t%s: (%s)\n" chain "${chain[*]}"  chainpath "${chainpath[*]}"  directive "${directive[*]}"
+        run_chained_methods
+        exit
+        }
+
+    ## is method a built-in?
+    ## show exported variables as methods
+    case $method in
+        type)           echo $type && exit;;
+        query)          echo $query && exit;;
+        object)         echo $object && exit;;
+        envars)         printf "%s\n" "${envars[@]}" && exit;;
+        types)          printf "%s\n" "${types[@]}" && exit;;
+        search-paths)   printf "%s\n" "${apaths[@]}" && exit;;
+        method-paths)   printf "%s\n" "${mpaths[@]}" && exit;;
+    esac
+
+    ## check for _default method:
+    for path in ${mpaths[@]}; do
+        ## ASSERT: class exists
+        test -e $path/_default && {
+            test -x $path/_default && {
+                debug "tob: exec $path/_default $TOB_object $TOB_method $*"
+                exec $path/_default $TOB_method "$@"
+                }
+            ## ASSERT: _default exists but is not executable
+            ## maybe it can contain a recipe to be executed?
+            error -x 122 "non-executable _default method found"
+            }
+    done
+    
+    error -x 123 "no method $TOB_method found"
+    } # end main()
+
+main "$@"
+
+exit
+NAME
+    tob -- parse and resolve object.method, invoke method in object directory
+
+SYNOPSIS
+    tob [OPTIONS] object.method [METHOD_OPTIONS] [ARGUMENTS]
+    tob -m method [-a arg]... object...
+
+DESCRIPTION
+    Thinobject strives to achieve object oriented programming and data
+    management directly on the filesystem, in a language-independent way.
+    Methods are executable programs, written in any language.  Thinobject
+    uses a symlink, .^ or ^, to a class directory (or handler).  Methods
+    and attributes are searched for along the chain of class links.
+
+EXIT VALUE
+    Exit value should be 0 if no error occurred, but should have a value
+    from 101 to 123 if there was an error.  The numbers are assigned
+    sequentially in the tob script, and for now that's the only documentation
+    for what specific values mean.
+
+OPTIONS
+    -d
+    --debug
+    turn on debug output
+
+    -v
+    --verbose
+    turn on verbose output
+
+    -m M
+    --method M
+    apply method M to the following list of objects    
+
+    -a ARGS...
+    --arg ARGS...
+    provide arguments; useful in conjunction with the --method option
+
+    -h
+    --help
+    show this help screen (manpage)
+
+    -q
+    --quiet
+    suppress output to stderr on errors
+    
+OBJECT CREATION
+    Use tob-new to create objects.
+
+BUILT-IN METHODS
+    path
+        output the object directory path
+
+    type
+        output the class hierarchy
+
+PROPERTIES
+    The thinobject system uses ordinary files and directories in the
+    filesystem, so the content of an object is arbitrary.  It may be
+    convenient/helpful to think of the contents of an object as its
+    ``properties'', if only to distinguish them from otherwise ordinary
+    files (which they really are).
+
+    Special meaning is applied to certain files, as follows:
+
+    ^
+    .^
+    symlink to the parent class
+
+    ^foo
+    .^foo
+    symlink to a mixin class
+
+
+SEARCH PATHS
+    tob prepares a search path for methods and one for attributes.
+    These differ mainly in that methods are not resolved in the object,
+    while attributes may be.
+
+    Mixin classes are searched before the parent class, in lexical 
+    order.  Common ancestor classes are searched last. 
+
+EXPORTED VARIABLES
+    TOB_object -- the object name as passed to the thinob enabler
+
+    TOB_method -- the invoked method
+
+    TOB_type -- the nominal class name
+
+    TOB_class_path -- the class directory or handler path
+
+    TOB_object_path -- the fully resolved object name
+
+    TOB_search_paths -- search paths for object attributes
+
+    TOB_method_paths -- search paths for object methods
+
+    TOB_caller_path
+
+    TOB_caller_path_to_object
+
+    TOB_path_to_object
+
+EXPORTED FUNCTIONS
+    TOB_resolve_method_path
+    TOB_get_attr
+
+   output format is: $TOB_object.$TOB_method: ARGUMENTS...
+
+SEE ALSO
+    tob-new --help
+    tob-del --help
+    Ideally, each thinobject class will provide a help method, and a
+    --help option to each of its methods.
+
+BUGS
+    This is an experimental system.
+
+    Not sure the --quiet option is working quite right...
+
+    Should document all exit values.
+
+AUTHOR
+    Ken.Irving@alaska.edu (c) 2007-2010
