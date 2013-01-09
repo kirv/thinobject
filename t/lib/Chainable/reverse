@@ -1,0 +1,11 @@
+#!/usr/bin/perl -w
+use strict;
+
+foreach ( <> ) {
+    chomp;
+    printf "%s\n", scalar reverse;
+    }
+    
+
+
+
