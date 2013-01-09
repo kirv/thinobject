@@ -1,0 +1,27 @@
+#!/bin/bash
+
+symvar() {
+    name=$1
+    test -l $name || return
+    value=$(readlink $name)
+    symvar="${value#=}"
+    }
+
+for chunk in $(symvar build); do
+
+    echo $chunk
+
+done
+
+#while read line; do
+#    test -n "$line" -a "${line:0:2}" = "#<" && {
+#        f=${line#\#<}
+#        test -e $f && cat $f && continue
+#        printf "file %s not found\n" $f
+#        exit 1
+#        line="#? $line"
+#        }
+#    printf "%s\n" "$line"
+#done <@template
+
+

@@ -1,0 +1,363 @@
+<?xml version="1.0" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>TimeSeries.get -- timeseries data to stdout</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:root@localhost" />
+</head>
+
+<body style="background-color: white">
+
+
+<!-- INDEX BEGIN -->
+<div name="index">
+<p><a name="__index__"></a></p>
+
+<ul>
+
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#data_selectors">DATA SELECTORS</a></li>
+	<li><a href="#options">OPTIONS</a></li>
+	<li><a href="#timestamp_format_codes">TIMESTAMP FORMAT CODES</a></li>
+	<li><a href="#notes_on_queries">NOTES ON QUERIES</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+	<li><a href="#bugs">BUGS</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+</ul>
+
+<hr name="index" />
+</div>
+<!-- INDEX END -->
+
+<p>
+</p>
+<h1><a name="name">NAME</a></h1>
+<p>TimeSeries.get -- timeseries data to stdout</p>
+<p>
+</p>
+<hr />
+<h1><a name="synopsis">SYNOPSIS</a></h1>
+<pre>
+  timeseries.get [OPTIONS] [DATA SELECTORS]</pre>
+<p>OPTIONS:</p>
+<pre>
+    --prefix STRING
+    --ots FORMAT_STRING (--output-timestamp FORMAT_STRING)
+    --otz TIMEZONE      (--output-timezone TIMEZONE)
+    --hdr STRING        (--header STRING)
+    --help
+    --help date
+    --help Date::Format</pre>
+<p>DATA SELECTORS:</p>
+<pre>
+    from STRING
+    to STRING
+    for &quot;NUMBER [UNIT]&quot;
+    qty &quot;NUMBER [UNIT]&quot;
+    first &quot;NUMBER [UNIT]&quot;
+    last &quot;NUMBER [UNIT]&quot;
+    all</pre>
+<p>
+</p>
+<hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p>Output all or a selected range or quantity of data from a TimeSeries object. 
+By default, data is output with timestamps formatted as ISO 8601 strings.
+Called with no arguments, the selector 'last 1' is assumed.</p>
+<p>
+</p>
+<hr />
+<h1><a name="data_selectors">DATA SELECTORS</a></h1>
+<p>Output selector keywords limit output to a time range or quantity of 
+records.</p>
+<dl>
+<dt><strong><a name="from" class="item">from STRING</a></strong></dt>
+
+<dt><strong><a name="to" class="item">to STRING</a></strong></dt>
+
+<dd>
+<p>STRING is a date and/or time to limit the range of data output.  The
+string can be in any form supported by the <code>date(1)</code> -d option.</p>
+</dd>
+<dt><strong><a name="for_number_unit" class="item">for &quot;NUMBER [UNIT]&quot;</a></strong></dt>
+
+<dt><strong><a name="qty_number_unit" class="item">qty &quot;NUMBER [UNIT]&quot;</a></strong></dt>
+
+<dd>
+<p>Specifies a time interval or count for selecting output data.  Must
+be used with either 'from' or 'to' (but not both).  The space between
+NUMBER and UNIT may be omitted.</p>
+<p>NUMBER is a positive integer or decimal value (only for time intervals).</p>
+<p>UNIT can be ommitted, or can be a time unit, one of:</p>
+<pre>
+    second minute hour day week month year</pre>
+<pre>
+    sec min hr wk mth yr</pre>
+<pre>
+    s m h d w t y</pre>
+<p>or a counting unit, one of:</p>
+<pre>
+    record array count line row</pre>
+<p>Any of these may be plural, but any other value for UNIT raises an error.</p>
+</dd>
+<dt><strong><a name="first_number_unit" class="item">first &quot;NUMBER [UNIT]&quot;</a></strong></dt>
+
+<dt><strong><a name="last_number_unit" class="item">last &quot;NUMBER [UNIT]&quot;</a></strong></dt>
+
+<dd>
+<p>Select data from the start or end of the timeseries.  NUMBER and UNIT are 
+as described above.</p>
+</dd>
+<dt><strong><a name="all" class="item">all</a></strong></dt>
+
+<dd>
+<p>Output all data in the timeseries.</p>
+</dd>
+</dl>
+<p>
+</p>
+<hr />
+<h1><a name="options">OPTIONS</a></h1>
+<p>Options start with two dashes.  If an option parameter is specified,
+it can be separated from the option name by either a space or &quot;=&quot;.
+Incorrect options will raise an error, and the method will not run.</p>
+<dl>
+<dt><strong><a name="prefix_string" class="item">--prefix STRING</a></strong></dt>
+
+<dd>
+<p>optional dataset prefix, an arbitrary string</p>
+</dd>
+<dt><strong><a name="ots_format_string" class="item">--ots FORMAT_STRING</a></strong></dt>
+
+<dt><strong><a name="output_timestamp_format_string" class="item">--output-timestamp FORMAT_STRING</a></strong></dt>
+
+<dd>
+<p>Each datum timestamp will be ouput using FORMAT_STRING as a prefix to
+the datum itself.  No space or other delimiter will be output between
+the timestamp and datum, so must be included in the format if desired.
+No timestamp will be output if this option is not specified or if an
+empty string is given.  See section TIMESTAMP FORMAT CODES below, also
+--help Date::Format.</p>
+<p>An ISO 8601 timestamp is output by default, equivalent to using:</p>
+<pre>
+    --ots '%Y-%m-%d %H:%M:%S%z%t'</pre>
+</dd>
+<dt><strong><a name="otz_timezone" class="item">--otz TIMEZONE</a></strong></dt>
+
+<dt><strong><a name="output_timezone_timezone" class="item">--output-timezone TIMEZONE</a></strong></dt>
+
+<dd>
+<p>Timestamps will be output in the specified timezone.  TIMEZONE can be
+specified as an offset, with sign, hours, and minutes:</p>
+<pre>
+    +0000  -- no timezone offset, i.e., UTC
+    -0900  -- 9 hours west of UTC (Alaska Standard Time)</pre>
+<p>or letter abbreviations may be used (but note that these may be
+ambiguous and misinterpreted!):</p>
+<pre>
+    EST
+    PDT</pre>
+<p>By default, timestamps will be output in the local time zone of
+the server running the program.</p>
+</dd>
+<dt><strong><a name="hdr_string" class="item">--hdr STRING</a></strong></dt>
+
+<dt><strong><a name="header_string" class="item">--header STRING</a></strong></dt>
+
+<dd>
+<p>STRING becomes the first line of output.  If --output-timestamp is
+also given, that pattern is converted to a description and output 
+as prefix to the header.</p>
+</dd>
+<dt><strong><a name="help" class="item">--help</a></strong></dt>
+
+<dd>
+<p>Show this information for the TimeSeries.get method.</p>
+</dd>
+<dt><strong><a name="help_date" class="item">--help date</a></strong></dt>
+
+<dt><strong><a name="help_date_format" class="item">--help Date::Format</a></strong></dt>
+
+<dd>
+<p>Show manual page for the specified utility.</p>
+</dd>
+</dl>
+<p>
+</p>
+<hr />
+<h1><a name="timestamp_format_codes">TIMESTAMP FORMAT CODES</a></h1>
+<p>Formatting is by the Perl Date::Format(3pm) module, with the following
+conversion specifications supported:</p>
+<ul>
+<li><strong><a name="__" class="item">%% -- PERCENT</a></strong>
+
+</li>
+<li><strong><a name="_a" class="item">%a -- day of the week abbr</a></strong>
+
+</li>
+<li><strong><a name="_a" class="item">%A -- day of the week</a></strong>
+
+</li>
+<li><strong><a name="_b" class="item">%b -- month abbr</a></strong>
+
+</li>
+<li><strong><a name="_b" class="item">%B -- month</a></strong>
+
+</li>
+<li><strong><a name="_c" class="item">%c -- MM/DD/YY HH:MM:SS</a></strong>
+
+</li>
+<li><strong><a name="_c" class="item">%C -- ctime format: Sat Nov 19 21:05:57 1994</a></strong>
+
+</li>
+<li><strong><a name="zeros" class="item">%d -- numeric day of the month, with leading zeros (eg 01..31)</a></strong>
+
+</li>
+<li><strong>%e -- numeric day of the month, without leading zeros (eg 1..31)</strong>
+
+</li>
+<li><strong><a name="_d" class="item">%D -- MM/DD/YY</a></strong>
+
+</li>
+<li><strong><a name="number" class="item">%G -- GPS week number (weeks since January 6, 1980)</a></strong>
+
+</li>
+<li><strong><a name="_h" class="item">%h -- month abbr</a></strong>
+
+</li>
+<li><strong><a name="_h" class="item">%H -- hour, 24 hour clock, leading 0's)</a></strong>
+
+</li>
+<li><strong><a name="_i" class="item">%I -- hour, 12 hour clock, leading 0's)</a></strong>
+
+</li>
+<li><strong><a name="_j" class="item">%j -- day of the year</a></strong>
+
+</li>
+<li><strong><a name="_k" class="item">%k -- hour</a></strong>
+
+</li>
+<li><strong><a name="_l" class="item">%l -- hour, 12 hour clock</a></strong>
+
+</li>
+<li><strong><a name="_l" class="item">%L -- month number, starting with 1</a></strong>
+
+</li>
+<li><strong><a name="_m" class="item">%m -- month number, starting with 01</a></strong>
+
+</li>
+<li><strong><a name="_m" class="item">%M -- minute, leading 0's</a></strong>
+
+</li>
+<li><strong><a name="_n" class="item">%n -- NEWLINE</a></strong>
+
+</li>
+<li><strong><a name="_o" class="item">%o -- ornate day of month -- &quot;1st&quot;, &quot;2nd&quot;, &quot;25th&quot;, etc.</a></strong>
+
+</li>
+<li><strong><a name="_p" class="item">%p -- AM or PM</a></strong>
+
+</li>
+<li><strong><a name="pm" class="item">%P -- am or pm (Yes %p and %P are backwards :)</a></strong>
+
+</li>
+<li><strong><a name="_q" class="item">%q -- Quarter number, starting with 1</a></strong>
+
+</li>
+<li><strong><a name="_r" class="item">%r -- time format: 09:05:57 PM</a></strong>
+
+</li>
+<li><strong><a name="_r" class="item">%R -- time format: 21:05</a></strong>
+
+</li>
+<li><strong><a name="_s" class="item">%s -- seconds since the Epoch, UCT</a></strong>
+
+</li>
+<li><strong><a name="_s" class="item">%S -- seconds, leading 0's</a></strong>
+
+</li>
+<li><strong><a name="_t" class="item">%t -- TAB</a></strong>
+
+</li>
+<li><strong><a name="_t" class="item">%T -- time format: 21:05:57</a></strong>
+
+</li>
+<li><strong><a name="_u" class="item">%U -- week number, Sunday as first day of week</a></strong>
+
+</li>
+<li><strong><a name="_w" class="item">%w -- day of the week, numerically, Sunday == 0</a></strong>
+
+</li>
+<li><strong><a name="_w" class="item">%W -- week number, Monday as first day of week</a></strong>
+
+</li>
+<li><strong><a name="_x" class="item">%x -- date format: 11/19/94</a></strong>
+
+</li>
+<li><strong><a name="_x" class="item">%X -- time format: 21:05:57</a></strong>
+
+</li>
+<li><strong><a name="year" class="item">%y -- year (2 digits)</a></strong>
+
+</li>
+<li><strong>%Y -- year (4 digits)</strong>
+
+</li>
+<li><strong><a name="_z" class="item">%Z -- timezone in ascii. eg: PST</a></strong>
+
+</li>
+<li><strong><a name="_z" class="item">%z -- timezone in format -/+0000</a></strong>
+
+</li>
+</ul>
+<p>Some sample formats and results:</p>
+<pre>
+    --ots=&quot;%s &quot;                   ==&gt; 1226516400 ...
+    --ots=&quot;%Y-%j-%H:%M:%S &quot;       ==&gt; 2007-352-11:30:45 ...
+    --ots='&quot;%Y-%m-%d %H:%M:%S%,'  ==&gt; &quot;2008-11-12 09:00:00&quot;,...</pre>
+<p>
+</p>
+<hr />
+<h1><a name="notes_on_queries">NOTES ON QUERIES</a></h1>
+<p>Several options are provided to control what data is selected.</p>
+<p>The simplest options are 'from' and 'to', which use date -d STRING to
+convert their argument to a time.  If only one of these is given, the
+other is interpreted as the oldest or newest time in the dataset.</p>
+<p>The 'last' option should be used with neither 'from' or 'to', as it
+implies to &quot;now&quot;.  Its argument can be a count or an interval value.</p>
+<p>The 'for' (or 'qty') option specifies a record count or time interval,
+and should be used with one of 'last' or 'to'.</p>
+<p>The intention is to keep things simple, but hopefully to support 
+sensible queries.</p>
+<p>
+</p>
+<hr />
+<h1><a name="see_also">SEE ALSO</a></h1>
+<p>Date::Format(3pm), <code>Date(1)</code>,
+(hint: google for ``gnu info coreutils date input formats'')</p>
+<p>
+</p>
+<hr />
+<h1><a name="bugs">BUGS</a></h1>
+<p>Does not handle indirect datasets with datums stored under _/.  Needs
+to be fixed!</p>
+<p>Use of the optional prefix, an arbitrary string prefix to the dataset,
+has not been tested.</p>
+<p>Help option for info date works via the shell, but not via the webserver,
+which instead shows the much less complete manual page.  The manual
+page does not define the supported argument forms to -d option, while
+the info docs do provide extensive detail.  Added a hint to use google
+to find those docs (gnu info coreutils date input formats).</p>
+<p>
+</p>
+<hr />
+<h1><a name="author">AUTHOR</a></h1>
+<p>Ken Irving &lt;<a href="mailto:fnkci@uaf.edu">fnkci@uaf.edu</a>&gt; (c) 2008</p>
+<p>Licensed under the GPL (Gnu Public Library)</p>
+
+</body>
+
+</html>

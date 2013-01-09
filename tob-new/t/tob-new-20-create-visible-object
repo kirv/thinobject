@@ -1,0 +1,24 @@
+#!/bin/sh
+
+# try the default case, and then all three forms of the same option...
+
+tob-new foo$$-1
+
+test $(tob foo$$-1.type) = Object:Directory || exit 1
+test $(tob foo$$-1.path) = ./foo$$-1/ || exit 1
+
+
+tob-new --no-hide foo$$-2
+
+test $(tob foo$$-2.type) = Object:Directory || exit 1
+test $(tob foo$$-2.path) = ./foo$$-2/ || exit 1
+
+
+tob-new -S foo$$-4
+
+test $(tob foo$$-4.type) = Object:Directory || exit 1
+test $(tob foo$$-4.path) = ./foo$$-4/ || exit 1
+
+
+rm -r foo$$-[1234]
+
