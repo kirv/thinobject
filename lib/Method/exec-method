@@ -1,0 +1,86 @@
+#/bin/bash
+
+warn() { printf "%s\n" "$@" >&2; }
+
+error() { warn "$@"; exit 1; }
+
+resolve_symlink() {
+    for path in ${TOB_search_paths//:/ }; do
+        for name in "$@"; do
+            test -L $path/$name || continue
+            test -e $path/$name && continue
+            symlink="$path/$name"
+            value="$(readlink $symlink)"
+            return
+        done
+    done
+    return 1
+    }
+
+get_prototype() {
+    resolve_symlink "$1" || return
+    prototype=(${value// / })
+    test $prototype = Method || return 2
+    unset 'prototype[0]'
+    }
+    
+get_symvar() {
+    name="${1##*/}"
+    resolve_symlink "$name" ".$name" || return
+    test ${value:0:1} = = || return 2
+    value="${value#=}"
+    }
+    
+main() {
+    method=$1
+    test -x "$method" || exit
+    
+    get_prototype "${method##*/}" || {
+        case $? in
+        1)  warn "no prototype for ${method##*/}";;
+        2)  warn "$symlink is not a method prototype: $value";;
+        esac
+        echo exec $method "$@"
+        }
+    
+    printf "%s\n" $method
+    printf "\t%s\n" "${prototype[@]}"
+    
+    for arg in "${prototype[@]}"; do
+        printf "%s\n" $arg
+        case $arg in
+
+        @?*) 
+            # @name -- fail operation if symvar name is not resolved
+            get_symvar ${arg:1} || error "symvar in $arg not expanded"
+            args+=("$value")
+            ;;
+
+        -*=@?*)
+            # --option=@name -- skip if symvar name is not resolved
+            option=(${arg/=/ })
+            get_symvar ${option[1]#@} || continue
+            args+=($option="$value")
+            ;;
+
+        -*=@)
+            # --option=@ -- treat the same as --option=@option
+            option=(${arg/=/ })
+            get_symvar ${option##-} || continue
+            args+=($option=$value)
+            ;;
+
+        *)  # pass-through other arguments
+            args+=("$arg");;
+            ;;
+
+        esac
+    done
+
+    echo exec $method "${args}" "$@"
+
+    }
+
+main "$@"
+
+    
