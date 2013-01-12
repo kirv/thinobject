@@ -1,50 +1,42 @@
-#!/bin/sh
+#!/bin/bash
 
 prefix=/usr/local
 host=()
 
 while test -n "$1"; do
-    arg=$1 &&
-        shift
+    arg=$1 && shift
+    case $arg in
 
-    test ${arg:0:1} == '-' && { # parse arguments
-        if test $arg == '--prefix'; then
-            prefix=$1 &&
-                shift
-        elif test $arg == '--host'; then
-            host[${#host[@]}]=$1: &&
-                shift
-        elif test $arg == '-h'; then
-            echo SYNOPSIS bin/install [--prefix PATH] [--host [USER@]HOST] [--help] [-h]
-            exit 0
-        elif test $arg == '--help'; then
-            awk '/^NAME/{ok=1}ok{print}' $0
-            exit 0
-        else
-            echo unknown argument: $arg
-            exit 1
-        fi
-        }
+    --prefix)
+        prefix=$1 && shift
+        ;;
+
+    --host)
+        host=$1 && shift
+        ;;
+
+    -h)
+        echo SYNOPSIS install [--prefix PATH] [--host [USER@]HOST] [--help] [-h]
+        exit
+        ;;
+
+    --help)
+        awk '/^NAME/{ok=1}ok{print}' $0
+        exit
+        ;;
+
+    *)
+        echo unknown argument: $arg
+        exit 1
+        ;;
+
+    esac
 done
-
-get_attr () {
-    attr=$1
-    for path in ${TOB_search_paths//:/ }; do
-        test -e $path/$attr && {
-            attr=$(<$path/$attr)
-            return 0
-            }
-    done
-    return 1
-    }
 
 get_prop () {
     prop=$1
     for path in ${TOB_search_paths//:/ }; do
-        test -e $path/$prop && {
-            prop=$path/$prop
-            return 0
-            }
+        test -e $path/$prop && prop=$path/$prop && return
     done
     return 1
     }
@@ -56,12 +48,10 @@ get_prop @install-rsync-exclude &&
 # # rsync $opt -azv --delete lib/ $host$prefix/lib/tob
 # rsync $opt -azv lib/ $host$prefix/lib/tob
 
-test -n "$host" || host[0]=localhost:
+test -n "$host" || host=localhost
 
-for h in "${host[@]}"; do
-    echo rsync $opt -azv lib/ $h$prefix/lib/tob
-    rsync $opt -azv lib/ $h$prefix/lib/tob
-done
+echo rsync $opt -azv lib/ $host:$prefix/lib/tob
+rsync $opt -azv lib/ $host:$prefix/lib/tob
 
 exit
 

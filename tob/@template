@@ -21,18 +21,6 @@
 #< TOB-resolve-method-path
 #< TOB-get-attribute
 #< main
-
-for f in ${order[*]}; do 
-    cat $path/$f
-    printf "\n"
-done
-
-printf "%s\n\n" 'main "$@"'
-
-cat $path/manpage
-
-
-main "$@"
-
+#< call-main
 #< manpage
 

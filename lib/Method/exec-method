@@ -4,7 +4,7 @@ warn() { printf "%s\n" "$@" >&2; }
 
 error() { warn "$@"; exit 1; }
 
-resolve_symlink() {
+resolve_dangling_symlink() {
     for path in ${TOB_search_paths//:/ }; do
         for name in "$@"; do
             test -L $path/$name || continue
@@ -18,7 +18,7 @@ resolve_symlink() {
     }
 
 get_prototype() {
-    resolve_symlink "$1" || return
+    resolve_dangling_symlink "$1" || return
     prototype=(${value// / })
     test $prototype = Method || return 2
     unset 'prototype[0]'
@@ -26,7 +26,7 @@ get_prototype() {
     
 get_symvar() {
     name="${1##*/}"
-    resolve_symlink "$name" ".$name" || return
+    resolve_dangling_symlink "$name" ".$name" || return
     test ${value:0:1} = = || return 2
     value="${value#=}"
     }
