@@ -1,5 +1,3 @@
-TOB_set_symvar() {
-    test -n "$1" || return
-    ln -sf =$2 $1
+set_symvar() {
+    ln -sf =$2 "$1"
     }
-export -f TOB_set_symvar

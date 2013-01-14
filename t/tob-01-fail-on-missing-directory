@@ -1,14 +1,12 @@
 #!/bin/sh
 
-echo SKIPPING && exit
-
 test -e bad$$ && exit 42
 test -e .bad$$ && exit 43
 
-tob bad$$.path 2>/dev/null
-test $? = 1 || exit
-
-exit 2
+output="$(tob bad$$.path 2>&1)"
+code=$?
+test $code = 131 && exit
+exit $code
 
 ## old test code follows:
 

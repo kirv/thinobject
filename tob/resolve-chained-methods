@@ -14,7 +14,7 @@ resolve_chained_methods () {
             }
         ## fail if method does not resolve:
         resolve_method_path $m ||
-            error -x 1 "chained method $m did not resolve"
+            error -x 131 "chained method $m did not resolve"
         chain+=($m)
         chainpath+=($TOB_method_path)
         wantdirective=1

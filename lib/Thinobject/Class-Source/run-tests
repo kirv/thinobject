@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# export TOBLIB=./lib:$TOBLIB
+# hash -p bin/tob tob || exit
+
+error() { printf "%s\n" "$@"; exit 1; }
+
+test -d t ||
+    error "no tests directory t/"
+
+mkdir t/tmp$$ && cd t/tmp$$/ ||
+    error "failed to create or cd to tests run container: t/tmp$$"
+
+# test $# = 0 &&  
+#     run-parts --regex='[a-z]*-[0-9]+-.*' --exit-on-error --verbose ..
+
+if test $# -eq 0; then
+    run-parts --regex='[a-z]*-[0-9]+-.*' --exit-on-error --verbose ..
+else
+    for t in "$@"; do
+        ../$t ||
+            error "$t failed with $?"
+    done
+fi
+    
+cd -
+rm -r t/tmp$$

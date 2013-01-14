@@ -3,12 +3,26 @@
 mkdir dir$$ &&
     cd dir$$
 
-ln -s Directory ./^
+ln -s Directory ^
 
-test $(tob ..path) = ./ ||
+pwd
+ls -l
+printf "<<%s>>\n" "$(tob ..path)"
+
+echo A
+tob ..path
+echo $TOBLIB
+echo B
+
+test "$(tob ..path)" = ./ ||
     exit 2
 
-test $(tob ..type) = Directory ||
+echo 11111111
+printf "<<%s>>\n" "$(tob ..type)"
+echo 22222222
+output=($(tob ..type))
+printf "\t<%s>\n" "${output[0]}" "Directory" 
+test "${output[0]}" = Directory ||
     exit 3
 
 cd - >/dev/null

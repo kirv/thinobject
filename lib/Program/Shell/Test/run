@@ -1,13 +1,15 @@
-#!/bin/sh
+#!/bin/bash
 
-export TOBLIB=/home/ken/proj/thinobject/src/lib
-export PATH=/home/ken/proj/thinobject/src/bin:$PATH
+# export TOBLIB=/home/ken/proj/thinobject/src/lib
+# export PATH=/home/ken/proj/thinobject/src/bin:$PATH
 
-trap "rm -r t/tmp/$$" EXIT
-mkdir t/tmp$$
-cd t/tmp$$/
+trap "test -d tmp/$$ && rm -r tmp/$$" EXIT
+mkdir tmp$$
+
+cd tmp$$/ || exit
 
 run-parts --regex='[a-z]*-[0-9]+-.*' --exit-on-error --verbose ..
+ls ..
 
-cd -
-rmdir t/tmp$$
+cd - >/dev/null
+rmdir tmp$$
