@@ -1,0 +1,21 @@
+#!/bin/bash
+
+error() { printf "%s\n" "$@"; exit 1; }
+
+test -n "$1" || {
+    for tf in .*; do
+        test -d $tf && continue
+        test -e $tf &&
+            test -e ${tf#.} &&
+                bash $tf ||
+                    exit
+    done
+    }
+
+
+for f in "$@"; do
+    test -e $f || error "no function $f"
+    test -e .$f || error "no test script .$f for function $f"
+    bash .$f || error "test $f failed"
+done
+
