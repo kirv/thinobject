@@ -1,0 +1,51 @@
+#!/bin/bash
+
+source get-type || exit
+
+assert_type() {
+    get_type "$1"
+    exitcode=$?
+    test "$type" = "$2" && return
+    echo FAILED ASSERTION: "$type" = "$2"
+    exit 1
+    }
+
+assert_exitcode() {
+    test "$exitcode" = "$1" && return
+    echo FAILED ASSERTION: exitcode "$exitcode" = "$1"
+    exit 1
+    }
+
+assert_type "" ""
+
+touch f &&
+    assert_type f File &&
+        rm f
+
+mkdir d &&
+    assert_type d Directory && 
+        rmdir d
+
+mknod p p &&
+    assert_type p NamedPipe &&
+        rm p
+
+ln l -s &&
+    assert_type l SymLink && 
+        assert_exitcode 2 &&
+            rm l
+
+# run these tests against special files found in system:
+assert_type /dev/initrd BlockSpecial
+
+assert_type /dev/ttys0 CharacterSpecial
+
+## creating these as root seems to work, but I don't want to have to
+## authorize every time, and don't want to risk side effects to the system
+## sudo mknod u c 1 1 &&
+##     assert_type u CharacterSpecial
+
+assert_type /var/run/dbus/system_bus_socket Socket
+
+echo $0 DONE
+
