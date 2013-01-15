@@ -1,15 +1,21 @@
 #!/bin/sh
 
+# echo SKIPPING $0 && exit
+
 mkdir dir$$ &&
     cd dir$$
 
-printf "DEBUGGING <<%s>>\n" "$(tob ..path)"
-echo SKIPPING ${0##*/} && exit
+# printf "DEBUGGING <<%s>>\n" "$(tob ..path)"
 
 test "$(tob ..path)" = ./ || exit 2
 
-printf "TEST tob ..type: %s\n" "$(tob ..type)"
-test "$(tob ..type)" = Directory || exit 3
+## NOTE: type returns more than just one type, so use an array to
+## only look at the first element:
+type=($(tob ..type))
+
+# printf "DEBUG tob ..type: %s\n" "$type" Directory
+
+test "$type" = "Directory" || exit 3
 
 cd - >/dev/null
 rmdir dir$$

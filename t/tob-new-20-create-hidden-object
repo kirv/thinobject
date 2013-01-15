@@ -1,21 +1,28 @@
 #!/bin/sh
 
+echo SKIPPING $0 && exit
+
 tob-new --hide foo$$-1
 
-test $(tob foo$$-1.type) = Object:Directory || exit 1
+printf "DEBUG:\n%s\n" "$(ls -l .foo$$-1)" "$(ls -l .foo$$-1)"
+
+exit 99
+
+
+test $(tob foo$$-1.type) = Object || exit 1
 test $(tob foo$$-1.path) = ./.foo$$-1/ || exit 2
 
 
 tob-new --hide foo$$-2
 
-test $(tob foo$$-2.type) = Object:Directory || exit 3
+test $(tob foo$$-2.type) = Object || exit 3
 test $(tob foo$$-2.path) = ./.foo$$-2/ || exit 4
 
 
 
 tob-new -s foo$$-3
 
-test $(tob foo$$-3.type) = Object:Directory || exit 5
+test $(tob foo$$-3.type) = Object || exit 5
 test $(tob foo$$-3.path) = ./.foo$$-3/ || exit 6
 
 

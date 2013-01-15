@@ -3,10 +3,10 @@
 export TOBLIB=/home/ken/proj/thinobject/src/lib
 export PATH=/home/ken/proj/thinobject/src/bin:$PATH
 
-mkdir t/tmp$$
+mkdir t/tmp$$ || exit
 cd t/tmp$$/
 
 run-parts --regex='[a-z]*-[0-9]+-.*' --exit-on-error --verbose ..
 
-cd -
+cd - >/dev/null
 rmdir t/tmp$$

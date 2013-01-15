@@ -64,6 +64,5 @@ assert_query    ..M     ..M     M
 assert $o 2
 assert $m 2
 
-echo DONE ${0##*/}
-
+echo DONE $0
 

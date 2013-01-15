@@ -16,6 +16,4 @@ TOBLIB=../lib
 resolve_library Object
 assert_exitcode $? 0
 
-echo $0 DONE
-
-
+echo DONE $0

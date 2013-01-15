@@ -8,6 +8,6 @@ tob foo$$.type 2>/dev/null
 
 result=$?
 
-test $result = 120 || exit
+test $result = 121 || exit $result
 
 rm -r foo$$

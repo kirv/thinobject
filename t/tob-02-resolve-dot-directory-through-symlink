@@ -1,10 +1,14 @@
 #!/bin/sh
 
+echo SKIPPING $0 && exit
+
 d=dir$$
 
 mkdir .$d
 
 ln -s $d l$d
+
+# printf "DEBUG %s\n" "$(tob $d.path)" "$PWD/.$d/"
 
 test $(tob l$d.path) = $PWD/.$d/ || exit 1
 

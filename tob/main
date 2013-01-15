@@ -117,7 +117,7 @@ main () {
         query)          echo $query && exit;;
         object)         echo $object && exit;;
         envars)         printf "%s\n" "${envars[@]}" && exit;;
-        types)          printf "%s\n" "${types[@]}" && exit;;
+        types)          printf "%s\n" "$TOB_types" && exit;;
         search-paths)   printf "%s\n" "${apaths[@]}" && exit;;
         method-paths)   printf "%s\n" "${mpaths[@]}" && exit;;
     esac

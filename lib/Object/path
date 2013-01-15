@@ -10,5 +10,7 @@ for arg in $*; do
         test -L $arg ||
             echo $TOB_object/$arg not found >&2
     echo $TOB_object/$arg
+
+    printf "\t<%s=%s>\n" TOB_object "$TOB_object" arg "$arg"
 done
 

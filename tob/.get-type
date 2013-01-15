@@ -47,5 +47,5 @@ assert_type /dev/ttys0 CharacterSpecial
 
 assert_type /var/run/dbus/system_bus_socket Socket
 
-echo $0 DONE
+echo DONE $0
 

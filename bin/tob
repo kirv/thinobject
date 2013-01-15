@@ -238,9 +238,9 @@ resolve_declaration () {
     #   return 1 if no declaration found
     local path=$1 object=$2 p
     for p in "${apaths[@]}"; do
-        for symvar in $p/$object $p/.$object; do
-            test -L $symvar -a ! -e $symvar || continue
-            type=($(readlink $symvar))
+        for symtype in $p/$object $p/.$object; do
+            test -L $symtype -a ! -e $symtype || continue
+            type=($(readlink $symtype))
             test -n "$type" && test ${type:0:1} != '=' && return
         done
     done
@@ -537,7 +537,7 @@ main () {
         query)          echo $query && exit;;
         object)         echo $object && exit;;
         envars)         printf "%s\n" "${envars[@]}" && exit;;
-        types)          printf "%s\n" "${types[@]}" && exit;;
+        types)          printf "%s\n" "$TOB_types" && exit;;
         search-paths)   printf "%s\n" "${apaths[@]}" && exit;;
         method-paths)   printf "%s\n" "${mpaths[@]}" && exit;;
     esac

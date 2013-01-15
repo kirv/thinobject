@@ -1,11 +1,15 @@
 #!/bin/sh
 
+echo SKIPPING $0 && exit
+
 ob=ob$$
 
 mkdir .$ob
 ln -s Object .$ob/^
 
 ln -s $ob l$ob
+
+printf "DEBUG %s\n" "$(tob l$ob.path)" "$PWD/.$ob/"
 
 test $(tob l$ob.path) = $PWD/.$ob/ || exit 1
 

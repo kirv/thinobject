@@ -17,6 +17,8 @@ error2() {
 while test ${1:0:1} = -; do
     opt=$1 && shift
     case $opt in
+        --hide)
+            hide_new_object=1;;
         -v) VERBOSE=1;;
         -h) echo "SYNOPSIS: $synopsis"; exit 0;;
         *) error "unknown option: $opt $*"
@@ -26,7 +28,9 @@ done
 test -n "$VERBOSE" &&
     printf "RUNNING: tob-new %s\n" "$*"
 
+printf "ARG %s\n" "$@"
 ob="$1" && shift
+test -n "$hide_new_object" && ob=".$ob"
 type="$1" && shift
 test -n "$type" || type=Object
 
@@ -34,8 +38,17 @@ test -n "$ob" || error "$synopsis"
 test -e "$ob" && error "object $ob already exists"
 test -L "$ob" && error "symvar $ob already exists"
 mkdir $ob || error "failed to create object $ob"
-ln -s $type $ob/.^ && test "$(tob $ob.type 2>/dev/null)" = $type ||
-    error2 "tob cannot resolve type $type"
+# ln -s $type $ob/.^ && test "$(tob $ob.type 2>/dev/null)" = $type ||
+#     error2 "tob cannot resolve type $type"
+
+ln -s $type $ob/.^ && {
+    echo SAMPLE OUTPUT
+    tob $ob.type
+    tob $ob.types
+    printf "DEBUG %s\n" "$(tob $ob.types 2>/dev/null)" "$type"
+    test "$(tob $ob.type 2>/dev/null)" = $type ||
+        error2 "tob cannot resolve type $type"
+    }
 
 # we know that $type exists as a directory in a tob lib tree, but it may
 # or may not be a valid type -- it needs to have a resolving class link to be valid
