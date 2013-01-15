@@ -2,7 +2,7 @@ resolve_declaration () {
     #   synopsis: resolve_declaration path object
     #   return 0 if declaration found and type identified
     #   return 1 if no declaration found
-    local path=$1 object=$2 p
+    local object=$1 p
     for p in "${apaths[@]}"; do
         for symtype in $p/$object $p/.$object; do
             test -L $symtype -a ! -e $symtype || continue
