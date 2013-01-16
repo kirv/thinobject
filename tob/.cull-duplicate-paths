@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 source cull-duplicate-paths || exit

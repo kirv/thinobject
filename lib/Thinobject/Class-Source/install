@@ -3,6 +3,8 @@
 prefix=/usr/local
 host=()
 
+exclude=( '**smp' '**old' )
+
 while test -n "$1"; do
     arg=$1 && shift
     case $arg in
@@ -44,22 +46,20 @@ get_prop () {
 get_prop @install-rsync-exclude &&
     opt="--exclude-from=$prop"
 
-# echo TODO: rsync $opt -azv lib/ $host$prefix/lib/tob
-# # rsync $opt -azv --delete lib/ $host$prefix/lib/tob
-# rsync $opt -azv lib/ $host$prefix/lib/tob
 
 test -n "$host" || host=localhost
 
 echo rsync $opt -azv lib/ $host:$prefix/lib/tob
 rsync $opt -azv lib/ $host:$prefix/lib/tob
+rsync $opt -azv bin/ $host:$prefix/bin
 
 exit
 
 NAME
-    bin/install -- install binaries and libraries for thinobject core system
+    Thinobject/Class-Source.install -- copy lib/ to $prefix/lib/tob
 
 SYNOPSIS
-    bin/install [--prefix PATH] [--host [USER@]HOST] [--help] [-h] 
+    install [--prefix PATH] [--host [USER@]HOST] [--help] [-h] 
 
 DESCRIPTION
     Installs or updates an existing installation from the sh, perl,

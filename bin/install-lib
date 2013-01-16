@@ -1,6 +1,0 @@
-#!/bin/sh
-
-host=localhost
-test -n "$1" && host=$1
-
-scp perl/*.pm $host:/usr/local/lib/site_perl/

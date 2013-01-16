@@ -1,6 +1,10 @@
-
 #!/bin/bash
 
 source debug || exit
 
+unset DEBUG
+
+
+
 echo STUB .debug
+
