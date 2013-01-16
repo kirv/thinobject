@@ -1,0 +1,5 @@
+#!/bin/bash
+
+source map-prototype-fields || exit
+
+echo STUB .map-prototype-fields

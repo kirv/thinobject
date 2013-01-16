@@ -3,8 +3,12 @@
 source debug || exit
 
 unset DEBUG
+output=$(debug msg 2>&1)
+assert_equal "$output" ""
 
-
+DEBUG=1
+output=$(debug msg 2>&1)
+assert_equal "$output" "DEBUG: msg"
 
 echo STUB .debug
 

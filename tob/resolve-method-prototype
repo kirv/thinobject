@@ -1,0 +1,15 @@
+resolve_method_prototype () {
+    for p in ${apaths[@]}; do
+        for mp in $p/$1 $p/.$1; do
+            test -L $mp || continue
+            test -e $mp && continue
+            prototype=($(readlink $mp))
+            test "$prototype" = Method || return 1
+            map_prototype_fields || unset prototype
+            return
+        done
+    done
+    return 1 
+    }
+
+

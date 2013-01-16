@@ -2,22 +2,34 @@
 
 unset QUIET
 
+synopsis="${0##*/} [-v|--verbose] [-h] [FUNCTION] ..."
+
 error() { printf "%s\n" "$@"; exit 1; }
+
+assert_equal() {
+    test "$1" = "$2" && return
+    error "$0 FAILED: '$1' = '$2'"
+    }
+export -f assert_equal
+
+case "$1" in
+-v | --verbose)   VERBOSE=1; shift;;
+-h)     echo synopsis: $synopsis; exit;;
+esac
 
 test -n "$1" || {
     for tf in .*; do
         test -d $tf && continue
-        test -e $tf &&
-            test -e ${tf#.} &&
-                bash $tf ||
-                    exit
+        test -e $tf && test -e ${tf#.} || continue
+        test -n "$VERBOSE" && printf "%s..." .$tf
+        bash $tf || exit
     done
     }
-
 
 for f in "$@"; do
     test -e $f || error "no function $f"
     test -e .$f || error "no test script .$f for function $f"
+    test -n "$VERBOSE" && printf "%s..." .$f
     bash .$f || error "test $f failed"
 done
 

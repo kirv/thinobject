@@ -1,0 +1,5 @@
+#!/bin/bash
+
+source resolve-method-prototype || exit
+
+echo STUB .resolve-method-prototype
