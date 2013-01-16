@@ -1,0 +1,6 @@
+
+#!/bin/bash
+
+source resolve-attr-search-paths || exit
+
+echo STUB .resolve-attr-search-paths

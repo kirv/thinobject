@@ -1,0 +1,6 @@
+
+#!/bin/bash
+
+source prelude || exit
+
+echo STUB .prelude

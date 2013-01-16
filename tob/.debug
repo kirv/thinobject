@@ -1,0 +1,6 @@
+
+#!/bin/bash
+
+source debug || exit
+
+echo STUB .debug

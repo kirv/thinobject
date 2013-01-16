@@ -1,0 +1,6 @@
+
+#!/bin/bash
+
+source resolve-named-object || exit
+
+echo STUB .resolve-named-object

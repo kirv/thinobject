@@ -1,0 +1,6 @@
+
+#!/bin/bash
+
+source resolve-anonymous-object || exit
+
+echo STUB .resolve-anonymous-object

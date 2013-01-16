@@ -1,0 +1,6 @@
+
+#!/bin/bash
+
+source manpage || exit
+
+echo STUB .manpage

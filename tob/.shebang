@@ -1,0 +1,6 @@
+
+#!/bin/bash
+
+source shebang || exit
+
+echo STUB .shebang

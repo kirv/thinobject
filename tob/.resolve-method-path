@@ -1,0 +1,6 @@
+
+#!/bin/bash
+
+source resolve-method-path || exit
+
+echo STUB .resolve-method-path

@@ -1,0 +1,38 @@
+#!/bin/bash
+
+source warn
+source error || exit
+
+# printf "%s\n" "$(error -x 3 "see if error does not exit the script...")"
+
+$(error -x 3 2>/dev/null)
+test $? = 3 || exit
+
+$(error 2>/dev/null)
+test $? = 1 || exit
+
+QUIET=1
+
+output=$(error -x 3 "should not see this" 2>&1)
+test $? = 3 || exit
+test "$output" = "" || exit
+
+output=$(error "should not see this" 2>&1)
+test $? = 1 || exit
+test "$output" = "" || exit
+
+
+unset QUIET
+VERBOSE=1
+output=$(error -x 5 arg1 arg2 "line 3" 2>&1)
+
+expected="\
+?: exit 5 from .error main()
+arg1
+arg2
+line 3"
+
+test "$output" = "$expected" || exit
+
+echo DONE $0
+

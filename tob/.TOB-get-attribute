@@ -1,0 +1,6 @@
+
+#!/bin/bash
+
+source TOB-get-attribute || exit
+
+echo STUB .TOB-get-attribute

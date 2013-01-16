@@ -1,0 +1,21 @@
+#!/bin/bash
+
+error() { printf "%s\n" "$@"; exit 1; }
+
+test -e $1 || error "$1 not found"
+
+. $1 || error "failed to source $1"
+
+echo ok
+
+callfn=${fn//-/_}
+$callfn $fn
+echo $type = File
+
+$callfn /
+echo $type = Directory
+
+mknod p
+$callfn p
+echo $type = fifo
+

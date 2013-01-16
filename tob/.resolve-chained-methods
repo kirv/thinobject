@@ -1,0 +1,6 @@
+
+#!/bin/bash
+
+source resolve-chained-methods || exit
+
+echo STUB .resolve-chained-methods

@@ -4,10 +4,15 @@ echo SKIPPING $0 && exit
 
 ob=ob$$
 
-mkdir .$ob
-ln -s Object .$ob/^
+set_symbol() { ln -s "$2" "$1"; }
 
-ln -s $ob l$ob
+mkdir .$ob
+# ln -s Object .$ob/^
+set_symbol .$ob/^ Object || exit
+printf "DEBUG <%s>\n" "$(ls -al .$ob)"
+
+# ln -s $ob l$ob
+set_symbol l$ob $ob
 
 printf "DEBUG %s\n" "$(tob l$ob.path)" "$PWD/.$ob/"
 

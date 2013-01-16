@@ -1,0 +1,127 @@
+#!/bin/bash
+
+## declare type arrays:
+declare -a list dict json symvar attr ob file dir badlink nonfile unknown mixin
+
+for f in * .*; do 
+
+    case ${f:0:1} in
+        .)  test "$show_hidden" || continue; c=1;;
+        "") continue;;
+        *)  c=0;;
+    esac
+
+    # check for @ % ^ ..
+    case ${f:$c:1} in
+        @)  list+=(${f:$c+1}); continue;;
+        %)  dict+=(${f:$c+1}); continue;;
+        :)  json+=(${f:$c+1}); continue;;
+        ^)  test "${f:$c+1}" = "" || mixin+=($f "${f:$c+1}")
+            continue ;;
+        .)  test ${f:$c+1:1} = "" && continue;;
+    esac
+
+    # check for symvar:
+    test ! -e $f && {
+        test -L $f || nonfile+=($f) && continue
+        # assume file to be a symvar
+        v=$(readlink $f)
+        test "${v:0:1}" = = || badlink+=($f) && continue
+        symvar+=($f "${v:1}")
+        continue
+        }
+
+    test ! ${f#*=} = $f && attr+=($f) && continue
+
+    # check for object:
+    type=($(tob $f.type 2>/dev/null)) && ob+=($f ${type%%:*}) && continue
+
+    if test -f $f; then
+        file+=($f)
+    elif test -d $f; then
+        dir+=($f) && continue
+    else
+        unknown+=($f)
+
+    fi
+done
+
+## show elements of each type:
+for t in self list dict json symvar attr ob file dir badlink nonfile mixing unknown; do
+
+    echo $t
+
+  # printf "\n%ss:\n" $t
+    case $t in
+
+        self)
+            test -n "$show_self" && echo . ${TOB_type%%:*}
+            ;;
+            
+        list)
+            for el in ${list[@]}; do
+                echo $el list
+            done
+            ;;
+            
+        dict)
+            for el in ${dict[@]}; do
+                echo $el dict
+            done
+            ;;
+            
+        json)
+            for el in ${dict[@]}; do
+                echo $el dict
+            done
+            ;;
+            
+        attr)
+            for el in ${attr[@]}; do
+                echo $el attr
+            done
+            ;;
+            
+        file)
+            for el in ${file[@]}; do
+                echo $el file
+            done
+            ;;
+            
+        dir)
+            for el in ${dir[@]}; do
+                echo $el dir
+            done
+            ;;
+            
+        ob)
+            for (( i = 0 ; i < ${#ob[@]} ; i+=2 )); do
+                echo ${ob[i]} ${ob[i+1]}
+            done
+            ;;
+            
+        symvar)
+            for (( i = 0 ; i < ${#symvar[@]} ; i+=2 )); do
+                echo ${symvar[i]} symvar = "${symvar[i+1]}"
+            done
+            ;;
+            
+        badlink)
+            for el in ${badlink[@]}; do
+                echo $el badlink
+            done
+            ;;
+
+        nonfile)
+            for el in ${nonfile[@]}; do
+                echo $el nonfile
+            done
+            ;;
+
+        unknown)
+            for el in ${unknown[@]}; do
+                echo $el unknown
+            done
+            ;;
+    esac
+done

@@ -2,6 +2,8 @@
 
 source get-type || exit
 
+mkdir tmp$$ || exit
+
 assert_type() {
     get_type "$1"
     exitcode=$?
@@ -46,6 +48,8 @@ assert_type /dev/ttys0 CharacterSpecial
 ##     assert_type u CharacterSpecial
 
 assert_type /var/run/dbus/system_bus_socket Socket
+
+rm -r tmp$$
 
 echo DONE $0
 

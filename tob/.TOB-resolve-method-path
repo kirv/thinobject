@@ -1,0 +1,6 @@
+
+#!/bin/bash
+
+source TOB-resolve-method-path || exit
+
+echo STUB .TOB-resolve-method-path

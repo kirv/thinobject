@@ -1,0 +1,6 @@
+
+#!/bin/bash
+
+source cull-duplicate-paths || exit
+
+echo STUB .cull-duplicate-paths

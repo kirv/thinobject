@@ -1,0 +1,6 @@
+
+#!/bin/bash
+
+source resolve-search-paths || exit
+
+echo STUB .resolve-search-paths

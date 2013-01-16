@@ -1,0 +1,32 @@
+#!/bin/bash
+
+source warn || exit
+
+unset QUIET VERBOSE errmsg
+
+output=$(warn "should be nothing on stdout" 2>/dev/null)
+test "$output" = "" || exit
+
+output=$(warn "normal output" 2>&1)
+test "$output" = "normal output" || exit
+
+QUIET=1
+output=$(warn "testing QUIET flag")
+test "$output" = "" || exit
+
+errmsg=(X)
+unset QUIET
+output=$(warn "normal output" 2>&1)
+test "$output" = "normal output" || exit
+
+VERBOSE=1
+output=$(warn 2>&1)
+test "$output" = "?: X" || exit
+
+QUIET=1
+VERBOSE=1
+output=$(warn "QUIET is applied to both regular and errmsg output" 2>&1)
+test "$output" = "" || exit
+
+echo DONE $0
+

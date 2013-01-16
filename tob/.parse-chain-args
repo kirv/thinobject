@@ -1,0 +1,6 @@
+
+#!/bin/bash
+
+source parse-chain-args || exit
+
+echo STUB .parse-chain-args

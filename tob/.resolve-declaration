@@ -1,0 +1,17 @@
+#!/bin/bash
+
+discussion="
+    This is an interesting case, since resolve_declaration takes two
+    arguments, even creating a local version of the first one, but 
+    only uses the second one.  So it's a case at least of cruft lying
+    around in the code, if not an actual bug.
+
+    Also worth noting is that this function checks for the existence
+    of a type declaration, but does not check that the type actually 
+    resolves under TOBLIB.
+    "
+
+source resolve-declaration || exit
+
+
+echo DONE $0 -- only sourced, not tested
