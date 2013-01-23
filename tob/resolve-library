@@ -1,6 +1,7 @@
 resolve_library () {
-    for lib in ${TOBLIB/:/ }; do
-        test -d $lib/$1 && path=$lib/$1 && return
-    done
+    local IFS=":"
+    for lib in $TOBLIB; do
+        test -d "$lib" && test -d "$lib/$1" && path="$lib/$1" && return
+    done 
     return 1
     }
