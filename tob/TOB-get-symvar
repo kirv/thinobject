@@ -1,4 +1,4 @@
-TOB_get_symvar () {
+TOB-get-symvar () {
     # set variable 'value' to value of symvar name or .name, or return false
     local name path
     for name in $1 .$1; do
@@ -13,4 +13,4 @@ TOB_get_symvar () {
     done
     return 1
     }
-export -f TOB_get_symvar
+export -f TOB-get-symvar

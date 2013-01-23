@@ -8,7 +8,8 @@
 #< resolve-path
 #< resolve-anonymous-object
 #< resolve-named-object
-#< resolve-library
+#< init-libraries
+#< resolve-library-type
 #< resolve-attr-search-paths
 #< resolve-search-paths
 #< resolve-declaration

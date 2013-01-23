@@ -1,51 +1,45 @@
 #!/bin/bash
 
-source resolve-library || exit
-
-assert_exitcode() {
-    test "$1" = "$2" && return
-    echo FAILED ASSERTION: exitcode "$1" = "$2"
-    exit 1
-    }
+source resolve-library-type || exit
 
 # operation should fail with no library paths
 unset TOBLIB
-resolve_library Object
-assert_exitcode $? 1
+resolve-library-type Object
+assert-equal $? 1
 
 # set the library to one we know exists:
 TOBLIB=../lib
-resolve_library Object
-assert_exitcode $? 0
+resolve-library-type Object
+assert-equal $? 0
 assert-equal "$path" "../lib/Object"
 
 
 # prepend the known-good library with some bogus entries:
 TOBLIB=/badpath:/alsobad:../lib
-resolve_library Object
-assert_exitcode $? 0
+resolve-library-type Object
+assert-equal $? 0
 assert-equal "$path" "../lib/Object"
 
 # define a library 'type' directory before the one in ../lib
 TOBLIB=A:B:C:D:E:F:G:H:../lib
 mkdir -p F/Object
-resolve_library Object
-assert_exitcode $? 0
+resolve-library-type Object
+assert-equal $? 0
 assert-equal "$path" "F/Object"
 
 # try including a library path with spaces...
 
 # first look for a type-match beyond the space case:
 TOBLIB="A:B:C with spaces:D:E:F:G:H:"
-resolve_library Object
-assert_exitcode $? 0
+resolve-library-type Object
+assert-equal $? 0
 assert-equal "$path" "F/Object"
 
 # now look for the type-match in the space case:
 TOBLIB="A:B:C with spaces:D:E:F:G:H:"
 mkdir -p "C with spaces"/Object
-resolve_library Object
-assert_exitcode $? 0
+resolve-library-type Object
+assert-equal $? 0
 # assert-equal "$path" "C with spaces/Object"
 
 # clean up:

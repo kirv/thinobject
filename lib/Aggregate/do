@@ -1,22 +1,16 @@
 #!/bin/bash
 
+method=show
 while test -n "$1"; do
     arg="$1" && shift
-    if test $arg == --fmt ; then
-        fmt=$1 && shift
-    elif test $arg == --sleep ; then
-        sleep=$1 && shift
-    elif test $arg == --order ; then
-        order=$1 && shift
-    elif test "${arg:0:1}" == -; then
-        echo unknown argument: $arg >&2
-        exit 1
-    else
-        method="$arg"
-        break
-    fi
+    case $arg in
+    --fmt)      fmt=$1 && shift;;
+    --sleep)    sleep=$1 && shift;;
+    --order)    order=$1 && shift;;
+    -*)         echo unknown argument: $arg >&2; exit 1;;
+    *)          method="$arg"; break;;
+    esac
 done
-test -n "$method" || method=show
 
 if test -z "$order"; then
     unset order_prop

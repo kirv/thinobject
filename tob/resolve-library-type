@@ -1,6 +1,5 @@
-resolve_library () {
-    local IFS=":"
-    for lib in $TOBLIB; do
+resolve-library-type () {
+    for lib in "${toblib[@]}"; do
         test -d "$lib" && test -d "$lib/$1" && path="$lib/$1" && return
     done 
     return 1

@@ -6,11 +6,12 @@ synopsis="${0##*/} [-v|--verbose] [-h] [FUNCTION] ..."
 
 error() { printf "%s\n" "$@"; exit 1; }
 
-assert_equal() {
+assert-equal() {
+    # synopsis assert-equal A B [TEXT ...]
     test "$1" = "$2" && return
-    error "$0 FAILED: '$1' = '$2'"
+    error "$0 FAILED at line $BASH_LINENO: '$1' = '$2' ${*:3}"
     }
-export -f assert_equal
+export -f assert-equal
 
 case "$1" in
 -v | --verbose)   VERBOSE=1; shift;;
