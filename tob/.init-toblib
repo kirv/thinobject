@@ -1,0 +1,61 @@
+#!/bin/bash
+
+source init-toblib || exit
+
+# use default library paths:
+unset TOBLIB toblib
+init-toblib
+assert-equal $? 0
+test -n "$toblib" || error "no toblib entries defined"
+test -n "$TOBLIB" || error "no TOBLIB entries defined"
+
+# check that all paths exist:
+for lib in "${toblib[@]}"; do
+    test -d || error "$lib does not exist"
+done
+
+# set the library to one we know exists:
+unset TOBLIB toblib
+TOBLIB=../lib
+init-toblib
+assert-equal $? 0
+assert-equal "${toblib[0]}" "../lib"
+assert-equal "$TOBLIB" "../lib"
+
+# include some bad elements in TOBLIB, expecting those to be culled:
+unset TOBLIB toblib
+TOBLIB=badA:badB:badC
+init-toblib
+assert-equal $? 1 "expecting error output"
+assert-equal "$toblib" ""
+# note that TOBLIB is not rewritten if toblib is empty:
+assert-equal "$TOBLIB" "badA:badB:badC"
+
+
+# set TOBLIB to bad elements and a good one:
+unset TOBLIB toblib
+TOBLIB=badA:badB:../lib:badC
+init-toblib
+assert-equal $? 0
+assert-equal "${toblib[0]}" "../lib"
+assert-equal "$TOBLIB" "../lib"
+
+
+# try including a library path with spaces...
+
+mkdir -p "lib with spaces" A C/D
+trap 'rm -r A C "lib with spaces"' 0 1
+
+# first look for a type-match beyond the space case:
+unset toblib TOBLIB
+TOBLIB="A:B:C/D:lib with spaces:D:E:F:G:H:../lib"
+init-toblib
+assert-equal $? 0
+assert-equal "${toblib[0]}" "A"
+assert-equal "${toblib[1]}" "C/D"
+assert-equal "${toblib[2]}" "lib with spaces"
+assert-equal "${toblib[3]}" "../lib"
+assert-equal "${#toblib[@]}" 4
+assert-equal "$TOBLIB" "A:C/D:lib with spaces:../lib"
+
+echo DONE $0
