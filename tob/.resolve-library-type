@@ -32,7 +32,8 @@ assert-equal "$path" "../lib/Object"
 # define a library 'type' directory before the one in ../lib
 TOBLIB=A:B:C:D:E:F:G:H:../lib
 unset toblib
-mkdir -p F/Object && trap 'rm -r F' 0 1
+trap 'rm -r F' 0 1
+mkdir -p F/Object
 init-libraries || error "$0 FAILED calling init-libraries() at line $LINENO"
 resolve-library-type Object
 assert-equal $? 0
@@ -49,12 +50,13 @@ assert-equal $? 0
 assert-equal "$path" "F/Object"
 
 # now look for the type-match in the space case:
+# note that F from just above still exists, along with "C with spaces"
 TOBLIB="A:B:C with spaces:D:E:F:G:H:"
 unset toblib
-mkdir -p "C with spaces"/Object && trap 'rm -r "C with spaces"' 0 1
+trap 'rm -r F "C with spaces"' 0 1
+mkdir -p "C with spaces"/Object
 init-libraries || error "$0 FAILED calling init-libraries() at line $LINENO"
 assert-equal $? 0
-# note that F from just above still exists, along with "C with spaces"
 assert-equal "${#toblib[@]}" 2
 assert-equal "${toblib[0]}" "C with spaces"
 assert-equal "${toblib[1]}" F

@@ -11,7 +11,7 @@ resolve_attr_search_paths () { # resolve (proto)type(s) into apaths[]
         if test -d "$type"; then # 'prototype' provides attributes, not methods
             path=$type
         else
-            resolve_library $type || return 1
+            resolve-library-type $type || return 1
         fi
         apaths+=($path)
         unset 'type'

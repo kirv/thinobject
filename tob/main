@@ -8,19 +8,7 @@ main () {
         *)      error -x 1 "unknown option $1";;
         esac && shift
     done
-    init-toblib || exit 37
-    if test -n "$TOBLIB"; then
-        (   IFS=:
-            for lib in $TOBLIB; do
-                toblib+=("$lib")
-            done
-        )
-    else
-        toblib=({~,/opt,/usr/local,/usr,}/lib/tob)
-        TOBLIB="${toblib[*]}"
-        TOBLIB="${TOBLIB// /:}"
-    fi
-    export toblib TOBLIB
+    init-libraries || exit 37
     test -n "$DEBUG" || alias debug=\#
     declare path= object= method= 
     declare -a types=() mpaths=() apaths=() envars=()

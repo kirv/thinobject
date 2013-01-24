@@ -43,19 +43,19 @@ assert-equal "$TOBLIB" "../lib"
 
 # try including a library path with spaces...
 
-mkdir -p "lib with spaces" A C/D
 trap 'rm -r A C "lib with spaces"' 0 1
+mkdir -p "lib with spaces" A C/D
 
 # first look for a type-match beyond the space case:
 unset toblib TOBLIB
 TOBLIB="A:B:C/D:lib with spaces:D:E:F:G:H:../lib"
 init-libraries
 assert-equal $? 0
+assert-equal "${#toblib[@]}" 4
 assert-equal "${toblib[0]}" "A"
 assert-equal "${toblib[1]}" "C/D"
 assert-equal "${toblib[2]}" "lib with spaces"
 assert-equal "${toblib[3]}" "../lib"
-assert-equal "${#toblib[@]}" 4
 assert-equal "$TOBLIB" "A:C/D:lib with spaces:../lib"
 
 echo DONE $0
