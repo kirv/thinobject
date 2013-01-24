@@ -61,8 +61,6 @@ resolve_query() { # use q[], set path, set o beyond path
         return $rtnval
         }
 
-    warn "resolve_query() 1 query=$query"
-
     test $o -eq $m && {
         resolve_anonymous_object
         return
@@ -92,14 +90,11 @@ resolve_path () { # try to resolve path in query, starting at index o
   # errmsg+=("$FUNCNAME($*)")
     local -i p=0
 
-    warn "DEBUG resolve_path() q=[${q[*]}]"
     while (( o+p < m )); do
         dir="${q[*]:o:p+1}"
         dir=${dir// /.}                 # change "a b" to "a.b"
       # errmsg+=("    o: $o, p: $p, try: $dir")
-        warn "DEBUG resolve_path() TESTING $path/$dir/..."
         test -d $path/$dir && {
-            warn "DEBUG resolve_path() TESTED  $path/$dir/..."
             path+=/$dir 
           # errmsg+=("          path: $path")
             o+=$((p+1))
@@ -107,7 +102,6 @@ resolve_path () { # try to resolve path in query, starting at index o
             continue
             }
 
-        warn "DEBUG $path/$dir did not resolve"
         test ${dir: -1:1} = / &&  # trailing / means: directory or fail
             error -x 15 "$FUNCNAME(): directory $path/$dir not found"
 
@@ -149,7 +143,6 @@ resolve_anonymous_object () { # try to resolve object type at path
         type=Directory
     fi
 
-    warn "resolve_anonymous_object() 1 type=[${type[*]}]"
     cd $path ||
         error -x 2 "failed: cd $path/"
     anonymous=1
@@ -175,12 +168,28 @@ resolve_named_object () { # resolve object and its type, or fail
     object=${object// /.}
     return 1
     }
-resolve_library () {
-    for lib in ${TOBLIB//:/ }; do
-        warn "DEBUG resolve_library() $lib / $1"
-        test -d $lib || continue
-        test -d $lib/$1 && path=$lib/$1 && return
-    done
+init-libraries() {
+    # set toblib array with possible library locations from TOBLIB or default
+    # set or reset colon-delimited TOBLIB from toblib array
+    local IFS=:
+    if test -n "$TOBLIB"; then
+        for lib in $TOBLIB; do
+            test -d "$lib" && toblib+=("$lib")
+        done
+    else
+        for lib in {~,/opt,/usr/local,/usr,}/lib/tob; do 
+            test -d "$lib" && toblib+=("$lib")
+        done
+    fi
+    test -d "$toblib" || return
+    # rewrite TOBLIB to only include good library paths:
+    TOBLIB="${toblib[*]}"
+    export TOBLIB
+    }
+resolve-library-type () {
+    for lib in "${toblib[@]}"; do
+        test -d "$lib" && test -d "$lib/$1" && path="$lib/$1" && return
+    done 
     return 1
     }
 resolve_attr_search_paths () { # resolve (proto)type(s) into apaths[]
@@ -196,7 +205,7 @@ resolve_attr_search_paths () { # resolve (proto)type(s) into apaths[]
         if test -d "$type"; then # 'prototype' provides attributes, not methods
             path=$type
         else
-            resolve_library $type || return 1
+            resolve-library-type $type || return 1
         fi
         apaths+=($path)
         unset 'type'
@@ -224,7 +233,7 @@ resolve_search_paths () { # from (proto)type(s) to types[], apaths[], mpaths[]
             path=$type
             apaths+=($path)
         else
-            resolve_library $type || return 1
+            resolve-library-type $type || return 1
             types+=($type)
             envars+=("${type[*]:1}")
             apaths+=($path)
@@ -238,7 +247,6 @@ resolve_search_paths () { # from (proto)type(s) to types[], apaths[], mpaths[]
         test -n "$1" && return 0
         type=($(readlink $path/^ || readlink $path/.^))
     done
-    warn "DEBUG resolve_search_paths() apaths=[${apaths[*]}] mpaths=[${apaths[*]}]"
     test -n "$apaths" || return 1
     test -n "$mpaths" || return 2
     }
@@ -248,7 +256,6 @@ resolve_declaration () {
     #   return 1 if no declaration found
     local object=$1 p
     for p in "${apaths[@]}"; do
-        test -d $p || continue
         for symtype in $p/$object $p/.$object; do
             test -L $symtype -a ! -e $symtype || continue
             type=($(readlink $symtype))
@@ -285,7 +292,6 @@ resolve_method_path () {
     test "$1" = --super && super=1 && shift || unset 'super'
     local method=$1
     for path in ${mpaths[@]}; do
-        test -d $path || continue
         test -x $path/$method || continue
         test -n "$super" && unset 'super' && continue
         TOB_method_path=$path/$method
@@ -434,18 +440,13 @@ main () {
   # errmsg+=("$FUNCNAME($*)")
     while test "${1:0:1}" = -; do
         case $1 in 
-        -d)     DEBUG=1;;       -D)     unset DEBUG;;
-        -v)     VERBOSE=1;;     -V)     unset VERBOSE;;
+        -d)     DEBUG=1;;
         -h)     echo synopsis: $synopsis; exit;;
         --help) awk '/^NAME$/{ok=1}ok' $0; exit;;
         *)      error -x 1 "unknown option $1";;
         esac && shift
     done
-    test -n "$TOBLIB" || {
-        TOBLIB=/opt/lib/tob:/usr/local/lib/tob
-        export TOBLIB
-        warn "DEBUG TOBLIB: $TOBLIB"
-        }
+    init-libraries || exit 37
     test -n "$DEBUG" || alias debug=\#
     declare path= object= method= 
     declare -a types=() mpaths=() apaths=() envars=()
@@ -455,10 +456,7 @@ main () {
     declare query="$1" && shift
     declare -a q=()
     declare -i o m  # index o points to object, m points to method
-
     parse_query "$query" || error -x $? parse... 
-
-    warn "DEBUG parse_query() $? '$query' [${q[*]}]"
 
     resolve_query ||
         case $? in
@@ -470,7 +468,7 @@ main () {
             *)  error -x $?;;
         esac
 
-    warn "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method" "ANONYMOUS=$anonymous" "PWD=$PWD"
+  # warn "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method" "ANONYMOUS=$anonymous" "PWD=$PWD"
 
   # errmsg+=("<<< AFTER resolve_query():"
   #     "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method"
@@ -566,7 +564,6 @@ main () {
 
     ## check for _default method:
     for path in ${mpaths[@]}; do
-        test -d $path || continue
         ## ASSERT: class exists
         test -e $path/_default && {
             test -x $path/_default && {
