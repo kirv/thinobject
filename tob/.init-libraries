@@ -1,10 +1,10 @@
 #!/bin/bash
 
-source init-toblib || exit
+source init-libraries || exit
 
 # use default library paths:
 unset TOBLIB toblib
-init-toblib
+init-libraries
 assert-equal $? 0
 test -n "$toblib" || error "no toblib entries defined"
 test -n "$TOBLIB" || error "no TOBLIB entries defined"
@@ -17,7 +17,7 @@ done
 # set the library to one we know exists:
 unset TOBLIB toblib
 TOBLIB=../lib
-init-toblib
+init-libraries
 assert-equal $? 0
 assert-equal "${toblib[0]}" "../lib"
 assert-equal "$TOBLIB" "../lib"
@@ -25,7 +25,7 @@ assert-equal "$TOBLIB" "../lib"
 # include some bad elements in TOBLIB, expecting those to be culled:
 unset TOBLIB toblib
 TOBLIB=badA:badB:badC
-init-toblib
+init-libraries
 assert-equal $? 1 "expecting error output"
 assert-equal "$toblib" ""
 # note that TOBLIB is not rewritten if toblib is empty:
@@ -35,7 +35,7 @@ assert-equal "$TOBLIB" "badA:badB:badC"
 # set TOBLIB to bad elements and a good one:
 unset TOBLIB toblib
 TOBLIB=badA:badB:../lib:badC
-init-toblib
+init-libraries
 assert-equal $? 0
 assert-equal "${toblib[0]}" "../lib"
 assert-equal "$TOBLIB" "../lib"
@@ -49,7 +49,7 @@ trap 'rm -r A C "lib with spaces"' 0 1
 # first look for a type-match beyond the space case:
 unset toblib TOBLIB
 TOBLIB="A:B:C/D:lib with spaces:D:E:F:G:H:../lib"
-init-toblib
+init-libraries
 assert-equal $? 0
 assert-equal "${toblib[0]}" "A"
 assert-equal "${toblib[1]}" "C/D"

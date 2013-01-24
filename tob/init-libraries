@@ -1,4 +1,4 @@
-init-toblib() {
+init-libraries() {
     # set toblib array with possible library locations from TOBLIB or default
     # set or reset colon-delimited TOBLIB from toblib array
     local IFS=:

@@ -1,28 +1,39 @@
 #!/bin/bash
 
-source resolve-library-type || exit
+source resolve-library-type || error "$0 FAILED at line $LINENO"
+source init-libraries || error "$0 FAILED at line $LINENO"
 
 # operation should fail with no library paths
-unset TOBLIB
-resolve-library-type Object
+init-libraries
+unset toblib
+resolve-library-type T
 assert-equal $? 1
 
 # set the library to one we know exists:
-TOBLIB=../lib
+toblib=(../lib)
 resolve-library-type Object
 assert-equal $? 0
 assert-equal "$path" "../lib/Object"
 
-
 # prepend the known-good library with some bogus entries:
+toblib=(/badpath /alsobad ../lib)
+resolve-library-type Object
+assert-equal $? 0
+assert-equal "$path" "../lib/Object"
+
+# same again, but initialize libraries normally:
 TOBLIB=/badpath:/alsobad:../lib
+unset toblib
+init-libraries || error "$0 FAILED calling init-libraries() at line $LINENO"
 resolve-library-type Object
 assert-equal $? 0
 assert-equal "$path" "../lib/Object"
 
 # define a library 'type' directory before the one in ../lib
 TOBLIB=A:B:C:D:E:F:G:H:../lib
-mkdir -p F/Object
+unset toblib
+mkdir -p F/Object && trap 'rm -r F' 0 1
+init-libraries || error "$0 FAILED calling init-libraries() at line $LINENO"
 resolve-library-type Object
 assert-equal $? 0
 assert-equal "$path" "F/Object"
@@ -31,18 +42,24 @@ assert-equal "$path" "F/Object"
 
 # first look for a type-match beyond the space case:
 TOBLIB="A:B:C with spaces:D:E:F:G:H:"
+unset toblib
+init-libraries || error "$0 FAILED calling init-libraries() at line $LINENO"
 resolve-library-type Object
 assert-equal $? 0
 assert-equal "$path" "F/Object"
 
 # now look for the type-match in the space case:
 TOBLIB="A:B:C with spaces:D:E:F:G:H:"
-mkdir -p "C with spaces"/Object
+unset toblib
+mkdir -p "C with spaces"/Object && trap 'rm -r "C with spaces"' 0 1
+init-libraries || error "$0 FAILED calling init-libraries() at line $LINENO"
+assert-equal $? 0
+# note that F from just above still exists, along with "C with spaces"
+assert-equal "${#toblib[@]}" 2
+assert-equal "${toblib[0]}" "C with spaces"
+assert-equal "${toblib[1]}" F
 resolve-library-type Object
 assert-equal $? 0
-# assert-equal "$path" "C with spaces/Object"
-
-# clean up:
-rm -r F "C with spaces" || exit
+assert-equal "$path" "C with spaces/Object"
 
 echo DONE $0
