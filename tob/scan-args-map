@@ -1,0 +1,45 @@
+scan_args_map() {
+    # expand @attr values, push arguments to args_map array
+    test "$1" = Method || return
+    shift
+    args_map=()
+
+    declare args
+
+    for arg in "$@"; do
+        
+      # printf "DEBUG %s\n" "$args"
+        case "$arg" in
+        @?*) 
+            # @name -- fail operation if symvar name is not resolved
+            get-symvar ${arg:1} || return 2
+            args_map+=("$value")
+            ;;
+
+        -*=@?*)
+            # --option=@name -- skip if symvar name is not resolved
+            option=(${arg/=/ })
+            get-symvar ${option[1]#@} || continue
+            args_map+=("$option=$value")
+            ;;
+
+        -*=@)
+            # --option=@ -- treat the same as --option=@option
+            option=${arg%=*}
+            shopt -s extglob
+            name=${option##+(-)}
+            get-symvar $name || continue
+            args_map+=("$option=$value")
+            ;;
+
+        *)
+            # pass through any other argument:
+            args_map+=("$arg")
+            ;;
+
+        esac
+    done
+    }
+
+
+
