@@ -1,0 +1,17 @@
+resolve_method_args_map() {
+    # look for a declaration of the form: x -> Method arg ..., where x is the method name
+    args_map=()
+    for p in ${apaths[@]}; do
+        for mp in $p/$1 $p/.$1; do
+            test -L $mp || continue
+            test -e $mp && continue
+            args_map=($(readlink $mp))
+            test "$args_map" = Method || continue
+            undef 'args_map[0]'
+            scan_method_args_map || return
+            return
+        done
+    done
+    }
+
+

@@ -95,8 +95,10 @@ main () {
             TYPES=$TOB_types
     
   # warn "RESOLVE_METHOD_PATH $TOB_method"
-    resolve_method_path $TOB_method &&
-        exec $TOB_method_path "$@"
+    resolve_method_path $TOB_method && {
+        resolve_method_args_map $TOB_method || return
+        exec $TOB_method_path "$@" "${args_map[@]}"
+        }
     
   # warn "CONTINUING with method $TOB_method"
 

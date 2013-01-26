@@ -1,0 +1,95 @@
+#!/bin/bash
+
+source scan-method-args-map || error "$0 FAILED at line $LINENO"
+
+# scan_method_args_map() checks each element of the args_map array and tries to expand
+# values with prefix '@' from attributes, modifying the array in place
+
+
+# first try setting args_map to a literal value:
+args_map=(test1)
+scan_method_args_map
+assert-equal $? 0
+assert-equal "${args_map[0]}" test1
+
+# now try with several literal values:
+args_map=(A B C -x --y=foo --z bar)
+scan_method_args_map
+assert-equal $? 0
+assert-equal "${args_map[0]}" A
+assert-equal "${args_map[4]}" --y=foo
+assert-equal "${args_map[${#args_map[@]}-1]}" bar
+
+# set one of the entries to a null string:
+args_map=(A B '' -x --y=foo --z bar)
+scan_method_args_map
+assert-equal $? 0
+assert-equal "${args_map[2]}" ''
+
+
+# now try it with some symvar attributes, so source the symvar functions
+source set-symvar || error "FAILED to source set-symvar"
+source get-symvar || error "FAILED to source tet-symvar"
+
+# and create a temporary directory, add it to the 'attribute paths'
+trap "rm -r tmp$$" 0 1
+mkdir tmp$$
+apaths=(tmp$$)
+
+# create a symvar, expect to see it expanded in the args_map list
+set-symvar tmp$$/foo test
+args_map=(A B @foo)
+scan_method_args_map
+assert-equal $? 0
+assert-equal "${args_map[2]}" 'test'
+
+# change the symvar value to include spaces:
+set-symvar tmp$$/foo "testing one, two, three"
+args_map=(A B @foo)
+scan_method_args_map
+assert-equal $? 0
+assert-equal "${args_map[2]}" 'testing one, two, three'
+
+# an attribute that does not resolve should cause the operation to fail:
+args_map=(A B @foo @bar)
+scan_method_args_map
+assert-equal $? 1
+
+# an option value should also get expanded:
+args_map=(A B --test=@foo last)
+scan_method_args_map
+assert-equal $? 0
+assert-equal "${args_map[2]}" '--test=testing one, two, three'
+assert-equal "${args_map[3]}" last
+
+# an option @attr where attr does not exist should get culled:
+set-symvar tmp$$/foo FOO
+args_map=(A B --test=@foo --bar=@bar last)
+scan_method_args_map
+assert-equal $? 0
+assert-equal "${args_map[2]}" '--test=FOO'
+assert-equal "${args_map[*]}" "A B --test=FOO last"
+
+# for now at least we do not support attribute expansion in the option name:
+args_map=(--@foo)
+scan_method_args_map
+assert-equal $? 0
+# note that this doesn't give an error, but just passes the literal value along
+assert-equal "${args_map[0]}" '--@foo'
+
+# an option with a bare '@' implies an attribute of the same name as the option:
+args_map=(--foo=@ --foo=@foo)
+scan_method_args_map
+assert-equal $? 0
+assert-equal "${args_map[1]}" --foo=FOO
+assert-equal "${args_map[0]}" "${args_map[1]}"
+
+# try option with one dash and bare '@'
+args_map=(-foo=@ -foo=@foo)
+scan_method_args_map
+assert-equal $? 0
+assert-equal "${args_map[1]}" -foo=FOO
+assert-equal "${args_map[0]}" "${args_map[1]}"
+
+echo DONE $0
+
