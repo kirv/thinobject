@@ -1,4 +1,4 @@
-resolve_method_path () {
+resolve_method () {
   # errmsg+=("$FUNCNAME($*)")
     test "$1" = --super && super=1 && shift || unset 'super'
     local method=$1

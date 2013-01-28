@@ -1,4 +1,4 @@
-resolve_method_args_map() {
+resolve_method_declaration() {
     # look for a declaration of the form: x -> Method arg ..., where x is the method name
     unset args_map
     for p in ${apaths[@]}; do

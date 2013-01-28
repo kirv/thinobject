@@ -14,7 +14,7 @@
 #< resolve-search-paths
 #< resolve-declaration
 #< cull-duplicate-paths
-#< resolve-method-path
+#< resolve-method
 #< check-chaining-directives
 #< parse-chain-args
 #< resolve-chained-methods

@@ -1,7 +1,8 @@
 #!/bin/sh
 
 export TOBLIB=/home/ken/proj/thinobject/src/lib
-export PATH=/home/ken/proj/thinobject/src/bin:$PATH
+# export PATH=/home/ken/proj/thinobject/src/bin:$PATH
+export PATH=/home/ken/proj/thinobject/src/tob:$PATH
 
 mkdir t/tmp$$ || exit
 cd t/tmp$$/

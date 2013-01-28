@@ -1,0 +1,5 @@
+#!/bin/bash
+
+source resolve-method || exit
+
+echo STUB .resolve-method

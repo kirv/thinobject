@@ -94,13 +94,13 @@ main () {
         warn "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method" \
             TYPES=$TOB_types
     
-  # warn "RESOLVE_METHOD_PATH $TOB_method"
-    resolve_method_path $TOB_method && {
-        resolve_method_args_map $TOB_method
-        case $? in
-        0) set -  "$@" "${args_map[@]}"
-        2) return
-        esac
+  # warn "RESOLVE_METHOD $TOB_method"
+    resolve_method $TOB_method && {
+      # resolve_method_declaration $TOB_method
+      # case $? in
+      # 0) set -  "$@" "${args_map[@]}";;
+      # 2) return;;
+      # esac
         exec $TOB_method_path "$@"
         }
     
