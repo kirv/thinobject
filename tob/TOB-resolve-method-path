@@ -11,4 +11,3 @@ TOB_resolve_method_path () {
     return 1
     }
 export -f TOB_resolve_method_path
-

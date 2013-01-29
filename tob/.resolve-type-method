@@ -95,11 +95,16 @@ assert-equal $? 0
 assert-equal "$path" ../lib/Method/exec
 assert-equal "$(md5sum<$path)" "$(md5sum<$def_path)"
 
+# check that we exit with error if no argument are given
+resolve_type_method
+assert-equal $? 1
 
-
-resolve_type_method Method
-assert-equal $? 0 
-assert-equal "$path" ../lib/Method/_default
+# but further, dummy a _default._default case to see how 'no args' is handled
+mkdir -p tmp$$/_default
+ln -s /bin/true tmp$$/_default/_default
+resolve_type_method
+assert-equal $? 0
+assert-equal "$path" ./tmp$$/_default/_default
 
 echo DONE $0
 

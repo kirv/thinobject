@@ -10,5 +10,3 @@ resolve_method_declaration() {
     done
     return 1
     }
-
-

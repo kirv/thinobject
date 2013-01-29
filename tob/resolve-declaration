@@ -12,4 +12,3 @@ resolve_declaration () {
     done
     return 1
     }
-

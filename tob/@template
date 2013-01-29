@@ -15,6 +15,9 @@
 #< resolve-declaration
 #< cull-duplicate-paths
 #< resolve-method
+#< resolve-method-declaration
+#< resolve-type-method
+#< resolve-wrapper-method
 #< check-chaining-directives
 #< parse-chain-args
 #< resolve-chained-methods
@@ -24,4 +27,3 @@
 #< main
 #< call-main
 #< manpage
-

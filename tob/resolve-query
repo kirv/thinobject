@@ -31,4 +31,3 @@ resolve_query() { # use q[], set path, set o beyond path
     test $o -eq $m &&
         resolve_anonymous_object
     }
-

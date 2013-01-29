@@ -12,4 +12,3 @@ parse_query() {
     test ${q:0:1} = / || path=.
   # errmsg+=("    $q" "    q[1]: ${q[1]}" "    q[2]: ${q[*]:2}")
     }
-
