@@ -1,0 +1,105 @@
+#!/bin/bash
+
+source resolve-type-method || error "$0 FAILED at line $LINENO"
+source resolve-library-type || error "$0 FAILED at line $LINENO"
+
+# resolve_type_method(TYPE [METHOD]) returns path to method or fails
+
+# set library list to the development library:
+toblib=(../lib)
+
+# Object.show-envars should exist, so try it directly:
+resolve_type_method Object show-envars
+assert-equal $? 0
+assert-equal "$path" ../lib/Object/show-envars
+
+# Object.show-envars should resolve via Directory type:
+resolve_type_method Directory show-envars
+assert-equal $? 0
+assert-equal "$path" ../lib/Object/show-envars
+
+# Object.bogus-method should not exist, so this should fail:
+resolve_type_method Object bogus-method
+assert-equal $? 1
+
+# likewise Directory.bogus-method should fail:
+resolve_type_method Directory bogus-method
+assert-equal $? 1
+
+# now create some fake types, with Type1 pointing to Object, Type2 pointing to Type1 as a prototype:
+trap 'rm -r tmp$$' 0 1
+mkdir -p tmp$$/Type1 tmp$$/Type2
+ln -s Object tmp$$/Type1/.^
+ln -s ../Type1 tmp$$/Type2/.^
+
+# set library list to the development library and the temporary types library:
+toblib=(../lib ./tmp$$)
+
+# Object.show-envars should resolve from Type1:
+resolve_type_method Type1 show-envars
+assert-equal $? 0
+assert-equal "$path" ../lib/Object/show-envars
+
+# Object.show-envars should resolve from Type2:
+resolve_type_method Type2 show-envars
+assert-equal $? 0
+assert-equal "$path" ../lib/Object/show-envars
+
+# now create some new types
+mkdir -p tmp$$/Type3/ tmp$$/Type4/ tmp$$/Type5/ tmp$$/Type6/
+ln -s Directory tmp$$/Type3/^
+
+# first, try resolving ls through Type3, which should reach Directory.ls:
+resolve_type_method Type3 ls
+assert-equal $? 0
+assert-equal "$path" ../lib/Directory/ls
+
+# now set a link to the ls executable as method Type3.ls:
+ln -s $(which ls) tmp$$/Type3/ls
+
+# ls should now resolve directly through Type3:
+resolve_type_method Type3 ls
+assert-equal $? 0
+assert-equal "$path" ./tmp$$/Type3/ls
+
+# set a mixin link as a prototype: 
+ln -s ../Type3 tmp$$/Type4/^mixin
+resolve_type_method Type4 ls
+assert-equal $? 0 
+assert-equal "$path" ./tmp$$/Type4/^mixin/ls
+
+# set a mixin link as a type, but that type is an Object, not Directory
+ln -s Type2 tmp$$/Type5/^foo
+resolve_type_method Type5 ls
+assert-equal $? 1 
+
+# set a mixin link as a type, pointing to Directory
+ln -s Directory tmp$$/Type6/.^foo
+resolve_type_method Type6 ls
+assert-equal $? 0 
+assert-equal "$path" ../lib/Directory/ls
+
+
+# need to test the default method scheme where _default is inferred
+resolve_type_method Aggregate
+assert-equal $? 0 
+assert-equal "$path" ../lib/Aggregate/_default
+
+# check that 'Method.exec' and 'Method' resolve to the same executable:
+resolve_type_method Method
+assert-equal $? 0 
+assert-equal "$path" ../lib/Method/_default
+def_path=$path
+resolve_type_method Method exec
+assert-equal $? 0 
+assert-equal "$path" ../lib/Method/exec
+assert-equal "$(md5sum<$path)" "$(md5sum<$def_path)"
+
+
+
+resolve_type_method Method
+assert-equal $? 0 
+assert-equal "$path" ../lib/Method/_default
+
+echo DONE $0
+

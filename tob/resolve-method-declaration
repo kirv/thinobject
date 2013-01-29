@@ -1,16 +1,11 @@
 resolve_method_declaration() {
-    # look for a declaration of the form: x -> Method arg ..., where x is the method name
-    unset args_map
+    # look for a declaration of the form: 'method -> Method arg ...' or fail
+    # return path in var method_declaration
     for p in ${apaths[@]}; do
         for mp in $p/$1 $p/.$1; do
             test -L $mp || continue
             test -e $mp && continue
-            scan_args_map $(readlink $mp)
-            case $? in
-            0)  return;;
-            1)  continue;;
-            2)  return 2;;
-            esac
+            method_declaration=$mp && return
         done
     done
     return 1

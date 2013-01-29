@@ -1,0 +1,30 @@
+resolve_type_method() {
+    # called with TYPE METHOD, resolve executable method or fail
+    test -n "$1" || return
+    test -n "$2" || { $FUNCNAME $1 _default; return; }
+    local type=$1
+    local method=$2
+    if test -d $type; then
+        path=$type
+    else
+        resolve-library-type $type || return
+    fi
+    # 'path' now points to the method type, and we're done if the method resolves there:
+    test -x $path/$method && path=$path/$method && return
+
+    local link
+    shopt -s nullglob
+    
+    for link in $path/^ $path/.^ $path/^* $path/.^*; do
+        test -L $link &&
+            test ! -e $link && {
+                $FUNCNAME $(readlink $link) $method
+                return
+                }
+        test -d $link && {
+            $FUNCNAME $link $method
+            return
+            }
+    done
+    return 1
+    }
