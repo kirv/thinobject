@@ -51,7 +51,6 @@ parse_query() {
     test ${q:0:1} = / || path=.
   # errmsg+=("    $q" "    q[1]: ${q[1]}" "    q[2]: ${q[*]:2}")
     }
-
 resolve_query() { # use q[], set path, set o beyond path
   # errmsg+=("$FUNCNAME($*)")
     unset 'anonymous'
@@ -85,7 +84,6 @@ resolve_query() { # use q[], set path, set o beyond path
     test $o -eq $m &&
         resolve_anonymous_object
     }
-
 resolve_path () { # try to resolve path in query, starting at index o
   # errmsg+=("$FUNCNAME($*)")
     local -i p=0
@@ -264,7 +262,6 @@ resolve_declaration () {
     done
     return 1
     }
-
 cull_duplicate_paths () {
     local entry unique
     local -i i
@@ -287,7 +284,7 @@ cull_duplicate_paths () {
         unset 'apaths[i]'
     done
     }
-resolve_method_path () {
+resolve_method () {
   # errmsg+=("$FUNCNAME($*)")
     test "$1" = --super && super=1 && shift || unset 'super'
     local method=$1
@@ -299,8 +296,59 @@ resolve_method_path () {
     done
     return 1 
     }
+resolve_method_declaration() {
+    # look for a declaration of the form: 'method -> Method arg ...' or fail
+    # return path in var method_declaration
+    for p in ${apaths[@]}; do
+        for mp in $p/$1 $p/.$1; do
+            test -L $mp || continue
+            test -e $mp && continue
+            method_declaration=$mp && return
+        done
+    done
+    return 1
+    }
+resolve_type_method() {
+    # called with TYPE METHOD, resolve executable method or fail
+    test $# = 2 || { $FUNCNAME $1 _default; return; }
+    local type=$1
+    local method=$2
+    if test -d $type; then
+        path=$type
+    else
+        resolve-library-type $type || return
+    fi
 
+    # 'path' now points to the method type, and we're done if the method resolves there:
+    test -x $path/$method && path=$path/$method && return
 
+    local link
+    shopt -s nullglob
+    
+    # check for mixin type declarations before regular ones
+    for link in $path/^* $path/.^* $path/^ $path/.^; do
+        # if link is a type declaration, a non-resolving symlink...
+        test -L $link &&
+            test ! -e $link && {
+                $FUNCNAME $(readlink $link) $method
+                return
+                }
+        # if link is prototype declaration...
+        test -d $link && {
+            $FUNCNAME $link $method
+            return
+            }
+    done
+    return 1
+    }
+resolve_wrapper_method() {
+    # expect the contents of a method declaration as args
+    # first element is TYPE.METHOD or infer as TYPE._default
+    resolve_type_method ${1/./ } || return
+    wrapper=$path
+    shift
+    wrapper_args=("$@")
+    }
 check_chaining_directives() {
     test ${#chain[@]} = ${#directive[@]} ||
         error -x 1 "mismatch chained methods and directives:"\
@@ -420,7 +468,6 @@ TOB_resolve_method_path () {
     return 1
     }
 export -f TOB_resolve_method_path
-
 TOB_get_attr () {
     # set variable 'attr' to attribute value(s), or return false
     # if $arg matches a file, scalar attr is set to its contents
@@ -436,6 +483,23 @@ TOB_get_attr () {
     return 1
     }
 export -f TOB_get_attr
+TOB_get_symvar () {
+    # resolve symvar via 'TOB_search_paths' by name or .name
+    # return value in var 'value', or return false
+    local name path
+    for path in ${TOB_search_paths//:/ }; do
+        for name in $path/{,.}$1; do
+            test -L $name || continue
+            test -e $name && continue
+            value=$(readlink $name)
+            test "${value:0:1}" = = || return 2
+            value=${value:1}
+            return
+        done
+    done
+    return 1
+    }
+export -f TOB_get_symvar
 main () {
   # errmsg+=("$FUNCNAME($*)")
     while test "${1:0:1}" = -; do
@@ -532,9 +596,21 @@ main () {
         warn "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method" \
             TYPES=$TOB_types
     
-  # warn "RESOLVE_METHOD_PATH $TOB_method"
-    resolve_method_path $TOB_method &&
+  # warn "RESOLVE_METHOD $TOB_method"
+    resolve_method $TOB_method && {
+        resolve_method_declaration $TOB_method && {
+            resolve_wrapper_method $(readlink $method_declaration) ||
+                error "failed to resolve wrapper method at $method_declaration"
+            exec $wrapper $TOB_method_path "$@" "${wrapper_args[@]}"
+            }
         exec $TOB_method_path "$@"
+        }
+    
+  # resolve_method $TOB_method && {
+  #     resolve_method_declaration $TOB_method ||
+  #         exec $TOB_method_path "$@"
+  #     exec $wrapper $TOB_method_path "$@" ${wrapper_args[@]}"
+  #     }
     
   # warn "CONTINUING with method $TOB_method"
 
@@ -580,7 +656,6 @@ main () {
     } # end main()
 
 main "$@"
-
 exit
 NAME
     tob -- parse and resolve object.method, invoke method in object directory
@@ -705,4 +780,3 @@ BUGS
 
 AUTHOR
     Ken.Irving@alaska.edu (c) 2007-2010
-

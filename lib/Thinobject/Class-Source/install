@@ -49,8 +49,10 @@ get_prop @install-rsync-exclude &&
 
 test -n "$host" || host=localhost
 
-echo rsync $opt -azv lib/ $host:$prefix/lib/tob
+echo COPY CONTENTS OF lib/ VIA rsync TO $host:$prefix/lib/tob
 rsync $opt -azv lib/ $host:$prefix/lib/tob
+
+echo COPY CONTENTS OF bin/ VIA rsync TO $host:$prefix/bin
 rsync $opt -azv bin/ $host:$prefix/bin
 
 exit
