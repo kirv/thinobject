@@ -71,7 +71,7 @@ main() {
             ;;
 
         *)  # pass-through other arguments
-            args+=("$arg");;
+            args+=("$arg")
             ;;
 
         esac

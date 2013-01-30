@@ -24,6 +24,7 @@
 #< run-chained-methods
 #< TOB-resolve-method-path
 #< TOB-get-attribute
+#< TOB-get-symvar
 #< main
 #< call-main
 #< manpage

@@ -12,14 +12,14 @@ scan_args_map() {
         case "$arg" in
         @?*) 
             # @name -- fail operation if symvar name is not resolved
-            get-symvar ${arg:1} || return 2
+            get_symvar ${arg:1} || return 2
             args_map+=("$value")
             ;;
 
         -*=@?*)
             # --option=@name -- skip if symvar name is not resolved
             option=(${arg/=/ })
-            get-symvar ${option[1]#@} || continue
+            get_symvar ${option[1]#@} || continue
             args_map+=("$option=$value")
             ;;
 
@@ -28,7 +28,7 @@ scan_args_map() {
             option=${arg%=*}
             shopt -s extglob
             name=${option##+(-)}
-            get-symvar $name || continue
+            get_symvar $name || continue
             args_map+=("$option=$value")
             ;;
 

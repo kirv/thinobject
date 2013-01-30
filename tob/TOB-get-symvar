@@ -1,16 +1,17 @@
-TOB-get-symvar () {
-    # set variable 'value' to value of symvar name or .name, or return false
+TOB_get_symvar () {
+    # resolve symvar via 'TOB_search_paths' by name or .name
+    # return value in var 'value', or return false
     local name path
-    for name in $1 .$1; do
-        for path in ${TOB_search_paths//:/ }; do
-            test -e $path/$name && test ! -L $path/$name && continue
-            name=$path/$name
+    for path in ${TOB_search_paths//:/ }; do
+        for name in $path/{,.}$1; do
+            test -L $name || continue
+            test -e $name && continue
             value=$(readlink $name)
-            test ${value:0:1} = = || return 2
-            value=${value#=}
+            test "${value:0:1}" = = || return 2
+            value=${value:1}
             return
         done
     done
     return 1
     }
-export -f TOB-get-symvar
+export -f TOB_get_symvar

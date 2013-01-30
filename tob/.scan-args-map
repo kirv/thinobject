@@ -20,7 +20,7 @@ assert-equal "${args_map[${#args_map[@]}-1]}" bar
 
 # now try it with some symvar attributes, so source the symvar functions
 source set-symvar || error "FAILED to source set-symvar"
-source get-symvar || error "FAILED to source tet-symvar"
+source get-symvar || error "FAILED to source get-symvar"
 
 # and create a temporary directory, add it to the 'attribute paths'
 trap "rm -r tmp$$" 0 1
@@ -28,13 +28,13 @@ mkdir tmp$$
 apaths=(tmp$$)
 
 # create a symvar, expect to see it expanded in the args_map list
-set-symvar tmp$$/foo test
+set_symvar tmp$$/foo test
 scan_args_map Method A B @foo
 assert-equal $? 0
 assert-equal "${args_map[2]}" 'test'
 
 # change the symvar value to include spaces:
-set-symvar tmp$$/foo "testing one, two, three"
+set_symvar tmp$$/foo "testing one, two, three"
 scan_args_map Method A B @foo
 assert-equal $? 0
 assert-equal "${args_map[2]}" 'testing one, two, three'
@@ -50,7 +50,7 @@ assert-equal "${args_map[2]}" '--test=testing one, two, three'
 assert-equal "${args_map[3]}" last
 
 # an option @attr where attr does not exist should get culled:
-set-symvar tmp$$/foo FOO
+set_symvar tmp$$/foo FOO
 scan_args_map Method A B --test=@foo --bar=@bar last
 assert-equal $? 0
 assert-equal "${args_map[2]}" '--test=FOO'
