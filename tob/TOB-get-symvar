@@ -2,7 +2,7 @@ TOB_get_symvar () {
     # resolve symvar via 'TOB_search_paths' by name or .name
     # return value in var 'value', or return false
     local name path
-    for path in ${TOB_search_paths//:/ }; do
+    for path in . ${TOB_search_paths//:/ }; do
         for name in $path/{,.}$1; do
             test -L $name || continue
             test -e $name && continue

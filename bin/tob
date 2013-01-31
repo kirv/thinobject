@@ -486,9 +486,13 @@ export -f TOB_get_attr
 TOB_get_symvar () {
     # resolve symvar via 'TOB_search_paths' by name or .name
     # return value in var 'value', or return false
+ ## printf "\nDEBUG $FUNCNAME $*\n"
     local name path
-    for path in ${TOB_search_paths//:/ }; do
+    for path in . ${TOB_search_paths//:/ }; do
+     ## printf "\tpath=%s\n" "$path"
+        
         for name in $path/{,.}$1; do
+         ## printf "\t\tname=%s\n" "$name"
             test -L $name || continue
             test -e $name && continue
             value=$(readlink $name)
