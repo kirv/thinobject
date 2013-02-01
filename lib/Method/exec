@@ -6,28 +6,61 @@ error() { warn "$@"; exit 1; }
 main() {
     method=$1 && shift
     test -x "$method" || exit
+    # use method name as 'namespace prefix', try to resolve using it first
+    ns=${method##*/}
+
+    warn "Method.exec $method $*"
     
     for arg in "$@"; do
         case $arg in
 
         @?*) 
             # @name -- fail operation if symvar name is not resolved
-            TOB_get_symvar ${arg:1} || error "symvar in $arg not expanded"
+            warn "LOOKING FOR ATTR $ns-${arg:1} or ${arg:1}"
+            TOB_get_symvar $ns-${arg:1} ||
+                TOB_get_symvar ${arg:1} ||
+                    error "symvar in $arg not expanded"
             args+=("$value")
             ;;
 
-        -*=@?*)
+        --*=@?*)
             # --option=@name -- skip if symvar name is not resolved
-            option=(${arg/=/ })
-            TOB_get_symvar ${option[1]#@} || continue
-            args+=($option="$value")
+            option=${arg:2}
+            option=${option%%=*}
+            name=${arg#*=@}
+            warn "LOOKING FOR ATTR $ns-$name or $name"
+            TOB_get_symvar $ns-$name || TOB_get_symvar $name || continue
+            args+=(--$option="$value")
+            ;;
+
+        -*=@?*)
+            # -option=@name -- skip if symvar name is not resolved
+            option=${arg:1}
+            option=${option%%=*}
+            name=${arg#*=@}
+            warn "LOOKING FOR ATTR $ns-$name or $name"
+            TOB_get_symvar $ns-$name || TOB_get_symvar $name || continue
+            args+=(-$option="$value")
+            ;;
+
+        --*=@)
+            # --option=@ -- treat the same as --option=@option
+            option=${arg:2:${#arg}-4}
+            warn "LOOKING FOR ATTR $ns-$option or $option"
+            TOB_get_symvar $ns-$option ||
+                TOB_get_symvar $option ||
+                    continue
+            args+=(--$option=$value)
             ;;
 
         -*=@)
-            # --option=@ -- treat the same as --option=@option
-            option=(${arg/=/ })
-            TOB_get_symvar ${option##-} || continue
-            args+=($option=$value)
+            # -option=@ -- treat the same as -option=@option
+            option=${arg:1:${#arg}-3}
+            warn "LOOKING FOR ATTR $ns-$option or $option"
+            TOB_get_symvar $ns-$option ||
+                TOB_get_symvar $option ||
+                    continue
+            args+=(-$option=$value)
             ;;
 
         *)  # pass-through other arguments
@@ -37,6 +70,7 @@ main() {
         esac
     done
 
+    warn "EXEC $method ${args[*]}"
     exec $method "${args[@]}"
 
     }
