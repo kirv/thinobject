@@ -1,7 +1,6 @@
 #/bin/bash
 
-warn() { printf "%s\n" "$@" >&2; }
-error() { warn "$@"; exit 1; }
+error() { printf "%s\n" "$@" >&2; exit 1; }
 
 main() {
     method=$1 && shift
@@ -10,14 +9,11 @@ main() {
     ns=${method##*/}
     declare -A seen
 
-  # warn "Method.exec $method $*"
-    
     for arg in "$@"; do
         case $arg in
 
         @?*) 
             # @name -- fail operation if symvar name is not resolved
-          # warn "LOOKING FOR ATTR $ns-${arg:1} or ${arg:1}"
             TOB_get_symvar $ns-${arg:1} ||
                 TOB_get_symvar ${arg:1} ||
                     error "symvar in $arg not expanded"
@@ -29,7 +25,6 @@ main() {
             option=${arg%%=*}
             test -n "${seen[$option]}" && continue
             name=${arg##=@*}
-          # warn "LOOKING FOR ATTR $ns-$name or $name"
             TOB_get_symvar $ns-$name || TOB_get_symvar $name || continue
             args+=(--$option="$value")
             ;;
@@ -39,20 +34,15 @@ main() {
             option=${arg%%=*}
             test -n "${seen[$option]}" && continue
             name=${arg##=@*}
-          # warn "LOOKING FOR ATTR $ns-$name or $name"
             TOB_get_symvar $ns-$name || TOB_get_symvar $name || continue
             args+=($option="$value")
             ;;
 
         --*=@)
             # --option=@ -- treat the same as --option=@option
-          # warn "DEBUG arg=$arg"
             option=${arg%=@}
-          # warn "DEBUG option=$option"
-          # printf "ALL OPTIONS: ${!seen[*]}\n"
             test -n "${seen[$option]}" && continue
             option=${option#--}
-          # warn "LOOKING FOR ATTR $ns-$option or $option"
             TOB_get_symvar $ns-$option ||
                 TOB_get_symvar $option ||
                     continue
@@ -64,7 +54,6 @@ main() {
             option=${arg%=@}
             test -n "${seen[$option]}" && continue
             option=${option#-}
-          # warn "LOOKING FOR ATTR $ns-$option or $option"
             TOB_get_symvar $ns-$option ||
                 TOB_get_symvar $option ||
                     continue
@@ -83,7 +72,6 @@ main() {
         esac
     done
 
-  # warn "EXEC $method ${args[*]}"
     exec $method "${args[@]}"
 
     }
