@@ -2,28 +2,28 @@
 use strict;
 use warnings;
 
-use ThinObject;
 use LockFile::Simple;
 use Getopt::Long;
 use Time::Local qw(timegm);
 use TimeSeries; # non-OO utilities are auto-imported into namespace
 
 use constant TEMPFILE => 'datafile-under-construction';
-my $ob = ThinObject->new( '.' );
 
 ## declare variables, reading values from the object if defined:
-my $tzofs = $ob->attribute('tzofs') || 0; # hours from UMT to local standard time
+my $tzofs = get_attribute('tzofs') || 0; # hours from UMT to local standard time
 my $time;
 my $debug;
-my $interval = $ob->attribute('interval');
-my $tag = $ob->attribute('tag');
+my $interval = get_attribute('interval');
+my $tag = get_attribute('tag');
 my $assumed_offset;
 my $offset;
-my $max_offset = $ob->attribute('max-offset');
-my $datum_interval = $ob->attribute('datum-interval');
+my $max_offset = get_attribute('max-offset');
+my $datum_interval = get_attribute('datum-interval');
 my $itag;
 my $verbose = 0;
 # my $no_skipping_duplicates_allowed;
+my @mpaths = split /:/, $ENV{TOB_method_paths};
+my @apaths = split /:/, $ENV{TOB_search_paths};
 
 ## process commandline options:
 use Getopt::Long;
@@ -41,7 +41,7 @@ GetOptions (
   # 'no-skip' => \$no_skipping_duplicates,
     ) or die "$!\n";
 
-my $tob = $ob->tob();
+my $tob = '.';
 
 $tzofs = tz_hhmm2sec( $tzofs ); # time zone offset was in hours, now in seconds
 
@@ -259,7 +259,7 @@ unless ( $storelock ) {
 ###############################
 
 ## scan files matching tag and interval (if any)
-my @files = sort $ob->listfiles();
+my @files = sort listfiles();
 
 foreach my $year ( sort keys %yearsets ) {
     foreach my $yearset ( @{$yearsets{$year}} ) {
@@ -393,6 +393,29 @@ exit 0;
 ## the following subs use global values:
 ##   %yeardata $interval $itag
 ###############################
+
+sub listfiles { # use readdir to scan the object files
+    opendir DIR, '.' or return undef;
+    my @files;
+    foreach ( readdir DIR ) {
+        next if -d $_;  # skip directories
+        next if m/^\./; # skip dot-files
+        push @files, $_;
+        }
+    return @files;
+    }
+
+sub get_symvar {
+    my $name = shift;
+    foreach my $path ( @apaths ) {
+        return readlink $path/$name if -l $path/$name && ! -e $path/$name;
+        }
+    return undef;
+    }
+
+sub get_attribute {
+    return get_symvar(@_);
+    }
 
 sub create_file {
     my ($year, $first, $last) = @_;

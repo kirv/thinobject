@@ -53,10 +53,6 @@ GetOptions (
 
 my $tob = '.';
 
-foreach ( 'PWD', 'TOB_object', 'TOB_type', 'TOB_caller_path_to_object' ) {
-    warn "$_\t$ENV{$_}\n";
-    }
-
 my $chunkroot = '_'; # default internal directory for multiline "chunks"
 
 $tzofs = tz_hhmm2sec( $tzofs ); # time zone offset was in hours, now in seconds

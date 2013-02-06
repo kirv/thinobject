@@ -1,13 +1,12 @@
 #!/usr/bin/perl -w
 use strict;
 use warnings;
-use ThinObject;
+
 use Getopt::Long;
 use TimeSeries;
 use Time::Local qw(timegm);
 
-my $ob = ThinObject->new( '.' );
-my $tob = $ob->tob();
+my $tob = '.';
 
 use Date::Calc qw( Date_to_Time );
 use Date::Format;
@@ -28,9 +27,9 @@ my @files_seen;
 my $files_skipped = 0;
 
 ## declare variables, reading values from the object if defined:
-my $interval = $ob->attribute('interval');
-my $tag = $ob->attribute('tag');
-my $tzofs = $ob->attribute('tzofs') || '0000'; # timezone to show in output
+my $interval = get_attribute('interval');
+my $tag = get_attribute('tag');
+my $tzofs = get_attribute('tzofs') || '0000'; # timezone to show in output
 my $debug;
 my $title = "timeseries object timelines";
 my $show_all;
@@ -81,9 +80,9 @@ push @opts, '--show-all' if $show_all;
 # set some options specific to this method's needs:
 push @opts, '--epoch', '--name', '--no-header', '--fsep', '._.';
 
-my $self = $ob->tob();
+my $self = '.';
 
-my $timeline_method = $ob->method('timeline');
+my $timeline_method = get_method('timeline');
 open TIMELINE_PIPE, '-|', "$self/$timeline_method $self @opts" or die $!;
 
 my %datasets;
@@ -317,6 +316,26 @@ foreach my $unique_key ( sort keys %datasets ) { # key is $tag . $interval
 unless ( $html_chunk_only ) {
     print disclaimer() if $disclaimer;
     print "</body></html>\n";
+    }
+
+sub get_method {
+    my $name = shift;
+    foreach my $path ( @mpaths ) {
+        return $path/$name if -x $path/$name;
+        }
+    return undef;
+    }
+
+sub get_symvar {
+    my $name = shift;
+    foreach my $path ( @apaths ) {
+        return readlink $path/$name if -l $path/$name && ! -e $path/$name;
+        }
+    return undef;
+    }
+
+sub get_attribute {
+    return get_symvar(@_);
     }
 
 =head1 NAME

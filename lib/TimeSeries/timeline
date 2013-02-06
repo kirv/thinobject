@@ -2,19 +2,15 @@
 use strict;
 use warnings;
 
-use ThinObject;
-
 use Getopt::Long;
 use Time::Local qw(timegm);
 use TimeSeries; # non-OO utilities are auto-imported into namespace
 
-my $ob = ThinObject->new( '.' );
-
 ## declare variables, reading values from the object if defined:
-my $tzofs = $ob->attribute('tzofs') || 0; # hours from UMT to local standard time
+my $tzofs = get_attribute('tzofs') || 0; # hours from UMT to local standard time
 my $debug;
-my $interval = $ob->attribute('interval');
-my $tag = $ob->attribute('tag');
+my $interval = get_attribute('interval');
+my $tag = get_attribute('tag');
 my $itag;
 my $show_all;
 my $epoch; # use the Unix epoch instead of the default "yearly" epochs
@@ -23,6 +19,8 @@ my $precision = 0;
 my $fsep = ",\t";
 my $show_header = 1;
 my $show_name;
+my @mpaths = split /:/, $ENV{TOB_method_paths};
+my @apaths = split /:/, $ENV{TOB_search_paths};
 
 ## process commandline options:
 use Getopt::Long;
@@ -46,7 +44,7 @@ GetOptions (
 
 ASSERT(defined $precision, '$precision is defined');
 
-my $tob = $ob->tob();
+my $tob = '.';
 
 $tzofs = tz_hhmm2sec( $tzofs ); # time zone offset was in hours, now in seconds
 
@@ -66,7 +64,7 @@ print join($fsep, @columns), "\n" if $show_header;
 
 my $file;
 ## find the right file:
-foreach ( sort $ob->listfiles() ) {
+foreach ( sort listfiles() ) {
     next unless m/^\@($tag)(\d{4})-(\w{5})-(\w{5})-(.+)$/;
     my ($pfx, $year, $first32, $last32, $count) = ($1, $2, $3, $4, $5);
     next if defined $itag && $count ne $itag && ! $show_all;
@@ -91,6 +89,29 @@ foreach ( sort $ob->listfiles() ) {
     }
 
 # print "DEBUG: in superclass timeline method\n";
+
+sub listfiles { # use readdir to scan the object files
+    opendir DIR, '.' or return undef;
+    my @files;
+    foreach ( readdir DIR ) {
+        next if -d $_;  # skip directories
+        next if m/^\./; # skip dot-files
+        push @files, $_;
+        }
+    return @files;
+    }
+
+sub get_symvar {
+    my $name = shift;
+    foreach my $path ( @apaths ) {
+        return readlink $path/$name if -l $path/$name && ! -e $path/$name;
+        }
+    return undef;
+    }
+
+sub get_attribute {
+    return get_symvar(@_);
+    }
 
 sub normalize {
     my $year = shift;
