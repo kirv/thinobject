@@ -6,14 +6,25 @@ use warnings;
 
 our $VERSION = '0.03';
 
-# use constant LIB => ( $ENV{HOME} . '/lib', '/usr/local/lib', '/usr/lib' );
-# use constant LIB => ( '/usr/local/lib', '/usr/lib' );
-# use constant ROOT => 'tob'; # qw( tob thinob ThinObject );
-use constant TOBLIB => ( $ENV{TOBLIB}) ;
-
-my @libroot =  split /:/ TOBLIB; # list of all possible valid class library path roots
+my @libroot;
+if ( $ENV{TOBLIB} ) {
+    foreach (split /:/, $ENV{TOBLIB}) {
+        push @libroot, $_ if -d $_;
+        }
     }
+else {
+    # set to default list of library locations:
+    foreach ( "$ENV{HOME}/lib/tob", '/opt/lib/tob', '/usr/local/lib/tob',
+            '/usr/lib/tob', '/lib/tob') {
+        push @libroot, $_ if -d $_;
+        }
+    }
+
+# warn "TOBLIB: @libroot\n";
+
 my $libroot_pattern = '^(' . join('|', @libroot) . ')/';
+
+# warn "PATTERN: $libroot_pattern\n";
 
 sub _confirm_class { # NOT a method...
     my $class_path = shift; # absolute path, i.e., /libroot/class/path
@@ -31,19 +42,19 @@ sub new {
     my $class = shift;
     my $self = {};
     $self->{ob} = $self->{tob} = shift or die "no object specified\n";
-  # print "resolving object: $self->{ob}\n";
+    print "resolving object: $self->{ob}\n";
     if ( -d $self->{tob} && -e $self->{tob} . '/^' ) { # it's a thinobject
-      # print "this is an object: $self->{tob}\n";
+        print "this is an object: $self->{tob}\n";
         } 
     elsif ( -d $self->{tob} && -e $self->{tob} . '/.^' ) { # it's a thinobject
         # nothing needs to be done
         } 
     else {
-      # print "not an object: $self->{tob}...\n";
+        print "not an object: $self->{tob}...\n";
         $self->{tob} = _deref_symlink($self->{tob}) if -l $self->{tob};
-      # print "dereference symlinks: $self->{tob}...\n";
+        print "dereference symlinks: $self->{tob}...\n";
         $self->{tob} =~ s{([^/]+)$}{.$1}; # dot the object...
-      # print "testing dotted object: $self->{tob}...\n";
+        print "testing dotted object: $self->{tob}...\n";
         return undef unless
             ( -d $self->{tob} &&
                 ( -e $self->{tob} . '/^' || -e $self->{tob} . '/.^' )

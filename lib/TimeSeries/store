@@ -2,8 +2,6 @@
 use strict;
 use warnings;
 
-use ThinObject;
-
 use LockFile::Simple;
 use Getopt::Long;
 use Time::Local qw(timegm);
@@ -11,25 +9,26 @@ use Time::HiRes; # Time::HiRes::time(), Time::HiRes::gettimeofday(), ...
 use TimeSeries; # non-OO utilities are auto-imported into namespace
 
 use constant TEMPFILE => 'datafile-under-construction';
-my $ob = ThinObject->new( '.' );
 
 ## declare variables, reading values from the object if defined:
-my $tzofs = $ob->attribute('tzofs') || 0; # hours from UMT to local standard time
-my $maxwidth = $ob->attribute('maxwidth'); # max data line size
-my $encode_newlines = $ob->attribute('encode-newlines');
-my $hi_res = $ob->attribute('hi-res');
 my $time;
 my $indirect; 
 my $debug;
-my $interval = $ob->attribute('interval');
-my $tag = $ob->attribute('tag');
+my $tzofs = get_attribute('tzofs') || 0; # hours from UMT to local standard time
+my $maxwidth = get_attribute('maxwidth'); # max data line size
+my $encode_newlines = get_attribute('encode-newlines');
+my $hi_res = get_attribute('hi-res');
+my $interval = get_attribute('interval');
+my $tag = get_attribute('tag');
+my $max_offset = get_attribute('max-offset');
+my $datum_interval = get_attribute('datum-interval');
 my $assumed_offset;
 my $offset;
-my $max_offset = $ob->attribute('max-offset');
-my $datum_interval = $ob->attribute('datum-interval');
 my $itag;
 my $tsformat;
 my $gzip;
+my @mpaths = split /:/, $ENV{TOB_method_paths};
+my @apaths = split /:/, $ENV{TOB_search_paths};
 
 ## process commandline options:
 use Getopt::Long;
@@ -52,7 +51,11 @@ GetOptions (
     'gzip!'  => \$gzip,
     ) or die "$!\n";
 
-my $tob = $ob->tob();
+my $tob = '.';
+
+foreach ( 'PWD', 'TOB_object', 'TOB_type', 'TOB_caller_path_to_object' ) {
+    warn "$_\t$ENV{$_}\n";
+    }
 
 my $chunkroot = '_'; # default internal directory for multiline "chunks"
 
@@ -205,7 +208,8 @@ else { # non-interval case: include time in seconds as first field
 
 ## configure lock object ...
 my $locker = LockFile::Simple->make( 
-    -delay => 7, -autoclean => 1, -warn => 0, -wfunc => undef,
+  # -delay => 7, -autoclean => 1, -warn => 0, -wfunc => undef,
+    -delay => 7, -autoclean => 1,
     );
 my $eventlock = $locker->trylock("$tob/EVENT");
 unless ( $eventlock ) {
@@ -233,7 +237,7 @@ $tag = defined $tag ? $tag . '-' : '';
 my $file;
 ## find the right file:
 my ($y, $first, $last, $suffix);
-foreach ( sort $ob->listfiles() ) {
+foreach ( sort listfiles() ) {
     next unless m/^\@$tag(\d{4})-(\w{5})-(\w{5})-(.+)$/;
     ($y, $first, $last, $suffix) = ($1, $2, $3, $4);
     print "SCAN $_: $y, $first, $last, $suffix, ", decode($last), "\n"
@@ -315,6 +319,29 @@ exit 0;
 ##   $year $ysec $ysec32 $ysec32prev $ysec32next
 ##   $datum $itag
 ###############################
+
+sub listfiles { # use readdir to scan the object files
+    opendir DIR, '.' or return undef;
+    my @files;
+    foreach ( readdir DIR ) {
+        next if -d $_;  # skip directories
+        next if m/^\./; # skip dot-files
+        push @files, $_;
+        }
+    return @files;
+    }
+
+sub get_symvar {
+    my $name = shift;
+    foreach my $path ( @apaths ) {
+        return readlink $path/$name if -l $path/$name && ! -e $path/$name;
+        }
+    return undef;
+    }
+
+sub get_attribute {
+    return get_symvar(@_);
+    }
 
 sub create_file {
     my $fname = '@' . "$tag$year-$ysec32-$ysec32-";
@@ -545,7 +572,7 @@ __END__
 
 =head1 NAME
 
-store -- TimeSeries store method
+TimeSeries.store -- TimeSeries store method
 
 =head1 DESCRIPTION
 
