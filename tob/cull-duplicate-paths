@@ -16,7 +16,7 @@ cull_duplicate_paths () {
     unique=
     for (( i=${#apaths[@]}-1; i>=0; i-- )); do
         entry=${apaths[i]}
-        test "${unique/$entry/}" = "$unique" && unique+=" $entry" && continue
+        test "${unique/|$entry|/}" = "$unique" && unique+="|$entry|" && continue
         unset 'apaths[i]'
     done
     }
