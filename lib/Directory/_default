@@ -11,7 +11,7 @@ for p in ${TOB_search_paths//:/ }; do
         test ! -e $t || continue 2
         T=$(readlink $t)
         # type declaration is not a symvar, must not have prefix '='
-        test "${T:0:1}" = '=' && break 2
+        test "${T:0:1}" = = && printf "%s\n" "${T:1}" && exit
         # assert: symlink T does not exist, is not a symvar value
         # if T rsolves under TOBLIB, then t is a typed attribute
 
