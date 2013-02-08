@@ -1,22 +1,17 @@
 cull_duplicate_paths () {
-    local entry unique
     local -i i
+    declare -A unique
     test ${#types[@]} = ${#envars[@]} -a ${#types[@]} = ${#mpaths[@]} ||
         warn "size of types, envars, mpaths differ: ${#types[@]}, ${#envars[@]}, ${#mpaths[@]}"
     # arrays types, envars, and mpaths are 1:1, so scan types, discard from all
     for (( i=${#types[@]}-1; i>=0; i-- )); do
-        entry=${types[i]}
-        test "${unique/$entry/}" = "$unique" && unique+=" $entry" && continue
-        unset 'types[i]'
-        unset 'envars[i]'
-        unset 'mpaths[i]'
+        test "${unique[${types[i]}]}" = 1 &&
+            unset 'types[i]' 'envars[i]' 'mpaths[i]'
+        unique[${types[i]}]=1
     done
-    # apaths array can include duplicates, so scan & discard, leaving last
-    apaths=("${apaths[@]}") # pack array first, though...
-    unique=
+    # scan & discard duplicates from apaths, from back to front:
     for (( i=${#apaths[@]}-1; i>=0; i-- )); do
-        entry=${apaths[i]}
-        test "${unique/|$entry|/}" = "$unique" && unique+="|$entry|" && continue
-        unset 'apaths[i]'
+        test "${unique[${apaths[i]}]}" = 1 && unset 'apaths[i]'
+        unique[${apaths[i]}]}=1
     done
     }
