@@ -22,7 +22,7 @@
 #< parse-chain-args
 #< resolve-chained-methods
 #< run-chained-methods
-#< TOB-resolve-method-path
+#< TOB-resolve-method
 #< TOB-get-attribute
 #< TOB-get-symvar
 #< main

@@ -102,7 +102,7 @@ EXPORTED VARIABLES
     TOB_path_to_object
 
 EXPORTED FUNCTIONS
-    TOB_resolve_method_path
+    TOB_resolve_method
     TOB_get_attr
 
    output format is: $TOB_object.$TOB_method: ARGUMENTS...

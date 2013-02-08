@@ -1,36 +1,47 @@
 #!/bin/bash
 
+error() { printf "%s\n" "$@" >&2; exit 1; }
+
 method=show
 while test -n "$1"; do
     arg="$1" && shift
     case $arg in
-    --fmt)      fmt=$1 && shift;;
+    --format)   PRINT_FORMAT="$1" && shift;;
     --sleep)    sleep=$1 && shift;;
-    --order)    order=$1 && shift;;
-    -*)         echo unknown argument: $arg >&2; exit 1;;
+    --order)    order+=($1) && shift;;
+    --test)     TESTING=1;;
+    -*)         error "unknown option argument: $arg";;
     *)          method="$arg"; break;;
     esac
 done
 
+test -n "$PRINT_FORMAT" || PRINT_FORMAT="%s.%s %s\n"
+
+# note that the first non-option arg was the method, the rest remain
+
 if test -z "$order"; then
+    # look for an @order property in the search paths...
     unset order_prop
     for p in ${TOB_search_paths//:/ }; do
         test -e "$p/@order" && order_prop="$p/@order" && break
         test -e "$p/.@order" && order_prop="$p/.@order" && break
     done
-    test -n "$order_prop" && order=$(<$order_prop)
+    test -n "$order_prop" && order=($(<$order_prop))
 fi
 
 if test -z "$order"; then
+    # no @order property was found, so just use glob order:
     for ob in *; do 
-        test $ob == ^ || test $ob == .^ && continue
-        test -d $ob/^ && order="$order $ob"
+        test $ob = ^ || test $ob = .^ || test $ob = . || test $ob = .. && continue
+        # quick & dirty check that the object is a thinobject:
+        test -L $ob/^ || test -L $ob/.^ || continue
+        order+=($ob)
     done
 fi
 
-for ob in $order; do
-  # test -n "$fmt" && printf "$fmt" $ob
-    printf "\n%s\n" "$ob.$method $*"
+for ob in "${order[@]}"; do
+    test -n "$PRINT_FORMAT" && printf "$PRINT_FORMAT" $ob $method "$*"
+    test -n "$TESTING" && continue
     tob $ob.$method "$@"
     test -n "$sleep" && sleep $sleep
 done
@@ -41,7 +52,7 @@ NAME
     Aggregate.do -- apply argument method to all or specified contained objects
 
 SYNOPSIS
-    ob.do [--fmt FMT] [--sleep SEC] [--order LIST] METHOD
+    ob.do [--format FMT] [--sleep SEC] [--order LIST] METHOD
 
 DESCRIPTION
     Aggregate.do iterates the given method over each of the specified objects
@@ -51,17 +62,19 @@ OPTIONS
     Note that environment variables of the same name as the options will
     be used if defined, and if not overridden by options.
 
-    --fmt FMT
-        FMT is a format string used with the shell printf function, where
-        the single printf argument is "$ob.$method $*".
-
-        ACTUALLY... this option is ignored, and the method by default acts
-        as if called with --fmt "\n%s\n".  Need to address this...
+    --format FMT
+        Sets format string for the printf with arguments ($ob $method "$*").
+        Default format is --format "\n%s.%s %s\n".  Uses envar PRINT_FORMAT.
 
     --sleep SEC
         sleep for SEC seconds after executing each object method.
         
-    --order LIST
-        LIST is a space-delimited list of objects in the container (a thinobject
-        of type Aggregate).  
+    --order ORDER
+        ORDER is a space-delimited list of objects in the Aggregate container.
+
+    --test
+        Sets envar TESTING; skips calling the aggregated object methods.
+
+AUTHOR
+    Ken.Irving@alaska.edu 2013
 

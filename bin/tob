@@ -286,6 +286,7 @@ cull_duplicate_paths () {
     }
 resolve_method () {
   # errmsg+=("$FUNCNAME($*)")
+    # SYNOPSIS: resolve_method [--super] METHOD -> set TOB_method_path
     test "$1" = --super && super=1 && shift || unset 'super'
     local method=$1
     for path in ${mpaths[@]}; do
@@ -294,6 +295,7 @@ resolve_method () {
         TOB_method_path=$path/$method
         return
     done
+    test ${method:0:6} = super. && resolve_method --super ${method:6} && return
     return 1 
     }
 resolve_method_declaration() {
@@ -403,7 +405,7 @@ resolve_chained_methods () {
             esac
             }
         ## fail if method does not resolve:
-        resolve_method_path $m ||
+        resolve_method $m ||
             error -x 131 "chained method $m did not resolve"
         chain+=($m)
         chainpath+=($TOB_method_path)
@@ -455,8 +457,8 @@ run_chained_methods () {
     chainpid=$!
     wait $chainpid
     }
-TOB_resolve_method_path () {
-    # synopsis: TOB_resolve_method_path [--super] METHOD -> set TOB_method_path
+TOB_resolve_method () {
+    # synopsis: TOB_resolve_method [--super] METHOD -> set TOB_method_path
     test "$1" = --super && super=1 && shift || unset 'super'
     local method=$1
     for path in ${TOB_method_paths//:/ }; do
@@ -465,9 +467,10 @@ TOB_resolve_method_path () {
         TOB_method_path=$path/$method
         return
     done
+    test ${method:0:6} = super. && TOB_resolve_method --super ${method:6} && return
     return 1
     }
-export -f TOB_resolve_method_path
+export -f TOB_resolve_method
 TOB_get_attr () {
     # set variable 'attr' to attribute value(s), or return false
     # if $arg matches a file, scalar attr is set to its contents
@@ -486,13 +489,9 @@ export -f TOB_get_attr
 TOB_get_symvar () {
     # resolve symvar via 'TOB_search_paths' by name or .name
     # return value in var 'value', or return false
- ## printf "\nDEBUG $FUNCNAME $*\n"
     local name path
     for path in . ${TOB_search_paths//:/ }; do
-     ## printf "\tpath=%s\n" "$path"
-        
         for name in $path/{,.}$1; do
-         ## printf "\t\tname=%s\n" "$name"
             test -L $name || continue
             test -e $name && continue
             value=$(readlink $name)
@@ -764,7 +763,7 @@ EXPORTED VARIABLES
     TOB_path_to_object
 
 EXPORTED FUNCTIONS
-    TOB_resolve_method_path
+    TOB_resolve_method
     TOB_get_attr
 
    output format is: $TOB_object.$TOB_method: ARGUMENTS...

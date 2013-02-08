@@ -88,8 +88,8 @@ while ( my $dataset = readdir SELF ) {
   # print "CHECKING: $dataset\n";
     
     ## may need to relax this criterion perhaps?:
-    die "suffix: $suffix differs from previous: $MAIN::suffix\n"
-        unless $suffix eq $MAIN::suffix;
+  # die "suffix: $suffix differs from previous: $MAIN::suffix\n"
+  #     unless $suffix eq $MAIN::suffix;
 
     my ($interval, $offset, $count) = decode_suffix($suffix);
     

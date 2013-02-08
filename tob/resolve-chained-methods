@@ -13,7 +13,7 @@ resolve_chained_methods () {
             esac
             }
         ## fail if method does not resolve:
-        resolve_method_path $m ||
+        resolve_method $m ||
             error -x 131 "chained method $m did not resolve"
         chain+=($m)
         chainpath+=($TOB_method_path)
