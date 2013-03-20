@@ -2,6 +2,7 @@ main () {
   # errmsg+=("$FUNCNAME($*)")
     while test "${1:0:1}" = -; do
         case $1 in 
+        -s)     export "$2" && shift;;
         -d)     DEBUG=1;;
         -h)     echo synopsis: $synopsis; exit;;
         --help) awk '/^NAME$/{ok=1}ok' $0; exit;;

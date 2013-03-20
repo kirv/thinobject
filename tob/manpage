@@ -20,12 +20,13 @@ EXIT VALUE
     for what specific values mean.
 
 OPTIONS
+    -s X
+    export "X", e.g., where X is envar=value, 
+
     -d
-    --debug
     turn on debug output
 
     -v
-    --verbose
     turn on verbose output
 
     -m M
@@ -107,6 +108,12 @@ EXPORTED FUNCTIONS
 
    output format is: $TOB_object.$TOB_method: ARGUMENTS...
 
+ENVIRONMENT VARIABLES
+    A few variables are checked for:
+        QUIET -- suppress output from warn() if set
+        DEBUG -- output various debugging statements
+        VERBOSE -- output array variable $errmsg contents in warn()
+
 SEE ALSO
     tob-new --help
     tob-del --help
@@ -116,7 +123,8 @@ SEE ALSO
 BUGS
     This is an experimental system.
 
-    Not sure the --quiet option is working quite right...
+    Options -q, --quiet, -v, --verbose, --debug are not actually supported
+    at all.  No long options are supported except --help.
 
     Should document all exit values.
 
