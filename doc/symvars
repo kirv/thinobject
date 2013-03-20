@@ -1,0 +1,64 @@
+I've been using non-resolving symbolic links to store string values,
+and have found them to be quite useful.   One use is as named variables
+on the filesystem, i.e. symbolic link variables or symvars, also with
+the convention of having the prefix '=' on the value.
+
+Here's an example listing of some symvars describing aspects of an
+application object in a directory:
+
+    $ ls -og
+    ...
+    lrwxrwxrwx  1    9 Jan 24 10:41 dcpid -> =326AF6FE
+    lrwxrwxrwx  1   11 Jan 24 10:42 lat -> =70d 16.23m
+    lrwxrwxrwx  1   13 Jan 24 10:42 lon -> =-151d 52.155m
+    lrwxrwxrwx  1   16 Jan 24 10:42 name -> =Fish Creek Gage
+
+This kind of thing would conventionally be stored in an rc file, but 
+having them available as files has some advantages.  Each is exposed
+and available without reading and parsing a file, for example.
+
+Here's a shell function to read a symvar value:
+
+    symvar() {
+        test -L $1 || return
+        test -e $1 && return 1
+        value=$(readlink $1)
+        test "${value:0:1}" = = || return 1
+        value="${value:1}"
+        }
+
+That returns the value in variable 'value', but in some cases printing
+it may be preferred, e.g., in a utility program.   The given name is
+checked to see that it is a symlink and does not exist as a file, then
+the value is read and checked to see that the first character is '='.
+
+Writing a symvar is also simple to do, e.g.,
+
+    set_symvar() {
+        name=$1 && shift
+        ln -sf ="$*" $name
+        }
+
+The -f force option will be needed if the symvar already exists, or that
+can be left up to the caller via an option to the function.
+
+I've tried different approaches for a symvar utility program, e.g.,
+
+    synopsis: symvar [-f] NAME [VALUE]
+    synopsis: symvar [-f] NAME[=VALUE] ...
+    synopsis: symvar [-f ]NAME[=VALUE] ...
+
+where the latter allows several symvars to be queried or set at once,
+but haven't settled on 
+
+In my opinion this is an unexploited and available aspect of the unix
+filesystem, so why not put it to use?
+
+Ken
+
+-- 
+You received this message because you are subscribed to the Google Groups "FOSS Scripting" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to foss-scripting+unsubscribe@googlegroups.com.
+For more options, visit https://groups.google.com/groups/opt_out.
+
+

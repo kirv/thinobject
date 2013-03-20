@@ -7,6 +7,7 @@ while test -n "$1"; do
     arg="$1" && shift
     case $arg in
     --format)   PRINT_FORMAT="$1" && shift;;
+    --quiet)    quiet=1;;
     --sleep)    sleep=$1 && shift;;
     --order)    order+=($1) && shift;;
     --test)     TESTING=1;;
@@ -40,13 +41,15 @@ if test -z "$order"; then
 fi
 
 for ob in "${order[@]}"; do
-    test -n "$PRINT_FORMAT" && printf "$PRINT_FORMAT" $ob $method "$*"
+    test -n "$quiet" || {
+        test -n "$PRINT_FORMAT" && printf "$PRINT_FORMAT" $ob $method "$*"
+        }
     test -n "$TESTING" && continue
     tob $ob.$method "$@"
     test -n "$sleep" && sleep $sleep
 done
 
-exit
+exit 0
 
 NAME
     Aggregate.do -- apply argument method to all or specified contained objects

@@ -1,0 +1,7 @@
+In another message I described 'symvars', non-resolving symbolic links
+with values starting with the prefix '=', that can be used as named 
+variables on the filesystem.
+
+Another use of non-resolving symbolic links is to identify a 'type' in
+the thinobject scheme
+
