@@ -2,7 +2,8 @@
 
 path=${0%/*}
 
-order=(shebang
+order=(
+    shebang
     prelude
     warn
     error
@@ -12,27 +13,30 @@ order=(shebang
     resolve-path
     resolve-anonymous-object
     resolve-named-object
-    resolve-library
+    init-libraries
+    resolve-library-type
     resolve-attr-search-paths
     resolve-search-paths
     resolve-declaration
     cull-duplicate-paths
-    resolve-method-path
-    resolve-chained-methods
+    resolve-method
+    resolve-method-declaration
+    resolve-type-method
+    resolve-wrapper-method
     check-chaining-directives
     parse-chain-args
+    resolve-chained-methods
     run-chained-methods
-    TOB-resolve-method-path
+    TOB-resolve-method
     TOB-get-attribute
+    TOB-get-symvar
     main
-    )
+    call-main
+    manpage
+)
 
 for f in ${order[*]}; do 
     cat $path/$f
     printf "\n"
 done
-
-printf "%s\n\n" 'main "$@"'
-
-cat $path/manpage
 
