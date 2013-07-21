@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# db.products.insert( { item: "box", qty: 20 } )
+
+mongo --quiet --eval 'db.products.insert( { item: "box2", qty: "20" } )'
+

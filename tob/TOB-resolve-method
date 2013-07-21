@@ -1,0 +1,14 @@
+TOB_resolve_method () {
+    # synopsis: TOB_resolve_method [--super] METHOD -> set TOB_method_path
+    test "$1" = --super && super=1 && shift || unset 'super'
+    local method=$1
+    for path in ${TOB_method_paths//:/ }; do
+        test -x $path/$method || continue
+        test -n "$super" && unset 'super' && continue
+        TOB_method_path=$path/$method
+        return
+    done
+    test ${method:0:6} = super. && TOB_resolve_method --super ${method:6} && return
+    return 1
+    }
+export -f TOB_resolve_method
