@@ -37,6 +37,5 @@ order=(
 
 for f in ${order[*]}; do 
     cat $path/$f
-    printf "\n"
 done
 
