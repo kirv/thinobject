@@ -1,0 +1,8 @@
+resolve_wrapper_method() {
+    # expect the contents of a method declaration as args
+    # first element is TYPE.METHOD or infer as TYPE._default
+    resolve_type_method ${1/./ } || return
+    wrapper=$path
+    shift
+    wrapper_args=("$@")
+    }

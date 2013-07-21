@@ -1,0 +1,40 @@
+#!/bin/bash
+
+source TOB-get-symvar || exit
+source set-symvar || exit
+
+# set_symvar() { ln -sf "=$2" "$1"; }
+
+trap "rm -r ../tmp$$" EXIT
+mkdir tmp$$ && cd tmp$$ || exit
+
+# prepare a filesystem layout with associate list of search paths:
+mkdir -p a b/c d || exit 
+TOB_search_paths+=.:a:b/c
+
+set_symvar a/foo bar || exit
+
+output=$(readlink a/foo)
+assert-equal "$output" =bar
+
+rm a/foo
+
+set_symvar d/foo bar || exit
+
+TOB_get_symvar foo
+assert-equal $? 1 -- expect exitcode 1 since foo is not in the search path
+
+TOB_search_paths+=:d
+
+TOB_get_symvar foo
+assert-equal $? 0 -- should find foo now that d is in the search path
+assert-equal $value bar
+
+TOB_get_symvar foo
+assert-equal $? 0 -- note: foo is now in the search path
+
+assert-equal "$value" bar -- "value is '$value'"
+
+ln -sf symbol foo
+
+echo DONE $0

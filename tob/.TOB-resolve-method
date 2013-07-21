@@ -1,0 +1,5 @@
+#!/bin/bash
+
+source TOB-resolve-method || exit
+
+echo STUB .TOB-resolve-method
