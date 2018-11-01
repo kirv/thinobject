@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 echo $0 is deprecated, do not use 1>&2
 exit 1
 

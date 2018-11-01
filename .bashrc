@@ -1,12 +1,12 @@
 # .bashrc for the main thinobject development directory, at ken@hayes
 
-thislib=/home/ken/proj/thinobject/src/lib:
+thislib=$PWD/lib:
 
 test "${TOBLIB/$thislib/}" = "$TOBLIB" && TOBLIB+=$thislib
 test -n "$TOBLIB" || TOBLIB=$thislib
 export TOBLIB
 
-thispath=/home/ken/proj/thinobject/src/bin
+thispath=$PWD/bin
 test "${PATH/$thispath/}" = "$PATH" && PATH=$thispath:$PATH
 export PATH
 

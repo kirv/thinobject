@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 function usage () {
     printf "SYNOPSIS: ob.method [-v|--verbose|-V|--no-verbose|-h|--help] [method]\n"

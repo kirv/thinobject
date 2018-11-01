@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # tob -- thinobject 'enabler' program
 # Copyright (C) 2013 Ken Irving
 #

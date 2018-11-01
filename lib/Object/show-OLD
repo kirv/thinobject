@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ## declare type arrays:
 declare -a list dict json symvar attr ob file dir badlink nonfile unknown mixin
