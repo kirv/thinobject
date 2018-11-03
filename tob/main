@@ -11,14 +11,14 @@ main () {
     done
     init-libraries || exit 37
     test -n "$DEBUG" || alias debug=\#
-    declare path= object= method= 
-    declare -a types=() mpaths=() apaths=() envars=()
+    local path= object= method= 
+    local -a types=() mpaths=() apaths=() envars=()
 
-    declare -x TOB_caller_path=$PWD
+    local -x TOB_caller_path=$PWD
 
-    declare query="$1" && shift
-    declare -a q=()
-    declare -i o m  # index o points to object, m points to method
+    local query="$1" && shift
+    local -a q=()
+    local -i o m  # index o points to object, m points to method
     parse_query "$query" || error -x $? parse... 
 
     resolve_query ||
@@ -44,7 +44,7 @@ main () {
         type=(.)
         resolve_search_paths one-pass
         type=(${save[@]})
-        }
+    }
     resolve_search_paths
     cull_duplicate_paths
     type=(${save[@]})
@@ -53,7 +53,7 @@ main () {
         test "${#apaths[@]}" -gt 1 &&
             error -x 120 "prototype but no type resolved for $object"
         error -x 121 "no type or prototype resolved for $object"
-        }
+    }
 
     export TOB_query=$query
     export TOB_object=$object
@@ -72,7 +72,7 @@ main () {
             test -n "$tag" -a ! -n "${!tag}" && {
                 export $tag="$val" ||
                     error -x $? "bad assignment: $tag=$val"
-                }
+            }
             # now parse new tag and val:
             tag=${word%%=*}
             val=${word#*=}
@@ -101,29 +101,29 @@ main () {
             resolve_wrapper_method $(readlink $method_declaration) ||
                 error "failed to resolve wrapper method at $method_declaration"
             exec $wrapper $TOB_method_path "$@" "${wrapper_args[@]}"
-            }
-        exec $TOB_method_path "$@"
         }
+        exec $TOB_method_path "$@"
+    }
     
   # resolve_method $TOB_method && {
   #     resolve_method_declaration $TOB_method ||
   #         exec $TOB_method_path "$@"
   #     exec $wrapper $TOB_method_path "$@" ${wrapper_args[@]}"
-  #     }
+  # }
     
   # warn "CONTINUING with method $TOB_method"
 
     ## try to resolve chained methods in case method contains a dot: 
-    declare -a chain directive chainpath
+    local -a chain directive chainpath
     resolve_chained_methods $TOB_method && {
         check_chaining_directives
-        declare -iA ap ac   # ap is arg pointer, ac is arg count for method
+        local -iA ap ac   # ap is arg pointer, ac is arg count for method
         parse_chain_args "$@"
 
         printf "\t%s: (%s)\n" chain "${chain[*]}"  chainpath "${chainpath[*]}"  directive "${directive[*]}"
         run_chained_methods
         exit
-        }
+    }
 
     ## is method a built-in?
     ## show exported variables as methods
@@ -144,12 +144,12 @@ main () {
             test -x $path/_default && {
                 debug "tob: exec $path/_default $TOB_object $TOB_method $*"
                 exec $path/_default $TOB_method "$@"
-                }
+            }
             ## ASSERT: _default exists but is not executable
             ## maybe it can contain a recipe to be executed?
             error -x 122 "non-executable _default method found"
-            }
+        }
     done
     
     error -x 123 "no method $TOB_method found"
-    } # end main()
+} # end main()

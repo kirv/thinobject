@@ -1,6 +1,6 @@
 map_prototype_fields() {
-    declare -i i
-    declare -a opt
+    local -i i
+    local -a opt
     for (( i=1; i<${#prototype[@]}; i++ )); do
         case ${prototype[i]:0:1} in
         @)  # substitute symvar value or fail
@@ -9,18 +9,18 @@ map_prototype_fields() {
             ;;
         -)  # substitute symvar in option if given as --opt=@name or --opt=@
             opt=(${prototype[i]/=/ })
-            test ${#opt[@]} = 1 && continue
-            test ${opt[1]:0:1} = @ || continue
+            [[ ${#opt[@]} = 1 ]] && continue
+            [[ ${opt[1]:0:1} = @ ]] || continue
             # assert: we have --opt=@name or --opt=@
-            test ${opt[1]} = @ && opt[1]=@${opt##-}
+            [[ ${opt[1]} == @ ]] && opt[1]=@${opt##-}
             # assert: now we have just --opt=@name
             get_symvar ${opt[1]:1} || {
                 unset 'prototype[i]'
                 continue
-                }
+            }
             prototype[i]=$opt="$value"
             ;;
         esac
     done
     unset 'prototype[0]'
-    }
+}

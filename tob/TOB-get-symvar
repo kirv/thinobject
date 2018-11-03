@@ -4,14 +4,13 @@ TOB_get_symvar () {
     local name path
     for path in . ${TOB_search_paths//:/ }; do
         for name in $path/{,.}$1; do
-            test -L $name || continue
-            test -e $name && continue
+            [[ -L $name && ! -e $name ]] || continue
             value=$(readlink $name)
-            test "${value:0:1}" = = || return 2
+            [[ "${value:0:1}" == = ]] || return 2
             value=${value:1}
             return
         done
     done
     return 1
-    }
+}
 export -f TOB_get_symvar

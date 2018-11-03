@@ -4,7 +4,7 @@ scan_args_map() {
     shift
     args_map=()
 
-    declare args
+    local args
 
     for arg in "$@"; do
         
@@ -39,4 +39,4 @@ scan_args_map() {
 
         esac
     done
-    }
+}

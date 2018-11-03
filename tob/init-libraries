@@ -2,17 +2,17 @@ init-libraries() {
     # set toblib array with possible library locations from TOBLIB or default
     # set or reset colon-delimited TOBLIB from toblib array
     local IFS=:
-    if test -n "$TOBLIB"; then
+    if [[ -n "$TOBLIB" ]]; then
         for lib in $TOBLIB; do
-            test -d "$lib" && toblib+=("$lib")
+            [[ -d "$lib" ]] && toblib+=("$lib")
         done
     else
         for lib in {~,/opt,/usr/local,/usr,}/lib/tob; do 
-            test -d "$lib" && toblib+=("$lib")
+            [[ -d "$lib" ]] && toblib+=("$lib")
         done
     fi
-    test -d "$toblib" || return
+    [[ -d "$toblib" ]] || return
     # rewrite TOBLIB to only include good library paths:
     TOBLIB="${toblib[*]}"
     export TOBLIB
-    }
+}
