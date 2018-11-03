@@ -18,10 +18,6 @@ resolve-method
 resolve-method-declaration
 resolve-type-method
 resolve-wrapper-method
-check-chaining-directives
-parse-chain-args
-resolve-chained-methods
-run-chained-methods
 TOB-resolve-method
 TOB-get-attribute
 TOB-get-symvar
