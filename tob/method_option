@@ -4,7 +4,7 @@ method_option() { ## dispatch method from -m or --method option on objects:
     for ob in "$@"; do
 
         # handle tag=value form if detected -- NEEDS WORK, TESTING, ANALYSIS...
-        test ${ob/=/} != $ob && { 
+        [[ ${ob/=/} != $ob ]] && { 
             tag=${ob%=*}
             value=${ob#*=}
             export $tag=$value

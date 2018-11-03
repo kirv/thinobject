@@ -6,9 +6,9 @@ resolve_attr_declaration () {
 
     # use TOB_search_paths or resolve class link(s) or shadow declaration:
 
-    if test -L $path/$ob -a ! -e $path/$ob; then
+    if [[ -L $path/$ob && ! -e $path/$ob ]]; then
         attr=($(readlink $path/$ob))
-        test ${attr:0:1} = '=' || {
+        [[ ${attr:0:1} == '=' ]] || {
             # assume attr[0] is the type, and the declaration dot-shadows ob
             TOB_type=$attr
             # special fix: drop leading '.' if present in $ob:
@@ -18,13 +18,13 @@ resolve_attr_declaration () {
         unset 'attr'
     fi
 
-    if test $path = ./ -a -n "$TOB_search_paths"; then
+    if [[ $path = ./ && -n "$TOB_search_paths" ]]; then
       # warn CASE 1
         for p in ${TOB_search_paths/:/ }; do
             for f in $p/$ob $p/.$ob; do
-                test -L $f -a ! -e $f || continue
+                [[ -L $f && ! -e $f ]] || continue
                 attr=($(readlink $f))
-                test ${attr:0:1} = '=' || break 2
+                [[ ${attr:0:1} == '=' ]] || break 2
                 unset 'attr'
             done
         done
@@ -36,30 +36,30 @@ resolve_attr_declaration () {
       # warn "MPATHS: ${mpaths[@]}"
         for p in ${apaths[*]}; do
             for f in $p/$ob $p/.$ob; do
-                test -L $f -a ! -e $f || continue
+                [[ -L $f && ! -e $f ]] || continue
                 attr=($(readlink $f))
-                test ${attr:0:1} = '=' || break 2
+                [[ ${attr:0:1} == '=' ]] || break 2
                 unset 'attr'
             done
         done
 
-        test -n "$attr" || test -L $path/.$ob -a ! -e $path/.$ob && {
+        [[ -n "$attr" ]] || [[ -L $path/.$ob && ! -e $path/.$ob ]] && {
           # warn CASE 2b ... CHECKING: $path/.$ob
             attr=($(readlink $path/.$ob))
           # warn "ATTR: ${attr[@]}"
-            test ${attr:0:1} = '=' && unset 'attr'
+            [[ ${attr:0:1} == '=' ]] && unset 'attr'
           # warn "ATTR: ${attr[@]}"
             }
 
-    elif test -L $path/.$ob -a ! -e $path/.$ob; then
+    elif [[ -L $path/.$ob && ! -e $path/.$ob ]]; then
       # warn CASE 3
         attr=($(readlink $path/.$ob))
-        test ${attr:0:1} = '=' && unset 'attr'
+        [[ ${attr:0:1} == '=' ]] && unset 'attr'
 
     fi
 
   # warn "ATTR: ${attr[*]}"
-    test -n "${attr[*]}" || return 1
+    [[ -n "${attr[*]}" ]] || return 1
 
     TOB_type=$attr
     TOB_path_to_object=$path/$ob

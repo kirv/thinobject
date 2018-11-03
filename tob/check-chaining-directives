@@ -1,5 +1,5 @@
 check_chaining_directives() {
-    test ${#chain[@]} = ${#directive[@]} ||
+    [[ ${#chain[@]} == ${#directive[@]} ]] ||
         error -x 1 "mismatch chained methods and directives:"\
             "methods: (${chain[*]})"\
             "directives: (${directives[*]})"

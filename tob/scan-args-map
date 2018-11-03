@@ -1,6 +1,6 @@
 scan_args_map() {
     # expand @attr values, push arguments to args_map array
-    test "$1" = Method || return
+    [[ $1 == Method ]] || return
     shift
     args_map=()
 

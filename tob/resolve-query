@@ -7,27 +7,27 @@ resolve_query() { # use q[], set path, set o beyond path
         return $rtnval
         }
 
-    test $o -eq $m && {
+    [[ $o -eq $m ]] && {
         resolve_anonymous_object
         return
         }
 
-    test $path = . -a -n "$TOB_search_paths" &&
+    [[ $path = . && -n "$TOB_search_paths" ]] &&
         apaths=(${TOB_search_paths[@]//:/ })
-    test -n "$apaths" || resolve_attr_search_paths $path ||
+    [[ -n "$apaths" ]] || resolve_attr_search_paths $path ||
         apaths=(.)
     resolve_named_object && {
-        test -e $object -o -L $object || # look for class object ...
+        [[ -e $object || -L $object ]] || # look for class object ...
             for ob in "${apaths[@]/%//${object##*/}}"; do
-                test -e $ob -o -L $ob || continue
+                [[ -e $ob || -L $ob ]] || continue
                 class_object=$ob
                 break
             done
         }
     apaths=()
 
-    test -n "$type" && return
+    [[ -n "$type" ]] && return
 
-    test $o -eq $m &&
+    [[ $o -eq $m ]] &&
         resolve_anonymous_object
     }

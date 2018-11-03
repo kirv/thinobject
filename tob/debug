@@ -1,5 +1,5 @@
 debug () {
-    test -n "$DEBUG" || return
+    [[ -n "$DEBUG" ]] || return
     printf "DEBUG:" >&2
     printf " %s\n" "$@" >&2
     }

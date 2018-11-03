@@ -1,6 +1,6 @@
 error () {
     # synopsis: error [-x N] OUTPUT_LINE ...
-    test "$1" = -x && x=$2 && shift 2 || x=1
+    [[ "$1" = -x ]] && x=$2 && shift 2 || x=1
     errmsg+=("exit $x from $0 ${FUNCNAME[1]}()")
     warn "$@"
     exit $x

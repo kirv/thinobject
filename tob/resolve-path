@@ -6,7 +6,7 @@ resolve_path () { # try to resolve path in query, starting at index o
         dir="${q[*]:o:p+1}"
         dir=${dir// /.}                 # change "a b" to "a.b"
       # errmsg+=("    o: $o, p: $p, try: $dir")
-        test -d $path/$dir && {
+        [[ -d $path/$dir ]] && {
             path+=/$dir 
           # errmsg+=("          path: $path")
             o+=$((p+1))
@@ -14,10 +14,10 @@ resolve_path () { # try to resolve path in query, starting at index o
             continue
             }
 
-        test ${dir: -1:1} = / &&  # trailing / means: directory or fail
+        [[ ${dir: -1:1} == / ]] &&  # trailing / means: directory or fail
             error -x 15 "$FUNCNAME(): directory $path/$dir not found"
 
-        test -d $path/.$dir && {
+        [[ -d $path/.$dir ]] && {
             path+=/.$dir 
           # errmsg+=("          path: $path")
             o+=$((p+1))

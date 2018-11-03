@@ -2,12 +2,12 @@ parse_chain_args() {
     ## scan arguments for --tag entries to allocate args per method
     local tag=$chain
     local -i p=1 a0=1   # p points to arg in $@, a0 is first arg for tag
-    while test -n "${!p}"; do
-        test ${!p} = --tag || {
+    while [[ -n "${!p}" ]]; do
+        [[ ${!p} == --tag ]] || {
             p+=1
             continue
             }
-        test -n "$tag" && (( p>a0 )) &&
+        [[ -n "$tag" ]] && (( p>a0 )) &&
             ap[$tag]=$a0 &&
             ac[$tag]=$((p-a0))
         p+=1; tag="${!p}"
@@ -15,7 +15,7 @@ parse_chain_args() {
         ## ... or skip it...
         p+=1; a0=$p
     done
-    test -n "$tag" && (( p>a0 )) && 
+    [[ -n "$tag" ]] && (( p>a0 )) && 
         ap[$tag]=$a0 &&
         ac[$tag]=$((p-a0))
     }

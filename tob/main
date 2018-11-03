@@ -1,6 +1,6 @@
 main () {
   # errmsg+=("$FUNCNAME($*)")
-    while test "${1:0:1}" = -; do
+    while [[ "${1:0:1}" == - ]]; do
         case $1 in 
         -s)     export "$2" && shift;;
         -d)     DEBUG=1;;
@@ -10,7 +10,7 @@ main () {
         esac && shift
     done
     init-libraries || exit 37
-    test -n "$DEBUG" || alias debug=\#
+    [[ -n "$DEBUG" ]] || alias debug=\#
     local path= object= method= 
     local -a types=() mpaths=() apaths=() envars=()
 
@@ -40,7 +40,7 @@ main () {
     types=() mpaths=() apaths=() envars=()
 
     save=(${type[@]})
-    test -n "$anonymous" && {
+    [[ -n "$anonymous" ]] && {
         type=(.)
         resolve_search_paths one-pass
         type=(${save[@]})
@@ -49,8 +49,8 @@ main () {
     cull_duplicate_paths
     type=(${save[@]})
 
-    test -n "$types" || {
-        test "${#apaths[@]}" -gt 1 &&
+    [[ -n "$types" ]] || {
+        [[ "${#apaths[@]}" -gt 1 ]] &&
             error -x 120 "prototype but no type resolved for $object"
         error -x 121 "no type or prototype resolved for $object"
     }
@@ -62,14 +62,14 @@ main () {
     export TOB_class_path
     export TOB_caller_path
     export TOB_caller_path_to_object=$TOB_path_to_object
-    test -n "$class_object" && export TOB_class_object=$class_object
+    [[ -n "$class_object" ]] && export TOB_class_object=$class_object
 
     for envarset in "${envars[@]}"; do
         tag= val=
         for word in $envarset; do
-            test ${word%%=*} = $word && val+=" $word" && continue
+            [[ ${word%%=*} == $word ]] && val+=" $word" && continue
             # word is a tag, so export pending tag if it exists:
-            test -n "$tag" -a ! -n "${!tag}" && {
+            [[ -n "$tag" && ! -n "${!tag}" ]] && {
                 export $tag="$val" ||
                     error -x $? "bad assignment: $tag=$val"
             }
@@ -77,8 +77,8 @@ main () {
             tag=${word%%=*}
             val=${word#*=}
         done
-        test -n "$tag" || continue
-        test -n "${!tag}" && continue
+        [[ -n "$tag" ]] || continue
+        [[ -n "${!tag}" ]] && continue
         export $tag="$val" ||
             error -x $? "bad assignment: $tag=$val"
     done
@@ -91,7 +91,7 @@ main () {
     export TOB_envars="${envars[*]}"
     IFS="$save_IFS"
     
-    test -n "$DEBUG" &&
+    [[ -n "$DEBUG" ]] &&
         warn "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method" \
             TYPES=$TOB_types
     
@@ -140,8 +140,8 @@ main () {
     ## check for _default method:
     for path in ${mpaths[@]}; do
         ## ASSERT: class exists
-        test -e $path/_default && {
-            test -x $path/_default && {
+        [[ -e $path/_default ]] && {
+            [[ -x $path/_default ]] && {
                 debug "tob: exec $path/_default $TOB_object $TOB_method $*"
                 exec $path/_default $TOB_method "$@"
             }

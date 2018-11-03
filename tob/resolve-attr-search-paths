@@ -2,13 +2,13 @@ resolve_attr_search_paths () { # resolve (proto)type(s) into apaths[]
     local path target
     local type=$1 && shift
     shopt -s nullglob
-    while test -n "$type"; do
-        test -L $type && {
+    while [[ -n "$type" ]]; do
+        [[ -L $type ]] && {
             target=($(readlink $type))
-            test -d $type -a ! -d $target && target=${type%/*}/$target
+            [[ -d $type && ! -d $target ]] && target=${type%/*}/$target
             type=$target
             }
-        if test -d "$type"; then # 'prototype' provides attributes, not methods
+        if [[ -d "$type" ]]; then # 'prototype' provides attributes, not methods
             path=$type
         else
             resolve-library-type $type || return 1
@@ -16,11 +16,11 @@ resolve_attr_search_paths () { # resolve (proto)type(s) into apaths[]
         apaths+=($path)
         unset 'type'
         for mixin in $path/{,.}^?*; do # ^Cron, .^settings, etc.
-            test -L $mixin && resolve_attr_search_paths $mixin
+            [[ -L $mixin ]] && resolve_attr_search_paths $mixin
         done
-        test -n "$1" && type=$1 && shift && continue # ... use arg for type
-        test -L $path/^ && type=$path/^ && continue
-        test -L $path/.^ && type=$path/.^
+        [[ -n "$1" ]] && type=$1 && shift && continue # ... use arg for type
+        [[ -L $path/^ ]] && type=$path/^ && continue
+        [[ -L $path/.^ ]] && type=$path/.^
     done
-    test -n "$apaths[*]" || return 1
+    [[ -n "$apaths[*]" ]] || return 1
     }

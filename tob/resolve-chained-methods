@@ -1,9 +1,9 @@
 resolve_chained_methods () {
     methods=(${1//./ })
-    test ${#methods[*]} -gt 1 || return 1
+    [[ ${#methods[*]} -gt 1 ]] || return 1
     local m wantdirective=
     for m in ${methods[*]}; do
-        test -n "$wantdirective" && {
+        [[ -n "$wantdirective" ]] && {
             wantdirective=
             case $m in
                 FORK|WAIT|AND|OR|PIPE)
@@ -19,6 +19,6 @@ resolve_chained_methods () {
         chainpath+=($TOB_method_path)
         wantdirective=1
     done
-    test -n "$wantdirective" && directive+=(WAIT)
+    [[ -n "$wantdirective" ]] && directive+=(WAIT)
     return 0
     }

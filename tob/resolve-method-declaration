@@ -3,8 +3,8 @@ resolve_method_declaration() {
     # return path in var method_declaration
     for p in ${apaths[@]}; do
         for mp in $p/$1 $p/.$1; do
-            test -L $mp || continue
-            test -e $mp && continue
+            [[ -L $mp ]] || continue
+            [[ -e $mp ]] && continue
             method_declaration=$mp && return
         done
     done

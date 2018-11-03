@@ -1,16 +1,16 @@
 resolve_type_method() {
     # called with TYPE METHOD, resolve executable method or fail
-    test $# = 2 || { $FUNCNAME $1 _default; return; }
+    [[ $# = 2 ]] || { $FUNCNAME $1 _default; return; }
     local type=$1
     local method=$2
-    if test -d $type; then
+    if [[ -d $type ]]; then
         path=$type
     else
         resolve-library-type $type || return
     fi
 
     # 'path' now points to the method type, and we're done if the method resolves there:
-    test -x $path/$method && path=$path/$method && return
+    [[ -x $path/$method ]] && path=$path/$method && return
 
     local link
     shopt -s nullglob
@@ -18,13 +18,13 @@ resolve_type_method() {
     # check for mixin type declarations before regular ones
     for link in $path/^* $path/.^* $path/^ $path/.^; do
         # if link is a type declaration, a non-resolving symlink...
-        test -L $link &&
-            test ! -e $link && {
+        [[ -L $link ]] &&
+            [[ ! -e $link ]] && {
                 $FUNCNAME $(readlink $link) $method
                 return
                 }
         # if link is prototype declaration...
-        test -d $link && {
+        [[ -d $link ]] && {
             $FUNCNAME $link $method
             return
             }

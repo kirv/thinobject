@@ -1,13 +1,13 @@
 resolve_anonymous_object () { # try to resolve object type at path
   # errmsg+=("$FUNCNAME($*)")
 
-  # test -L $path/^ -o -L $path/.^ || {
+  # [[ -L $path/^ || -L $path/.^ ]] || {
   #     errmsg+=("no symlink found: $path/^ or $path/.^")
   #     return 1
   #     }
   # type=($(readlink $path/^ || readlink $path/.^))
 
-    if test -L $path/^ -o -L $path/.^; then
+    if [[ -L $path/^ || -L $path/.^ ]]; then
         type=($(readlink $path/^ || readlink $path/.^))
     else
         type=Directory
