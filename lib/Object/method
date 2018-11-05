@@ -39,7 +39,7 @@ for class in ${TOB_method_paths//:/ }; do
             }
     done
 done |
-    awk -vmethod="$METHOD" -vverbose="$VERBOSE" -vquiet="$QUIET" '
+    awk -v method="$METHOD" -v verbose="$VERBOSE" -v quiet="$QUIET" '
         {
         name = $1
         path = $2

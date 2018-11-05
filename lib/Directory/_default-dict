@@ -49,7 +49,7 @@ done
 
 test $verbose == 1 && echo KEY LIST: $@
 
-exec /usr/bin/awk -vcsv=$csv -vhdr=$hdr -vstrict=$strict -vverbose=$verbose '
+exec /usr/bin/awk -v csv=$csv -v hdr=$hdr -v strict=$strict -v verbose=$verbose '
     BEGIN { ## process optional keys list:
         if ( ARGC > 1 ) {
             okeys[1] = ARGV[1]
