@@ -113,18 +113,6 @@ main () {
     
   # warn "CONTINUING with method $TOB_method"
 
-    ## try to resolve chained methods in case method contains a dot: 
-    local -a chain directive chainpath
-    resolve_chained_methods $TOB_method && {
-        check_chaining_directives
-        local -iA ap ac   # ap is arg pointer, ac is arg count for method
-        parse_chain_args "$@"
-
-        printf "\t%s: (%s)\n" chain "${chain[*]}"  chainpath "${chainpath[*]}"  directive "${directive[*]}"
-        run_chained_methods
-        exit
-    }
-
     ## is method a built-in?
     ## show exported variables as methods
     case $method in

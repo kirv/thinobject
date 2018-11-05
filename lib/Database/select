@@ -1,9 +1,0 @@
-#!/bin/bash
-
-# append terminating semicolon to each argument:
-set "${@/%/;}"
-set "${@/#/select }"
-
-# execute each argument under the select command:
-sqlite3 $TOB_object "$@"
-

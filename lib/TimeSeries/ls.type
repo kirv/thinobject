@@ -1,3 +1,0 @@
-#!/bin/sh
-echo METHOD LS.TYPE
-echo "    " $0 ${FUNCNAME[1]}
