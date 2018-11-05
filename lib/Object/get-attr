@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-
-TOB_get_attr $1 || exit
-
-# test -n "$2" && echo "${attr[$(($2-1))]}" | head -n $2 && exit
-
-for value in "${attr[@]}"; do
-    echo "$value"
-done
