@@ -2,7 +2,7 @@
 
 path=${0%/*}
 
-for f in $(<@order); do 
+for f in $(<@ORDER); do 
     cat $path/$f
 done
 
