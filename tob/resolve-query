@@ -7,14 +7,14 @@ resolve_query() { # use q[], set path, set o beyond path
         return $rtnval
         }
 
-    [[ $o -eq $m ]] && {
+    [[ $o == $m ]] && {
         resolve_anonymous_object
         return
         }
 
-    [[ $path = . && -n "$TOB_search_paths" ]] &&
+    [[ $path == . && -n $TOB_search_paths ]] &&
         apaths=(${TOB_search_paths[@]//:/ })
-    [[ -n "$apaths" ]] || resolve_attr_search_paths $path ||
+    [[ -n $apaths ]] || resolve_attr_search_paths $path ||
         apaths=(.)
     resolve_named_object && {
         [[ -e $object || -L $object ]] || # look for class object ...
@@ -26,8 +26,8 @@ resolve_query() { # use q[], set path, set o beyond path
         }
     apaths=()
 
-    [[ -n "$type" ]] && return
+    [[ -n $type ]] && return
 
-    [[ $o -eq $m ]] &&
+    [[ $o == $m ]] &&
         resolve_anonymous_object
     }

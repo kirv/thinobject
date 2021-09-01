@@ -1,6 +1,6 @@
 resolve-library-type () {
     for lib in "${toblib[@]}"; do
-        [[ -d "$lib" ]] && [[ -d "$lib/$1" ]] && path="$lib/$1" && return
+        [[ -d $lib ]] && [[ -d $lib/$1 ]] && path="$lib/$1" && return
     done 
     return 1
     }

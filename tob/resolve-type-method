@@ -1,6 +1,6 @@
 resolve_type_method() {
     # called with TYPE METHOD, resolve executable method or fail
-    [[ $# = 2 ]] || { $FUNCNAME $1 _default; return; }
+    [[ $# == 2 ]] || { $FUNCNAME $1 _default; return; }
     local type=$1
     local method=$2
     if [[ -d $type ]]; then

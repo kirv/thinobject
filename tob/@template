@@ -14,7 +14,6 @@
 #<resolve-search-paths
 #<resolve-declaration
 #<cull-duplicate-paths
-#<foo
 #<resolve-method
 #<resolve-method-declaration
 #<resolve-type-method

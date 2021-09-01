@@ -6,11 +6,10 @@ TOB_get_symvar () {
         for name in $path/{,.}$1; do
             [[ -L $name && ! -e $name ]] || continue
             value=$(readlink $name)
-            [[ "${value:0:1}" == = ]] || return 2
+            [[ ${value:0:1} == = ]] || return 2
             value=${value:1}
             return
         done
     done
     return 1
-}
-export -f TOB_get_symvar
+} && export -f TOB_get_symvar

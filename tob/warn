@@ -1,11 +1,10 @@
 warn () {
     # synopsis: warn "ONE-LINE-PER-ARGUMENT" -> then output errmsg[] lines
-    [[ -n "$QUIET" ]] && return
-    [[ "$1" == -p ]] && WPAD="$2" && shift 2
-    [[ -n "$VERBOSE" ]] &&
+    [[ -n $QUIET ]] && return
+    [[ $1 == -p ]] && WPAD=$2 && shift 2
+    [[ -n $VERBOSE ]] &&
         printf "?: %s\n" "${errmsg[@]}" >&2
     errmsg=()
     printf "$WPAD%s\n" "$@" >&2
-    }
-export -f warn
+    } && export -f warn
 declare -ax errmsg
