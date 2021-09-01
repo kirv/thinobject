@@ -110,9 +110,9 @@ main () {
     ## is method a built-in?
     ## show exported variables as methods
     case $method in
-        type)           echo $type && exit;;
-        query)          echo $query && exit;;
-        object)         echo $object && exit;;
+        type)           printf "%s\n" "$type" && exit;;
+        query)          printf "%s\n" "$query" && exit;;
+        object)         printf "%s\n" "$object" && exit;;
         envars)         printf "%s\n" "${envars[@]}" && exit;;
         types)          printf "%s\n" "$TOB_types" && exit;;
         search-paths)   printf "%s\n" "${apaths[@]}" && exit;;
