@@ -1,15 +1,13 @@
 TOB_get_symvar () {
     # resolve symvar via 'TOB_search_paths' by name or .name
-    # return value in var 'value', or return false
-    local name path
+    # print value to stdout if a valid symvar, or return false
+    local name path value
     for path in . ${TOB_search_paths//:/ }; do
         for name in $path/{,.}$1; do
             [[ -L $name && ! -e $name ]] || continue
             value=$(readlink $name)
-            [[ ${value:0:1} == = ]] || return 2
-            value=${value:1}
+            [[ ${value:0:1} = = ]] && printf "%s" "${value:1}"
             return
         done
     done
-    return 1
 } && export -f TOB_get_symvar
