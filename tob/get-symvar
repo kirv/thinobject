@@ -1,4 +1,4 @@
-TOB_get_symvar () {
+get-symvar () {
     # resolve symvar via 'TOB_search_paths' by name or .name
     # print value to stdout if a valid symvar, or return false
     local name path value
@@ -10,4 +10,5 @@ TOB_get_symvar () {
             return
         done
     done
-} && export -f TOB_get_symvar
+    return 1
+} && export -f get-symvar
