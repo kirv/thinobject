@@ -21,6 +21,7 @@
 #<TOB-resolve-method
 #<get-symvar
 #<resolve-attribute
+#<get-list
 #<main
 #<call-main
 #<manpage

@@ -1,0 +1,9 @@
+get-list () {
+    # given name, resolve @name and output list of values from it, or return false
+    local name path
+    name=@$1
+    for path in . ${TOB_search_paths//:/ }; do
+        [[ -e $path/$name ]] && printf "%s\n" $(<$path/$name) && return
+    done
+    return 1
+} && export -f get-list
