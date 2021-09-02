@@ -372,6 +372,17 @@ get-symvar () {
     done
     return 1
 } && export -f get-symvar
+resolve-attribute () {
+    # resolve attribute via 'TOB_search_paths' by name or .name
+    # print path to stdout or return false
+    local path name
+    for path in . ${TOB_search_paths//:/ }; do
+        for name in $path/{,.}$1; do
+            [[ -e $name ]] && printf "%s" "$name" && return
+        done
+    done
+    return 1
+} && export -f resolve-attribute
 main () {
   # errmsg+=("$FUNCNAME($*)")
     while [[ ${1:0:1} == - ]]; do
