@@ -378,6 +378,9 @@ get-symvar () {
     fi
     return 1
 } && export -f get-symvar
+set-symvar () {
+    ln -sf "=$2" "$1"
+} && export -f set-symvar
 find-symvars () {
     # resolve symvar names via 'TOB_search_paths' by wildcard/glob pattern
     # print fully qualified names to stdout

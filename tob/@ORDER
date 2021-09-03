@@ -20,6 +20,7 @@ resolve-type-method
 resolve-wrapper-method
 TOB-resolve-method
 get-symvar
+set-symvar
 find-symvars
 resolve-attribute
 get-list
