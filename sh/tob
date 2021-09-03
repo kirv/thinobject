@@ -362,16 +362,34 @@ get-symvar () {
     # resolve symvar via 'TOB_search_paths' by name or .name
     # print value to stdout if a valid symvar, or return false
     local name path value
-    for path in . ${TOB_search_paths//:/ }; do
-        for name in $path/{,.}$1; do
-            [[ -L $name && ! -e $name ]] || continue
-            value=$(readlink $name)
-            [[ ${value:0:1} = = ]] && printf "%s" "${value:1}"
-            return
+    if [[ $1 == ${1#*/} ]]; then
+        for path in ${TOB_search_paths//:/ }; do
+            for name in $path/$1; do
+                [[ -L $name && ! -e $name ]] || continue
+                value=$(readlink $name)
+                [[ ${value:0:1} = = ]] && printf "%s" "${value:1}" && return
+            done
         done
-    done
+    else
+        name=$1
+        [[ -L $name && ! -e $name ]] || return
+        value=$(readlink $name)
+        [[ ${value:0:1} = = ]] && printf "%s" "${value:1}" && return
+    fi
     return 1
 } && export -f get-symvar
+find-symvars () {
+    # resolve symvar names via 'TOB_search_paths' by wildcard/glob pattern
+    # print fully qualified names to stdout
+    local path name
+    shopt -s nullglob
+    for path in ${TOB_search_paths//:/ }; do
+        for name in $path/$1; do
+            [[ -L $name && ! -e $name ]] || continue
+            printf "%s\n" "$name"
+        done
+    done
+} && export -f find-symvars
 resolve-attribute () {
     # resolve attribute pathname via 'TOB_search_paths' and print to stdout, or fail
     local pathname

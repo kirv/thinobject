@@ -1,0 +1,12 @@
+find-symvars () {
+    # resolve symvar names via 'TOB_search_paths' by wildcard/glob pattern
+    # print fully qualified names to stdout
+    local path name
+    shopt -s nullglob
+    for path in ${TOB_search_paths//:/ }; do
+        for name in $path/$1; do
+            [[ -L $name && ! -e $name ]] || continue
+            printf "%s\n" "$name"
+        done
+    done
+} && export -f find-symvars

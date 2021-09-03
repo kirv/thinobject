@@ -2,13 +2,19 @@ get-symvar () {
     # resolve symvar via 'TOB_search_paths' by name or .name
     # print value to stdout if a valid symvar, or return false
     local name path value
-    for path in . ${TOB_search_paths//:/ }; do
-        for name in $path/{,.}$1; do
-            [[ -L $name && ! -e $name ]] || continue
-            value=$(readlink $name)
-            [[ ${value:0:1} = = ]] && printf "%s" "${value:1}"
-            return
+    if [[ $1 == ${1#*/} ]]; then
+        for path in ${TOB_search_paths//:/ }; do
+            for name in $path/$1; do
+                [[ -L $name && ! -e $name ]] || continue
+                value=$(readlink $name)
+                [[ ${value:0:1} = = ]] && printf "%s" "${value:1}" && return
+            done
         done
-    done
+    else
+        name=$1
+        [[ -L $name && ! -e $name ]] || return
+        value=$(readlink $name)
+        [[ ${value:0:1} = = ]] && printf "%s" "${value:1}" && return
+    fi
     return 1
 } && export -f get-symvar
