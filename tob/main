@@ -67,7 +67,7 @@ main () {
     for envarset in "${envars[@]}"; do
         tag= val=
         for word in $envarset; do
-            [[ ${word%%=*} == $word ]] && val+=" $word" && continue
+            [[ ${word%%=*} == "$word" ]] && val+=" $word" && continue
             # word is a tag, so export pending tag if it exists:
             [[ -n $tag && ! -n ${!tag} ]] && {
                 export $tag="$val" ||
