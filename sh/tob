@@ -128,14 +128,8 @@ resolve_path () { # try to resolve path in query, starting at index o
 resolve_anonymous_object () { # try to resolve object type at path
   # errmsg+=("$FUNCNAME($*)")
 
-  # [[ -L $path/^ || -L $path/.^ ]] || {
-  #     errmsg+=("no symlink found: $path/^ or $path/.^")
-  #     return 1
-  #     }
-  # type=($(readlink $path/^ || readlink $path/.^))
-
-    if [[ -L $path/^ || -L $path/.^ ]]; then
-        type=($(readlink $path/^ || readlink $path/.^))
+    if [[ -L $path/^ ]]; then
+        type=($(readlink $path/^))
     else
         type=Directory
     fi
@@ -206,12 +200,11 @@ resolve_attr_search_paths () { # resolve (proto)type(s) into apaths[]
         fi
         apaths+=($path)
         unset 'type'
-        for mixin in $path/{,.}^?*; do # ^Cron, .^settings, etc.
+        for mixin in $path/^?*; do # ^Cron, ^settings, etc.
             [[ -L $mixin ]] && resolve_attr_search_paths $mixin
         done
         [[ -n $1 ]] && type=$1 && shift && continue # ... use arg for type
         [[ -L $path/^ ]] && type=$path/^ && continue
-        [[ -L $path/.^ ]] && type=$path/.^
     done
     [[ -n $apaths[*] ]] || return 1
     }
@@ -236,13 +229,13 @@ resolve_search_paths () { # from (proto)type(s) to types[], apaths[], mpaths[]
             apaths+=($path)
             mpaths+=($path)
         fi
-        for mixin in $path/{,.}^?*; do # ^cron, .^settings, etc.
+        for mixin in $path/^?*; do # ^cron, ^settings, etc.
             [[ -L $mixin ]] || continue
             type=($mixin)
             resolve_search_paths 1
         done
         [[ -n $1 ]] && return 0
-        type=($(readlink $path/^ || readlink $path/.^))
+        type=($(readlink $path/^))
     done
     [[ -n $apaths ]] || return 1
     [[ -n $mpaths ]] || return 2
@@ -253,7 +246,7 @@ resolve_declaration () {
     #   return 1 if no declaration found
     local object=$1 p
     for p in "${apaths[@]}"; do
-        for symtype in $p/$object $p/.$object; do
+        for symtype in $p/$object; do
             [[ -L $symtype && ! -e $symtype ]] || continue
             type=($(readlink $symtype))
             [[ -n $type && ${type:0:1} != '=' ]] && return
@@ -296,7 +289,7 @@ resolve_method_declaration() {
     # look for a declaration of the form: 'method -> Method arg ...' or fail
     # return path in var method_declaration
     for p in ${apaths[@]}; do
-        for mp in $p/$1 $p/.$1; do
+        for mp in $p/$1; do
             [[ -L $mp ]] || continue
             [[ -e $mp ]] && continue
             method_declaration=$mp && return
@@ -322,7 +315,7 @@ resolve_type_method() {
     shopt -s nullglob
     
     # check for mixin type declarations before regular ones
-    for link in $path/^* $path/.^* $path/^ $path/.^; do
+    for link in $path/^* $path/^; do
         # if link is a type declaration, a non-resolving symlink...
         [[ -L $link ]] &&
             [[ ! -e $link ]] && {
@@ -572,9 +565,9 @@ SYNOPSIS
 DESCRIPTION
     Thinobject strives to achieve object oriented programming and data
     management directly on the filesystem, in a language-independent way.
-    Methods are executable programs, written in any language.  Thinobject
-    uses a symlink, .^ or ^, to a type directory (or handler).  Methods
-    and attributes are searched for along the chain of type links.
+    Methods are executable programs, written in any language.  Thinobject uses a
+    symlink, ^, to a type directory (or handler).  Methods and attributes are
+    searched for along the chain of type links.
 
 EXIT VALUE
     Exit value should be 0 if no error occurred, but should have a value
@@ -628,11 +621,9 @@ PROPERTIES
     Special meaning is applied to certain files, as follows:
 
     ^
-    .^
     symlink to the parent type
 
     ^foo
-    .^foo
     symlink to a mixin type
 
 

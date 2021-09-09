@@ -15,12 +15,11 @@ resolve_attr_search_paths () { # resolve (proto)type(s) into apaths[]
         fi
         apaths+=($path)
         unset 'type'
-        for mixin in $path/{,.}^?*; do # ^Cron, .^settings, etc.
+        for mixin in $path/^?*; do # ^Cron, ^settings, etc.
             [[ -L $mixin ]] && resolve_attr_search_paths $mixin
         done
         [[ -n $1 ]] && type=$1 && shift && continue # ... use arg for type
         [[ -L $path/^ ]] && type=$path/^ && continue
-        [[ -L $path/.^ ]] && type=$path/.^
     done
     [[ -n $apaths[*] ]] || return 1
     }

@@ -4,7 +4,7 @@ resolve_declaration () {
     #   return 1 if no declaration found
     local object=$1 p
     for p in "${apaths[@]}"; do
-        for symtype in $p/$object $p/.$object; do
+        for symtype in $p/$object; do
             [[ -L $symtype && ! -e $symtype ]] || continue
             type=($(readlink $symtype))
             [[ -n $type && ${type:0:1} != '=' ]] && return

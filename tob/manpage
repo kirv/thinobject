@@ -9,9 +9,9 @@ SYNOPSIS
 DESCRIPTION
     Thinobject strives to achieve object oriented programming and data
     management directly on the filesystem, in a language-independent way.
-    Methods are executable programs, written in any language.  Thinobject
-    uses a symlink, .^ or ^, to a type directory (or handler).  Methods
-    and attributes are searched for along the chain of type links.
+    Methods are executable programs, written in any language.  Thinobject uses a
+    symlink, ^, to a type directory (or handler).  Methods and attributes are
+    searched for along the chain of type links.
 
 EXIT VALUE
     Exit value should be 0 if no error occurred, but should have a value
@@ -65,11 +65,9 @@ PROPERTIES
     Special meaning is applied to certain files, as follows:
 
     ^
-    .^
     symlink to the parent type
 
     ^foo
-    .^foo
     symlink to a mixin type
 
 

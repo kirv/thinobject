@@ -16,7 +16,7 @@ resolve_type_method() {
     shopt -s nullglob
     
     # check for mixin type declarations before regular ones
-    for link in $path/^* $path/.^* $path/^ $path/.^; do
+    for link in $path/^* $path/^; do
         # if link is a type declaration, a non-resolving symlink...
         [[ -L $link ]] &&
             [[ ! -e $link ]] && {
