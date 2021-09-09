@@ -23,6 +23,7 @@
 #<set-symvar
 #<find-symvars
 #<resolve-attribute
+#<find-type-list-attributes
 #<get-list
 #<main
 #<call-main

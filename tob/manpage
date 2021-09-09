@@ -10,8 +10,8 @@ DESCRIPTION
     Thinobject strives to achieve object oriented programming and data
     management directly on the filesystem, in a language-independent way.
     Methods are executable programs, written in any language.  Thinobject
-    uses a symlink, .^ or ^, to a class directory (or handler).  Methods
-    and attributes are searched for along the chain of class links.
+    uses a symlink, .^ or ^, to a type directory (or handler).  Methods
+    and attributes are searched for along the chain of type links.
 
 EXIT VALUE
     Exit value should be 0 if no error occurred, but should have a value
@@ -53,7 +53,7 @@ BUILT-IN METHODS
         output the object directory path
 
     type
-        output the class hierarchy
+        output the type hierarchy
 
 PROPERTIES
     The thinobject system uses ordinary files and directories in the
@@ -66,11 +66,11 @@ PROPERTIES
 
     ^
     .^
-    symlink to the parent class
+    symlink to the parent type
 
     ^foo
     .^foo
-    symlink to a mixin class
+    symlink to a mixin type
 
 
 SEARCH PATHS
@@ -78,17 +78,17 @@ SEARCH PATHS
     These differ mainly in that methods are not resolved in the object,
     while attributes may be.
 
-    Mixin classes are searched before the parent class, in lexical 
-    order.  Common ancestor classes are searched last. 
+    Mixin types are searched before the parent type, in lexical 
+    order.  Common ancestor types are searched last. 
 
 EXPORTED VARIABLES
     TOB_object -- the object name as passed to the thinob enabler
 
     TOB_method -- the invoked method
 
-    TOB_type -- the nominal class name
+    TOB_type -- the nominal type name
 
-    TOB_class_path -- the class directory or handler path
+    TOB_type_path -- the type directory or handler path
 
     TOB_object_path -- the fully resolved object name
 
@@ -117,7 +117,7 @@ ENVIRONMENT VARIABLES
 SEE ALSO
     tob-new --help
     tob-del --help
-    Ideally, each thinobject class will provide a help method, and a
+    Ideally, each thinobject type will provide a help method, and a
     --help option to each of its methods.
 
 BUGS

@@ -59,10 +59,10 @@ main () {
     export TOB_object=$object
     export TOB_method=$method
     export TOB_type=$type
-    export TOB_class_path
+    export TOB_type_path
     export TOB_caller_path
     export TOB_caller_path_to_object=$TOB_path_to_object
-    [[ -n $class_object ]] && export TOB_class_object=$class_object
+    [[ -n $type_object ]] && export TOB_type_object=$type_object
 
     for envarset in "${envars[@]}"; do
         tag= val=
@@ -121,7 +121,7 @@ main () {
 
     ## check for _default method:
     for path in ${mpaths[@]}; do
-        ## ASSERT: class exists
+        ## ASSERT: type exists
         [[ -e $path/_default ]] && {
             [[ -x $path/_default ]] && {
                 debug "tob: exec $path/_default $TOB_object $TOB_method $*"

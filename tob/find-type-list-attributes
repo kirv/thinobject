@@ -1,0 +1,11 @@
+find-type-list-attributes () {
+    # resolve matching list attributes via tob method paths and print to stdout
+    local path pathname
+    for path in ${TOB_method_paths/:/ }; do
+        for pathname in $path/@$1; do
+            [[ -x $pathname ]] && warn "$FUNCNAME: $pathname is executable"
+            [[ -e $pathname ]] && printf "%s\n" "$pathname"
+        done
+    done
+    return
+} && export -f find-type-list-attributes

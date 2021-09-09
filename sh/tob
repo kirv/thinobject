@@ -402,6 +402,17 @@ resolve-attribute () {
     done
     return 1
 } && export -f resolve-attribute
+find-type-list-attributes () {
+    # resolve matching list attributes via tob method paths and print to stdout
+    local path pathname
+    for path in ${TOB_method_paths/:/ }; do
+        for pathname in $path/@$1; do
+            [[ -x $pathname ]] && warn "$FUNCNAME: $pathname is executable"
+            [[ -e $pathname ]] && printf "%s\n" "$pathname"
+        done
+    done
+    return
+} && export -f find-type-list-attributes
 get-list () {
     # given name, resolve @name and output list of values from it, or return false
     local name path
@@ -472,10 +483,10 @@ main () {
     export TOB_object=$object
     export TOB_method=$method
     export TOB_type=$type
-    export TOB_class_path
+    export TOB_type_path
     export TOB_caller_path
     export TOB_caller_path_to_object=$TOB_path_to_object
-    [[ -n $class_object ]] && export TOB_class_object=$class_object
+    [[ -n $type_object ]] && export TOB_type_object=$type_object
 
     for envarset in "${envars[@]}"; do
         tag= val=
@@ -534,7 +545,7 @@ main () {
 
     ## check for _default method:
     for path in ${mpaths[@]}; do
-        ## ASSERT: class exists
+        ## ASSERT: type exists
         [[ -e $path/_default ]] && {
             [[ -x $path/_default ]] && {
                 debug "tob: exec $path/_default $TOB_object $TOB_method $*"
@@ -562,8 +573,8 @@ DESCRIPTION
     Thinobject strives to achieve object oriented programming and data
     management directly on the filesystem, in a language-independent way.
     Methods are executable programs, written in any language.  Thinobject
-    uses a symlink, .^ or ^, to a class directory (or handler).  Methods
-    and attributes are searched for along the chain of class links.
+    uses a symlink, .^ or ^, to a type directory (or handler).  Methods
+    and attributes are searched for along the chain of type links.
 
 EXIT VALUE
     Exit value should be 0 if no error occurred, but should have a value
@@ -605,7 +616,7 @@ BUILT-IN METHODS
         output the object directory path
 
     type
-        output the class hierarchy
+        output the type hierarchy
 
 PROPERTIES
     The thinobject system uses ordinary files and directories in the
@@ -618,11 +629,11 @@ PROPERTIES
 
     ^
     .^
-    symlink to the parent class
+    symlink to the parent type
 
     ^foo
     .^foo
-    symlink to a mixin class
+    symlink to a mixin type
 
 
 SEARCH PATHS
@@ -630,17 +641,17 @@ SEARCH PATHS
     These differ mainly in that methods are not resolved in the object,
     while attributes may be.
 
-    Mixin classes are searched before the parent class, in lexical 
-    order.  Common ancestor classes are searched last. 
+    Mixin types are searched before the parent type, in lexical 
+    order.  Common ancestor types are searched last. 
 
 EXPORTED VARIABLES
     TOB_object -- the object name as passed to the thinob enabler
 
     TOB_method -- the invoked method
 
-    TOB_type -- the nominal class name
+    TOB_type -- the nominal type name
 
-    TOB_class_path -- the class directory or handler path
+    TOB_type_path -- the type directory or handler path
 
     TOB_object_path -- the fully resolved object name
 
@@ -669,7 +680,7 @@ ENVIRONMENT VARIABLES
 SEE ALSO
     tob-new --help
     tob-del --help
-    Ideally, each thinobject class will provide a help method, and a
+    Ideally, each thinobject type will provide a help method, and a
     --help option to each of its methods.
 
 BUGS
