@@ -68,7 +68,7 @@ resolve_query() { # use q[], set path, set o beyond path
 
     [[ $o == $m ]] &&
         resolve_anonymous_object
-    }
+}
 resolve_path () { # try to resolve path in query, starting at index o
     local -i p=0
 
@@ -154,7 +154,7 @@ resolve-library-type () {
         [[ -d $lib ]] && [[ -d $lib/$1 ]] && path="$lib/$1" && return
     done 
     return 1
-    }
+}
 resolve_attr_search_paths () { # resolve (proto)type(s) into apaths[]
     local path target
     local type=$1 && shift
@@ -197,7 +197,6 @@ resolve_search_paths () { # from (proto)type(s) to types[], apaths[], mpaths[]
         else
             resolve-library-type $type || return 1
             types+=($type)
-            envars+=("${type[*]:1}")
             apaths+=($path)
             mpaths+=($path)
         fi
@@ -211,7 +210,7 @@ resolve_search_paths () { # from (proto)type(s) to types[], apaths[], mpaths[]
     done
     [[ -n $apaths ]] || return 1
     [[ -n $mpaths ]] || return 2
-    }
+}
 resolve_declaration () { 
     #   synopsis: resolve_declaration path object
     #   return 0 if declaration found and type identified
@@ -225,16 +224,16 @@ resolve_declaration () {
         done
     done
     return 1
-    }
+}
 cull_duplicate_paths () {
     local -i i
     local -A unique
-    [[ ${#types[@]} == ${#envars[@]} && ${#types[@]} == ${#mpaths[@]} ]] ||
-        warn "size of types, envars, mpaths differ: ${#types[@]}, ${#envars[@]}, ${#mpaths[@]}"
-    # arrays types, envars, and mpaths are 1:1, so scan types, discard from all
+    [[ ${#types[@]} == ${#mpaths[@]} ]] ||
+        warn "size of types, mpaths differ: ${#types[@]}, ${#mpaths[@]}"
+    # arrays types and mpaths are 1:1, so scan types, discard from all
     for (( i=${#types[@]}-1; i>=0; i-- )); do
         [[ ${unique[${types[i]}]} == 1 ]] &&
-            unset 'types[i]' 'envars[i]' 'mpaths[i]'
+            unset 'types[i]' 'mpaths[i]'
         unique[${types[i]}]=1
     done
     # scan & discard duplicates from apaths, from back to front:
@@ -255,7 +254,7 @@ resolve_method () {
     done
     [[ ${method:0:6} = super. ]] && resolve_method --super ${method:6} && return
     return 1 
-    }
+}
 resolve_type_method() {
     # called with TYPE METHOD, resolve executable method or fail
     [[ $# == 2 ]] || { $FUNCNAME $1 _default; return; }
@@ -288,7 +287,7 @@ resolve_type_method() {
             }
     done
     return 1
-    }
+}
 TOB_resolve_method () {
     # synopsis: TOB_resolve_method [--super] METHOD -> set TOB_method_path
     [[ $1 == --super ]] && super=1 && shift || unset 'super'
@@ -369,7 +368,6 @@ get-list () {
 main () {
     while [[ ${1:0:1} == - ]]; do
         case $1 in 
-        -s)     export "$2" && shift;;
         -h)     echo synopsis: $synopsis; exit;;
         --help) awk '/^NAME$/{ok=1}ok' $0; exit;;
         *)      error -x 1 "unknown option $1";;
@@ -377,7 +375,7 @@ main () {
     done
     init-libraries || exit 37
     local path= object= method= 
-    local -a types=() mpaths=() apaths=() envars=()
+    local -a types=() mpaths=() apaths=()
 
     local -x TOB_caller_path=$PWD
 
@@ -386,17 +384,9 @@ main () {
     local -i o m  # index o points to object, m points to method
     parse_query "$query" || error -x $? parse... 
 
-    resolve_query ||
-        case $? in
-            9)  # try again using method 'default'
-                warn 'trying again'
-                q+=(default) && m+=1
-                resolve_query || error -x $?
-                ;;
-            *)  error -x $?;;
-        esac
+    resolve_query || error -x $?
 
-    types=() mpaths=() apaths=() envars=()
+    types=() mpaths=() apaths=()
 
     save=(${type[@]})
     [[ -n $anonymous ]] && {
@@ -423,31 +413,11 @@ main () {
     export TOB_caller_path_to_object=$TOB_path_to_object
     [[ -n $type_object ]] && export TOB_type_object=$type_object
 
-    for envarset in "${envars[@]}"; do
-        tag= val=
-        for word in $envarset; do
-            [[ ${word%%=*} == "$word" ]] && val+=" $word" && continue
-            # word is a tag, so export pending tag if it exists:
-            [[ -n $tag && ! -n ${!tag} ]] && {
-                export $tag="$val" ||
-                    error -x $? "bad assignment: $tag=$val"
-            }
-            # now parse new tag and val:
-            tag=${word%%=*}
-            val=${word#*=}
-        done
-        [[ -n $tag ]] || continue
-        [[ -n ${!tag} ]] && continue
-        export $tag="$val" ||
-            error -x $? "bad assignment: $tag=$val"
-    done
-
     # create pseudo-arrays for export, with colon as delimiter:
     save_IFS="$IFS" && IFS=:
     export TOB_search_paths="${apaths[*]}"
     export TOB_method_paths="${mpaths[*]}"
     export TOB_types="${types[*]}"
-    export TOB_envars="${envars[*]}"
     IFS="$save_IFS"
     
     resolve_method $TOB_method && {
@@ -489,12 +459,6 @@ EXIT VALUE
     values mean.
 
 OPTIONS
-    -s X
-    export "X", e.g., where X is envar=value, 
-
-    -v
-    turn on verbose output
-
     -m M
     --method M
     apply method M to the following list of objects    

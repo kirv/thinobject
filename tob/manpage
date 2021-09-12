@@ -31,12 +31,6 @@ EXIT VALUE
     values mean.
 
 OPTIONS
-    -s X
-    export "X", e.g., where X is envar=value, 
-
-    -v
-    turn on verbose output
-
     -m M
     --method M
     apply method M to the following list of objects    

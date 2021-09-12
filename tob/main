@@ -1,7 +1,6 @@
 main () {
     while [[ ${1:0:1} == - ]]; do
         case $1 in 
-        -s)     export "$2" && shift;;
         -h)     echo synopsis: $synopsis; exit;;
         --help) awk '/^NAME$/{ok=1}ok' $0; exit;;
         *)      error -x 1 "unknown option $1";;
@@ -9,7 +8,7 @@ main () {
     done
     init-libraries || exit 37
     local path= object= method= 
-    local -a types=() mpaths=() apaths=() envars=()
+    local -a types=() mpaths=() apaths=()
 
     local -x TOB_caller_path=$PWD
 
@@ -18,17 +17,9 @@ main () {
     local -i o m  # index o points to object, m points to method
     parse_query "$query" || error -x $? parse... 
 
-    resolve_query ||
-        case $? in
-            9)  # try again using method 'default'
-                warn 'trying again'
-                q+=(default) && m+=1
-                resolve_query || error -x $?
-                ;;
-            *)  error -x $?;;
-        esac
+    resolve_query || error -x $?
 
-    types=() mpaths=() apaths=() envars=()
+    types=() mpaths=() apaths=()
 
     save=(${type[@]})
     [[ -n $anonymous ]] && {
@@ -55,31 +46,11 @@ main () {
     export TOB_caller_path_to_object=$TOB_path_to_object
     [[ -n $type_object ]] && export TOB_type_object=$type_object
 
-    for envarset in "${envars[@]}"; do
-        tag= val=
-        for word in $envarset; do
-            [[ ${word%%=*} == "$word" ]] && val+=" $word" && continue
-            # word is a tag, so export pending tag if it exists:
-            [[ -n $tag && ! -n ${!tag} ]] && {
-                export $tag="$val" ||
-                    error -x $? "bad assignment: $tag=$val"
-            }
-            # now parse new tag and val:
-            tag=${word%%=*}
-            val=${word#*=}
-        done
-        [[ -n $tag ]] || continue
-        [[ -n ${!tag} ]] && continue
-        export $tag="$val" ||
-            error -x $? "bad assignment: $tag=$val"
-    done
-
     # create pseudo-arrays for export, with colon as delimiter:
     save_IFS="$IFS" && IFS=:
     export TOB_search_paths="${apaths[*]}"
     export TOB_method_paths="${mpaths[*]}"
     export TOB_types="${types[*]}"
-    export TOB_envars="${envars[*]}"
     IFS="$save_IFS"
     
     resolve_method $TOB_method && {

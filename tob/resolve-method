@@ -10,4 +10,4 @@ resolve_method () {
     done
     [[ ${method:0:6} = super. ]] && resolve_method --super ${method:6} && return
     return 1 
-    }
+}

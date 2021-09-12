@@ -15,7 +15,6 @@ resolve_search_paths () { # from (proto)type(s) to types[], apaths[], mpaths[]
         else
             resolve-library-type $type || return 1
             types+=($type)
-            envars+=("${type[*]:1}")
             apaths+=($path)
             mpaths+=($path)
         fi
@@ -29,4 +28,4 @@ resolve_search_paths () { # from (proto)type(s) to types[], apaths[], mpaths[]
     done
     [[ -n $apaths ]] || return 1
     [[ -n $mpaths ]] || return 2
-    }
+}

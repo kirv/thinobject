@@ -30,4 +30,4 @@ resolve_type_method() {
             }
     done
     return 1
-    }
+}
