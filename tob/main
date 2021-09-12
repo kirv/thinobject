@@ -83,11 +83,6 @@ main () {
     IFS="$save_IFS"
     
     resolve_method $TOB_method && {
-        resolve_method_declaration $TOB_method && {
-            resolve_wrapper_method $(readlink $method_declaration) ||
-                error "failed to resolve wrapper method at $method_declaration"
-            exec $wrapper $TOB_method_path "$@" "${wrapper_args[@]}"
-        }
         exec $TOB_method_path "$@"
     }
 }
