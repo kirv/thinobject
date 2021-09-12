@@ -556,24 +556,35 @@ main () {
 main "$@"
 exit
 NAME
-    tob -- parse and resolve object.method, invoke method in object directory
+    tob -- parse and resolve object.method, exec method in object directory
 
 SYNOPSIS
     tob [OPTIONS] object.method [METHOD_OPTIONS] [ARGUMENTS]
     tob -m method [-a arg]... object...
 
 DESCRIPTION
-    Thinobject strives to achieve object oriented programming and data
-    management directly on the filesystem, in a language-independent way.
-    Methods are executable programs, written in any language.  Thinobject uses a
-    symlink, ^, to a type directory (or handler).  Methods and attributes are
-    searched for along the chain of type links.
+    Thinobject aims to achieve object oriented programming and data management
+    directly on the filesystem, in a language-independent way.  Methods are
+    executable programs, written in any language, and found in a type directory
+    resolved symbolically.
+
+    A symlink named ^ identifies the 'type' or 'prototype' of the directory
+    object it is found in.  A 'type link' must not resolve directly in the
+    filesystem, but rather must exist under a path listed in the TOBLIB
+    environment variable.  If the ^ symlink points to an existing directory,
+    then it is a 'prototype link'.
+
+    Type links, resolving only under TOBLIB, can contain methods (executable
+    programs or scripts) and attributes (arbitrary files).  Prototype links,
+    resolving in the filesystem, cannot contain methods, but can contain
+    arbitrary attributes.
+
 
 EXIT VALUE
-    Exit value should be 0 if no error occurred, but should have a value
-    from 101 to 123 if there was an error.  The numbers are assigned
-    sequentially in the tob script, and for now that's the only documentation
-    for what specific values mean.
+    Exit value should be 0 if no error occurred, but should have a value from
+    101 to 123 if there was an error.  The numbers are assigned sequentially in
+    the tob script, and for now that's the only documentation for what specific
+    values mean.
 
 OPTIONS
     -s X
@@ -602,7 +613,12 @@ OPTIONS
     suppress output to stderr on errors
     
 OBJECT CREATION
-    Use tob-new to create objects.
+    Use tob-new to create objects.  Alternatively, create a directory and within
+    it a symlink named ^ to contain the object's type or prototype.  E.g.,
+
+        mkdir foo; ln -s Directory foo/^    ## foo is of type Directory
+        mkdir bar; ln -s ../foo bar/^       ## bar is of prototype foo
+
 
 BUILT-IN METHODS
     path
@@ -612,11 +628,10 @@ BUILT-IN METHODS
         output the type hierarchy
 
 PROPERTIES
-    The thinobject system uses ordinary files and directories in the
-    filesystem, so the content of an object is arbitrary.  It may be
-    convenient/helpful to think of the contents of an object as its
-    ``properties'', if only to distinguish them from otherwise ordinary
-    files (which they really are).
+    The thinobject system uses ordinary files and directories in the filesystem,
+    so the content of an object is arbitrary.  It may be convenient/helpful to
+    think of the contents of an object as its ``properties'', if only to
+    distinguish them from otherwise ordinary files (which they really are).
 
     Special meaning is applied to certain files, as follows:
 
@@ -628,12 +643,12 @@ PROPERTIES
 
 
 SEARCH PATHS
-    tob prepares a search path for methods and one for attributes.
-    These differ mainly in that methods are not resolved in the object,
-    while attributes may be.
+    tob prepares a search path for methods and one for attributes.  These differ
+    mainly in that methods are not resolved in the object, while attributes may
+    be.
 
-    Mixin types are searched before the parent type, in lexical 
-    order.  Common ancestor types are searched last. 
+    Mixin types are searched before the parent type, in lexical order.  Common
+    ancestor types are searched last.
 
 EXPORTED VARIABLES
     TOB_object -- the object name as passed to the thinob enabler
