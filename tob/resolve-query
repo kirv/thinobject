@@ -1,31 +1,5 @@
 resolve_query() { # use q[], set path, set o beyond path
     unset 'anonymous'
-    resolve_path || {
-        rtnval=$?
-        return $rtnval
-        }
-
-    [[ $o == $m ]] && {
-        resolve_anonymous_object
-        return
-        }
-
-    [[ $path == . && -n $TOB_search_paths ]] &&
-        apaths=(${TOB_search_paths[@]//:/ })
-    [[ -n $apaths ]] || resolve_attr_search_paths $path ||
-        apaths=(.)
-    resolve_named_object && {
-        [[ -e $object || -L $object ]] || # look for class object ...
-            for ob in "${apaths[@]/%//${object##*/}}"; do
-                [[ -e $ob || -L $ob ]] || continue
-                class_object=$ob
-                break
-            done
-        }
-    apaths=()
-
-    [[ -n $type ]] && return
-
-    [[ $o == $m ]] &&
-        resolve_anonymous_object
+    resolve_path || return $?
+    [[ $o == $m ]] && resolve_object
 }

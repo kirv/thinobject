@@ -1,4 +1,4 @@
-resolve_anonymous_object () { # try to resolve object type at path
+resolve_object () { # try to resolve object type at path
     type=Directory
     [[ -L $path/^ ]] && type=($(readlink $path/^))
     cd $path || error -x 2 "failed: cd $path/"

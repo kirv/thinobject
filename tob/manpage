@@ -4,7 +4,6 @@ NAME
 
 SYNOPSIS
     tob [OPTIONS] object.method [METHOD_OPTIONS] [ARGUMENTS]
-    tob -m method [-a arg]... object...
 
 DESCRIPTION
     Thinobject aims to achieve object oriented programming and data management
@@ -23,7 +22,6 @@ DESCRIPTION
     resolving in the filesystem, cannot contain methods, but can contain
     arbitrary attributes.
 
-
 EXIT VALUE
     Exit value should be 0 if no error occurred, but should have a value from
     101 to 123 if there was an error.  The numbers are assigned sequentially in
@@ -31,32 +29,16 @@ EXIT VALUE
     values mean.
 
 OPTIONS
-    -m M
-    --method M
-    apply method M to the following list of objects    
-
-    -a ARGS...
-    --arg ARGS...
-    provide arguments; useful in conjunction with the --method option
-
     -h
     --help
     show this help screen (manpage)
 
 OBJECT CREATION
-    Use tob-new to create objects.  Alternatively, create a directory and within
-    it a symlink named ^ to contain the object's type or prototype.  E.g.,
+    Create a directory and within it a symlink named ^ to contain the object's
+    type or prototype.  E.g.,
 
         mkdir foo; ln -s Directory foo/^    ## foo is of type Directory
         mkdir bar; ln -s ../foo bar/^       ## bar is of prototype foo
-
-
-BUILT-IN METHODS
-    path
-        output the object directory path
-
-    type
-        output the type hierarchy
 
 PROPERTIES
     The thinobject system uses ordinary files and directories in the filesystem,
@@ -72,7 +54,6 @@ PROPERTIES
     ^foo
     symlink to a mixin type
 
-
 SEARCH PATHS
     tob prepares a search path for methods and one for attributes.  These differ
     mainly in that methods are not resolved in the object, while attributes may
@@ -82,49 +63,27 @@ SEARCH PATHS
     ancestor types are searched last.
 
 EXPORTED VARIABLES
-    TOB_object -- the object name as passed to the thinob enabler
-
-    TOB_method -- the invoked method
-
-    TOB_type -- the nominal type name
-
-    TOB_type_path -- the type directory or handler path
-
-    TOB_object_path -- the fully resolved object name
-
-    TOB_search_paths -- search paths for object attributes
-
-    TOB_method_paths -- search paths for object methods
-
-    TOB_caller_path
-
-    TOB_caller_path_to_object
-
-    TOB_path_to_object
+    TOB_query                   -- the full query, OBJECT.METHOD
+    TOB_object                  -- the object name as passed to the thinob enabler
+    TOB_method                  -- the invoked method
+    TOB_type                    -- the nominal type name
+    TOB_types                   -- all types
+    TOB_search_paths            -- search paths for object attributes
+    TOB_method_paths            -- search paths for object methods
+    TOB_caller_path             -- PWD for process that called tob
 
 EXPORTED FUNCTIONS
-    TOB_resolve_method
-    TOB_get_attr
-
-   output format is: $TOB_object.$TOB_method: ARGUMENTS...
 
 ENVIRONMENT VARIABLES
     A few variables are checked for:
         QUIET -- suppress output from warn() if set
 
 SEE ALSO
-    tob-new --help
-    tob-del --help
     Ideally, each thinobject type will provide a help method, and a
     --help option to each of its methods.
 
 BUGS
     This is an experimental system.
 
-    Options -q, --quiet, -v, --verbose, --debug are not actually supported
-    at all.  No long options are supported except --help.
-
-    Should document all exit values.
-
 AUTHOR
-    Ken.Irving@alaska.edu (c) 2007-2010
+    Ken.Irving@alaska.edu (c) 2007-2021

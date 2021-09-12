@@ -39,34 +39,8 @@ parse_query() {
 }
 resolve_query() { # use q[], set path, set o beyond path
     unset 'anonymous'
-    resolve_path || {
-        rtnval=$?
-        return $rtnval
-        }
-
-    [[ $o == $m ]] && {
-        resolve_anonymous_object
-        return
-        }
-
-    [[ $path == . && -n $TOB_search_paths ]] &&
-        apaths=(${TOB_search_paths[@]//:/ })
-    [[ -n $apaths ]] || resolve_attr_search_paths $path ||
-        apaths=(.)
-    resolve_named_object && {
-        [[ -e $object || -L $object ]] || # look for class object ...
-            for ob in "${apaths[@]/%//${object##*/}}"; do
-                [[ -e $ob || -L $ob ]] || continue
-                class_object=$ob
-                break
-            done
-        }
-    apaths=()
-
-    [[ -n $type ]] && return
-
-    [[ $o == $m ]] &&
-        resolve_anonymous_object
+    resolve_path || return $?
+    [[ $o == $m ]] && resolve_object
 }
 resolve_path () { # try to resolve path in query, starting at index o
     local -i p=0
@@ -99,7 +73,7 @@ resolve_path () { # try to resolve path in query, starting at index o
     object=${object// /.}
     method="${q[*]:m}"
 }
-resolve_anonymous_object () { # try to resolve object type at path
+resolve_object () { # try to resolve object type at path
     type=Directory
     [[ -L $path/^ ]] && type=($(readlink $path/^))
     cd $path || error -x 2 "failed: cd $path/"
@@ -107,23 +81,6 @@ resolve_anonymous_object () { # try to resolve object type at path
     object=$path
     method="${q[*]:m}"
     method=${method// /.}
-}
-resolve_named_object () { # resolve object and its type, or fail
-    while (( o < m )); do
-        object="${q[*]:o:m-o}"
-        object=${object// /.}
-        resolve_declaration $object || {
-            m+=-1
-            continue
-            }
-        object=$path/$object
-        method="${q[*]:m}"
-        method=${method// /.}
-        return
-    done
-    object="${q[*]:o}"
-    object=${object// /.}
-    return 1
 }
 init-libraries() {
     # set toblib array with possible library locations from TOBLIB or default
@@ -148,31 +105,6 @@ resolve-library-type () {
         [[ -d $lib ]] && [[ -d $lib/$1 ]] && path="$lib/$1" && return
     done 
     return 1
-}
-resolve_attr_search_paths () { # resolve (proto)type(s) into apaths[]
-    local path target
-    local type=$1 && shift
-    shopt -s nullglob
-    while [[ -n $type ]]; do
-        [[ -L $type ]] && {
-            target=($(readlink $type))
-            [[ -d $type && ! -d $target ]] && target=${type%/*}/$target
-            type=$target
-            }
-        if [[ -d $type ]]; then # 'prototype' provides attributes, not methods
-            path=$type
-        else
-            resolve-library-type $type || return 1
-        fi
-        apaths+=($path)
-        unset 'type'
-        for mixin in $path/^?*; do # ^Cron, ^settings, etc.
-            [[ -L $mixin ]] && resolve_attr_search_paths $mixin
-        done
-        [[ -n $1 ]] && type=$1 && shift && continue # ... use arg for type
-        [[ -L $path/^ ]] && type=$path/^ && continue
-    done
-    [[ -n $apaths[*] ]] || return 1
 }
 resolve_search_paths () { # from (proto)type(s) to types[], apaths[], mpaths[]
     local path= target=
@@ -205,20 +137,6 @@ resolve_search_paths () { # from (proto)type(s) to types[], apaths[], mpaths[]
     [[ -n $apaths ]] || return 1
     [[ -n $mpaths ]] || return 2
 }
-resolve_declaration () { 
-    #   synopsis: resolve_declaration path object
-    #   return 0 if declaration found and type identified
-    #   return 1 if no declaration found
-    local object=$1 p
-    for p in "${apaths[@]}"; do
-        for symtype in $p/$object; do
-            [[ -L $symtype && ! -e $symtype ]] || continue
-            type=($(readlink $symtype))
-            [[ -n $type && ${type:0:1} != '=' ]] && return
-        done
-    done
-    return 1
-}
 cull_duplicate_paths () {
     local -i i
     local -A unique
@@ -249,52 +167,6 @@ resolve_method () {
     [[ ${method:0:6} = super. ]] && resolve_method --super ${method:6} && return
     return 1 
 }
-resolve_type_method() {
-    # called with TYPE METHOD, resolve executable method or fail
-    [[ $# == 2 ]] || { $FUNCNAME $1 _default; return; }
-    local type=$1
-    local method=$2
-    if [[ -d $type ]]; then
-        path=$type
-    else
-        resolve-library-type $type || return
-    fi
-
-    # 'path' now points to the method type, and we're done if the method resolves there:
-    [[ -x $path/$method ]] && path=$path/$method && return
-
-    local link
-    shopt -s nullglob
-    
-    # check for mixin type declarations before regular ones
-    for link in $path/^* $path/^; do
-        # if link is a type declaration, a non-resolving symlink...
-        [[ -L $link ]] &&
-            [[ ! -e $link ]] && {
-                $FUNCNAME $(readlink $link) $method
-                return
-                }
-        # if link is prototype declaration...
-        [[ -d $link ]] && {
-            $FUNCNAME $link $method
-            return
-            }
-    done
-    return 1
-}
-TOB_resolve_method () {
-    # synopsis: TOB_resolve_method [--super] METHOD -> set TOB_method_path
-    [[ $1 == --super ]] && super=1 && shift || unset 'super'
-    local method=$1
-    for path in ${TOB_method_paths//:/ }; do
-        [[ -x $path/$method ]] || continue
-        [[ -n $super ]] && unset 'super' && continue
-        TOB_method_path=$path/$method
-        return
-    done
-    [[ ${method:0:6} == super. ]] && TOB_resolve_method --super ${method:6} && return
-    return 1
-} && export -f TOB_resolve_method
 get-symvar () {
     # resolve symvar via 'TOB_search_paths' by name or .name
     # print value to stdout if a valid symvar, or return false
@@ -371,7 +243,7 @@ main () {
     local path= object= method= 
     local -a types=() mpaths=() apaths=()
 
-    local -x TOB_caller_path=$PWD
+    local TOB_caller_path=$PWD
 
     local query="$1" && shift
     local -a q=()
@@ -402,17 +274,14 @@ main () {
     export TOB_object=$object
     export TOB_method=$method
     export TOB_type=$type
-    export TOB_type_path
     export TOB_caller_path
-    export TOB_caller_path_to_object=$TOB_path_to_object
-    [[ -n $type_object ]] && export TOB_type_object=$type_object
 
-    # create pseudo-arrays for export, with colon as delimiter:
-    save_IFS="$IFS" && IFS=:
-    export TOB_search_paths="${apaths[*]}"
-    export TOB_method_paths="${mpaths[*]}"
-    export TOB_types="${types[*]}"
-    IFS="$save_IFS"
+    { # create pseudo-arrays for export, with colon as delimiter:
+        IFS=:
+        export TOB_search_paths="${apaths[*]}"
+        export TOB_method_paths="${mpaths[*]}"
+        export TOB_types="${types[*]}"
+    }
     
     resolve_method $TOB_method && {
         exec $TOB_method_path "$@"
@@ -426,7 +295,6 @@ NAME
 
 SYNOPSIS
     tob [OPTIONS] object.method [METHOD_OPTIONS] [ARGUMENTS]
-    tob -m method [-a arg]... object...
 
 DESCRIPTION
     Thinobject aims to achieve object oriented programming and data management
@@ -445,7 +313,6 @@ DESCRIPTION
     resolving in the filesystem, cannot contain methods, but can contain
     arbitrary attributes.
 
-
 EXIT VALUE
     Exit value should be 0 if no error occurred, but should have a value from
     101 to 123 if there was an error.  The numbers are assigned sequentially in
@@ -453,32 +320,16 @@ EXIT VALUE
     values mean.
 
 OPTIONS
-    -m M
-    --method M
-    apply method M to the following list of objects    
-
-    -a ARGS...
-    --arg ARGS...
-    provide arguments; useful in conjunction with the --method option
-
     -h
     --help
     show this help screen (manpage)
 
 OBJECT CREATION
-    Use tob-new to create objects.  Alternatively, create a directory and within
-    it a symlink named ^ to contain the object's type or prototype.  E.g.,
+    Create a directory and within it a symlink named ^ to contain the object's
+    type or prototype.  E.g.,
 
         mkdir foo; ln -s Directory foo/^    ## foo is of type Directory
         mkdir bar; ln -s ../foo bar/^       ## bar is of prototype foo
-
-
-BUILT-IN METHODS
-    path
-        output the object directory path
-
-    type
-        output the type hierarchy
 
 PROPERTIES
     The thinobject system uses ordinary files and directories in the filesystem,
@@ -494,7 +345,6 @@ PROPERTIES
     ^foo
     symlink to a mixin type
 
-
 SEARCH PATHS
     tob prepares a search path for methods and one for attributes.  These differ
     mainly in that methods are not resolved in the object, while attributes may
@@ -504,49 +354,27 @@ SEARCH PATHS
     ancestor types are searched last.
 
 EXPORTED VARIABLES
-    TOB_object -- the object name as passed to the thinob enabler
-
-    TOB_method -- the invoked method
-
-    TOB_type -- the nominal type name
-
-    TOB_type_path -- the type directory or handler path
-
-    TOB_object_path -- the fully resolved object name
-
-    TOB_search_paths -- search paths for object attributes
-
-    TOB_method_paths -- search paths for object methods
-
-    TOB_caller_path
-
-    TOB_caller_path_to_object
-
-    TOB_path_to_object
+    TOB_query                   -- the full query, OBJECT.METHOD
+    TOB_object                  -- the object name as passed to the thinob enabler
+    TOB_method                  -- the invoked method
+    TOB_type                    -- the nominal type name
+    TOB_types                   -- all types
+    TOB_search_paths            -- search paths for object attributes
+    TOB_method_paths            -- search paths for object methods
+    TOB_caller_path             -- PWD for process that called tob
 
 EXPORTED FUNCTIONS
-    TOB_resolve_method
-    TOB_get_attr
-
-   output format is: $TOB_object.$TOB_method: ARGUMENTS...
 
 ENVIRONMENT VARIABLES
     A few variables are checked for:
         QUIET -- suppress output from warn() if set
 
 SEE ALSO
-    tob-new --help
-    tob-del --help
     Ideally, each thinobject type will provide a help method, and a
     --help option to each of its methods.
 
 BUGS
     This is an experimental system.
 
-    Options -q, --quiet, -v, --verbose, --debug are not actually supported
-    at all.  No long options are supported except --help.
-
-    Should document all exit values.
-
 AUTHOR
-    Ken.Irving@alaska.edu (c) 2007-2010
+    Ken.Irving@alaska.edu (c) 2007-2021
