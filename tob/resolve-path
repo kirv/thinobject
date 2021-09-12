@@ -1,14 +1,11 @@
 resolve_path () { # try to resolve path in query, starting at index o
-  # errmsg+=("$FUNCNAME($*)")
     local -i p=0
 
     while (( o+p < m )); do
         dir="${q[*]:o:p+1}"
         dir=${dir// /.}                 # change "a b" to "a.b"
-      # errmsg+=("    o: $o, p: $p, try: $dir")
         [[ -d $path/$dir ]] && {
             path+=/$dir 
-          # errmsg+=("          path: $path")
             o+=$((p+1))
             p=0 
             continue
@@ -19,12 +16,10 @@ resolve_path () { # try to resolve path in query, starting at index o
 
         [[ -d $path/.$dir ]] && {
             path+=/.$dir 
-          # errmsg+=("          path: $path")
             o+=$((p+1))
             p=0 
             continue
             }
-          # errmsg+=("          ... failed")
         p+=1
 
     done
@@ -33,10 +28,4 @@ resolve_path () { # try to resolve path in query, starting at index o
     object="${q[*]:o}"
     object=${object// /.}
     method="${q[*]:m}"
-  # errmsg+=("    q: ${q[*]:2}")
-  # errmsg+=("    o: $o")
-  # errmsg+=("    m: $m")
-  # errmsg+=("    path: $path")
-  # errmsg+=("    obj.mth: ${q[*]:o:m-o}")
-  # errmsg+=("    method: ${q[*]:m}")
-    }
+}

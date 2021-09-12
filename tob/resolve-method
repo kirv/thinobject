@@ -1,5 +1,4 @@
 resolve_method () {
-  # errmsg+=("$FUNCNAME($*)")
     # SYNOPSIS: resolve_method [--super] METHOD -> set TOB_method_path
     [[ $1 == --super ]] && super=1 && shift || unset 'super'
     local method=$1

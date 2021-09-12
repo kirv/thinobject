@@ -2,4 +2,4 @@ debug () {
     [[ -n $DEBUG ]] || return
     printf "DEBUG:" >&2
     printf " %s\n" "$@" >&2
-    }
+}

@@ -125,7 +125,6 @@ ENVIRONMENT VARIABLES
     A few variables are checked for:
         QUIET -- suppress output from warn() if set
         DEBUG -- output various debugging statements
-        VERBOSE -- output array variable $errmsg contents in warn()
 
 SEE ALSO
     tob-new --help

@@ -1,6 +1,4 @@
 resolve_anonymous_object () { # try to resolve object type at path
-  # errmsg+=("$FUNCNAME($*)")
-
     if [[ -L $path/^ ]]; then
         type=($(readlink $path/^))
     else
@@ -13,4 +11,4 @@ resolve_anonymous_object () { # try to resolve object type at path
     object=$path
     method="${q[*]:m}"
     method=${method// /.}
-    }
+}

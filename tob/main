@@ -1,5 +1,4 @@
 main () {
-  # errmsg+=("$FUNCNAME($*)")
     while [[ ${1:0:1} == - ]]; do
         case $1 in 
         -s)     export "$2" && shift;;
@@ -32,10 +31,6 @@ main () {
         esac
 
   # warn "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method" "ANONYMOUS=$anonymous" "PWD=$PWD"
-
-  # errmsg+=("<<< AFTER resolve_query():"
-  #     "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method"
-  #     "ANONYMOUS=$anonymous" "PWD=$PWD" o=$o m=$m ">>>" )
 
     types=() mpaths=() apaths=() envars=()
 

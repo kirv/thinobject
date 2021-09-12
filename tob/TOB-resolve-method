@@ -10,4 +10,4 @@ TOB_resolve_method () {
     done
     [[ ${method:0:6} == super. ]] && TOB_resolve_method --super ${method:6} && return
     return 1
-    } && export -f TOB_resolve_method
+} && export -f TOB_resolve_method

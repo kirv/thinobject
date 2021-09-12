@@ -22,4 +22,4 @@ resolve_attr_search_paths () { # resolve (proto)type(s) into apaths[]
         [[ -L $path/^ ]] && type=$path/^ && continue
     done
     [[ -n $apaths[*] ]] || return 1
-    }
+}

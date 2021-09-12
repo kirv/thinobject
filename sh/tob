@@ -15,30 +15,24 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 warn () {
-    # synopsis: warn "ONE-LINE-PER-ARGUMENT" -> then output errmsg[] lines
+    # synopsis: warn "OUTPUT-ONE-LINE-PER-ARGUMENT"
     [[ -n $QUIET ]] && return
     [[ $1 == -p ]] && WPAD=$2 && shift 2
-    [[ -n $VERBOSE ]] &&
-        printf "?: %s\n" "${errmsg[@]}" >&2
-    errmsg=()
     printf "$WPAD%s\n" "$@" >&2
-    } && export -f warn
-declare -ax errmsg
+} && export -f warn
 error () {
     # synopsis: error [-x N] OUTPUT_LINE ...
     [[ $1 == -x ]] && x=$2 && shift 2 || x=1
-    errmsg+=("exit $x from $0 ${FUNCNAME[1]}()")
     warn "$@"
     exit $x
-    } && export -f error
+} && export -f error
 debug () {
     [[ -n $DEBUG ]] || return
     printf "DEBUG:" >&2
     printf " %s\n" "$@" >&2
-    }
+}
 parse_query() {
     # synopsis: parse_query QUERY -> set q[], o and m indices
-  # errmsg+=("$FUNCNAME($*)")
     [[ -n $1 ]] ||
         error -x 13 "no object or method specified"
     q[0]=$1
@@ -48,14 +42,11 @@ parse_query() {
     o=2                             # o points to start of parsed query
     m=$((${#q[*]}-1))               # m points to method
     [[ ${q:0:1} == / ]] || path=.
-  # errmsg+=("    $q" "    q[1]: ${q[1]}" "    q[2]: ${q[*]:2}")
-    }
+}
 resolve_query() { # use q[], set path, set o beyond path
-  # errmsg+=("$FUNCNAME($*)")
     unset 'anonymous'
     resolve_path || {
         rtnval=$?
-        errmsg+=("$FUNCNAME(): unable to resolve path for $q")
         return $rtnval
         }
 
@@ -84,16 +75,13 @@ resolve_query() { # use q[], set path, set o beyond path
         resolve_anonymous_object
     }
 resolve_path () { # try to resolve path in query, starting at index o
-  # errmsg+=("$FUNCNAME($*)")
     local -i p=0
 
     while (( o+p < m )); do
         dir="${q[*]:o:p+1}"
         dir=${dir// /.}                 # change "a b" to "a.b"
-      # errmsg+=("    o: $o, p: $p, try: $dir")
         [[ -d $path/$dir ]] && {
             path+=/$dir 
-          # errmsg+=("          path: $path")
             o+=$((p+1))
             p=0 
             continue
@@ -104,12 +92,10 @@ resolve_path () { # try to resolve path in query, starting at index o
 
         [[ -d $path/.$dir ]] && {
             path+=/.$dir 
-          # errmsg+=("          path: $path")
             o+=$((p+1))
             p=0 
             continue
             }
-          # errmsg+=("          ... failed")
         p+=1
 
     done
@@ -118,16 +104,8 @@ resolve_path () { # try to resolve path in query, starting at index o
     object="${q[*]:o}"
     object=${object// /.}
     method="${q[*]:m}"
-  # errmsg+=("    q: ${q[*]:2}")
-  # errmsg+=("    o: $o")
-  # errmsg+=("    m: $m")
-  # errmsg+=("    path: $path")
-  # errmsg+=("    obj.mth: ${q[*]:o:m-o}")
-  # errmsg+=("    method: ${q[*]:m}")
-    }
+}
 resolve_anonymous_object () { # try to resolve object type at path
-  # errmsg+=("$FUNCNAME($*)")
-
     if [[ -L $path/^ ]]; then
         type=($(readlink $path/^))
     else
@@ -140,9 +118,8 @@ resolve_anonymous_object () { # try to resolve object type at path
     object=$path
     method="${q[*]:m}"
     method=${method// /.}
-    }
+}
 resolve_named_object () { # resolve object and its type, or fail
-  # errmsg+=("$FUNCNAME($*)")
     while (( o < m )); do
         object="${q[*]:o:m-o}"
         object=${object// /.}
@@ -158,7 +135,7 @@ resolve_named_object () { # resolve object and its type, or fail
     object="${q[*]:o}"
     object=${object// /.}
     return 1
-    }
+}
 init-libraries() {
     # set toblib array with possible library locations from TOBLIB or default
     # set or reset colon-delimited TOBLIB from toblib array
@@ -207,7 +184,7 @@ resolve_attr_search_paths () { # resolve (proto)type(s) into apaths[]
         [[ -L $path/^ ]] && type=$path/^ && continue
     done
     [[ -n $apaths[*] ]] || return 1
-    }
+}
 resolve_search_paths () { # from (proto)type(s) to types[], apaths[], mpaths[]
     local path= target=
     shopt -s nullglob
@@ -272,7 +249,6 @@ cull_duplicate_paths () {
     done
 }
 resolve_method () {
-  # errmsg+=("$FUNCNAME($*)")
     # SYNOPSIS: resolve_method [--super] METHOD -> set TOB_method_path
     [[ $1 == --super ]] && super=1 && shift || unset 'super'
     local method=$1
@@ -350,7 +326,7 @@ TOB_resolve_method () {
     done
     [[ ${method:0:6} == super. ]] && TOB_resolve_method --super ${method:6} && return
     return 1
-    } && export -f TOB_resolve_method
+} && export -f TOB_resolve_method
 get-symvar () {
     # resolve symvar via 'TOB_search_paths' by name or .name
     # print value to stdout if a valid symvar, or return false
@@ -416,7 +392,6 @@ get-list () {
     return 1
 } && export -f get-list
 main () {
-  # errmsg+=("$FUNCNAME($*)")
     while [[ ${1:0:1} == - ]]; do
         case $1 in 
         -s)     export "$2" && shift;;
@@ -449,10 +424,6 @@ main () {
         esac
 
   # warn "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method" "ANONYMOUS=$anonymous" "PWD=$PWD"
-
-  # errmsg+=("<<< AFTER resolve_query():"
-  #     "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method"
-  #     "ANONYMOUS=$anonymous" "PWD=$PWD" o=$o m=$m ">>>" )
 
     types=() mpaths=() apaths=() envars=()
 
@@ -681,7 +652,6 @@ ENVIRONMENT VARIABLES
     A few variables are checked for:
         QUIET -- suppress output from warn() if set
         DEBUG -- output various debugging statements
-        VERBOSE -- output array variable $errmsg contents in warn()
 
 SEE ALSO
     tob-new --help
