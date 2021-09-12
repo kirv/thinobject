@@ -17,8 +17,7 @@
 warn () {
     # synopsis: warn "OUTPUT-ONE-LINE-PER-ARGUMENT"
     [[ -n $QUIET ]] && return
-    [[ $1 == -p ]] && WPAD=$2 && shift 2
-    printf "$WPAD%s\n" "$@" >&2
+    printf "%s\n" "$@" >&2
 } && export -f warn
 error () {
     # synopsis: error [-x N] OUTPUT_LINE ...
@@ -101,14 +100,9 @@ resolve_path () { # try to resolve path in query, starting at index o
     method="${q[*]:m}"
 }
 resolve_anonymous_object () { # try to resolve object type at path
-    if [[ -L $path/^ ]]; then
-        type=($(readlink $path/^))
-    else
-        type=Directory
-    fi
-
-    cd $path ||
-        error -x 2 "failed: cd $path/"
+    type=Directory
+    [[ -L $path/^ ]] && type=($(readlink $path/^))
+    cd $path || error -x 2 "failed: cd $path/"
     anonymous=1
     object=$path
     method="${q[*]:m}"
