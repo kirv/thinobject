@@ -34,9 +34,6 @@ OPTIONS
     -s X
     export "X", e.g., where X is envar=value, 
 
-    -d
-    turn on debug output
-
     -v
     turn on verbose output
 
@@ -52,10 +49,6 @@ OPTIONS
     --help
     show this help screen (manpage)
 
-    -q
-    --quiet
-    suppress output to stderr on errors
-    
 OBJECT CREATION
     Use tob-new to create objects.  Alternatively, create a directory and within
     it a symlink named ^ to contain the object's type or prototype.  E.g.,
@@ -124,7 +117,6 @@ EXPORTED FUNCTIONS
 ENVIRONMENT VARIABLES
     A few variables are checked for:
         QUIET -- suppress output from warn() if set
-        DEBUG -- output various debugging statements
 
 SEE ALSO
     tob-new --help

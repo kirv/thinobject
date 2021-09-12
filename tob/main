@@ -2,14 +2,12 @@ main () {
     while [[ ${1:0:1} == - ]]; do
         case $1 in 
         -s)     export "$2" && shift;;
-        -d)     DEBUG=1;;
         -h)     echo synopsis: $synopsis; exit;;
         --help) awk '/^NAME$/{ok=1}ok' $0; exit;;
         *)      error -x 1 "unknown option $1";;
         esac && shift
     done
     init-libraries || exit 37
-    [[ -n $DEBUG ]] || alias debug=\#
     local path= object= method= 
     local -a types=() mpaths=() apaths=() envars=()
 
@@ -84,10 +82,6 @@ main () {
     export TOB_envars="${envars[*]}"
     IFS="$save_IFS"
     
-    [[ -n $DEBUG ]] &&
-        warn "PATH=$path" "OBJECT=$object" "TYPE=$type" "METHOD=$method" \
-            TYPES=$TOB_types
-    
     resolve_method $TOB_method && {
         resolve_method_declaration $TOB_method && {
             resolve_wrapper_method $(readlink $method_declaration) ||
@@ -96,32 +90,4 @@ main () {
         }
         exec $TOB_method_path "$@"
     }
-    
-    ## is method a built-in?
-    ## show exported variables as methods
-    case $method in
-        type)           printf "%s\n" "$type" && exit;;
-        query)          printf "%s\n" "$query" && exit;;
-        object)         printf "%s\n" "$object" && exit;;
-        envars)         printf "%s\n" "${envars[@]}" && exit;;
-        types)          printf "%s\n" "$TOB_types" && exit;;
-        search-paths)   printf "%s\n" "${apaths[@]}" && exit;;
-        method-paths)   printf "%s\n" "${mpaths[@]}" && exit;;
-    esac
-
-    ## check for _default method:
-    for path in ${mpaths[@]}; do
-        ## ASSERT: type exists
-        [[ -e $path/_default ]] && {
-            [[ -x $path/_default ]] && {
-                debug "tob: exec $path/_default $TOB_object $TOB_method $*"
-                exec $path/_default $TOB_method "$@"
-            }
-            ## ASSERT: _default exists but is not executable
-            ## maybe it can contain a recipe to be executed?
-            error -x 122 "non-executable _default method found"
-        }
-    done
-    
-    error -x 123 "no method $TOB_method found"
-} # end main()
+}

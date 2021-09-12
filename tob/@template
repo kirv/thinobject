@@ -2,7 +2,6 @@
 #<prelude
 #<warn
 #<error
-#<debug
 #<parse-query
 #<resolve-query
 #<resolve-path
