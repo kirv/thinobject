@@ -1,4 +1,4 @@
-resolve_query() { # use q[], set path, set o beyond path
+resolve_query () { # use q[], set path, set o beyond path
     unset 'anonymous'
     resolve_path || return $?
     [[ $o == $m ]] && resolve_object

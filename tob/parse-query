@@ -1,4 +1,4 @@
-parse_query() {
+parse_query () {
     # synopsis: parse_query QUERY -> set q[], o and m indices
     [[ -n $1 ]] ||
         error -x 13 "no object or method specified"

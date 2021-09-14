@@ -2,11 +2,11 @@
 #<prelude
 #<warn
 #<error
+#<init-libraries
 #<parse-query
 #<resolve-query
 #<resolve-path
 #<resolve-object
-#<init-libraries
 #<resolve-library-type
 #<resolve-search-paths
 #<cull-duplicate-paths
