@@ -1,5 +1,0 @@
-#!/bin/bash
-
-source check-chaining-directives || exit
-
-echo STUB .check-chaining-directives
