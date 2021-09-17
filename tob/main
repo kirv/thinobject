@@ -53,4 +53,13 @@ main () {
     resolve_method $TOB_method && {
         exec $TOB_method_path "$@"
     }
+
+    ## check for _default method:
+    for path in ${mpaths[@]}; do
+        [[ -x $path/_default ]] && {
+            exec $path/_default $TOB_method "$@"
+        }
+    done
+    
+    error -x 123 "no method $TOB_method found"
 }
