@@ -1,114 +1,121 @@
 #!/usr/bin/env bash
 
-method=$1 && shift
-
 ## ob.method did not resolve, so check for indirect method or attribute type:
 
-for p in ${TOB_search_paths//:/ }; do
-    for t in $p/$method $p/.$method; do
-        # thinobject type declaration is symlink, must not exist
-        test -L $t || continue 2
-        test ! -e $t || continue 2
-        T=$(readlink $t)
-        # type declaration is not a symvar, must not have prefix '='
-        test "${T:0:1}" = = && printf "%s\n" "${T:1}" && exit
-        # assert: symlink T does not exist, is not a symvar value
-        # if T rsolves under TOBLIB, then t is a typed attribute
 
+main () {
+    local method path value
+
+    method=$1 && shift
+    
+    ## try to resolve a symbolic symlink, either symvar or method declaration
+    for path in ${TOB_search_paths//:/ }; do
+        [[ -L $path/$method ]] || continue
+        [[ ! -e $path/$method ]] || continue
+        ## target is a symlink with a symbolic value
+        ## if value starts with '=', then it's a symvar, so return symvar value
+        value=$(readlink $path/$method)
+        [[ "${value:0:1}" = = ]] && printf "%s\n" "${value:1}" && return
+
+        # if value rsolves under TOBLIB, then value is a 'typed attribute'
+   
         # type T has to resolve under TOBLIB:
         for lib in ${TOBLIB//:/ }; do
-            test -d $lib/$T/ &&
+            [[ -d $lib/$value/ ]] &&
                 exec tob $method.default "$@"
         done
     done
-done
-
-## look for implicit attribute type via @ or % prefixes or symvar value = prefix
-
-unset property default_handler
-for p in ${TOB_search_paths//:/ }; do
-    test ! -e $p/$method && test -L $p/$method && { # found symvar?
-        property=$p/$method
-        default_handler=symvar
-        break
-        }
-    test -e $p/\@$method && { # found @method
-        property=$p/@$method
-        default_handler=_default-list
-        break
-        }
-    test -e $p/.\@$method && { # found .@method
-        property=$p/.@$method
-        default_handler=_default-list
-        break
-        }
-    test -e $p/\%$method && { # found %method
-        property=$p/%$method
-        default_handler=_default-dict
-        break
-        }
-    test -e $p/.\%$method && { # found .%method
-        property=$p/.%$method
-        default_handler=_default-dict
-        break
-        }
-    test -e $p/\%\@$method && { # found %@method
-        property=$p/%@$method
-        default_handler=_default-dict-list
-        break
-        }
-    test -e $p/.\%\@$method && { # found .%@method
-        property=$p/.%@$method
-        default_handler=_default-dict-list
-        break
-        }
-done
-
-test -n "$property" && {
-    # search for _default-list or _default-dict method:
-    for path in ${TOB_method_paths//:/ }; do
-        test -e $path/$default_handler &&
-            exec $path/$default_handler $property $@ # found & dispatched
+    
+    ## look for implicit attribute type via @ or % prefixes or symvar value = prefix
+    
+    unset property default_handler
+    for p in ${TOB_search_paths//:/ }; do
+        test ! -e $p/$method && test -L $p/$method && { # found symvar?
+            property=$p/$method
+            default_handler=symvar
+            break
+            }
+        test -e $p/\@$method && { # found @method
+            property=$p/@$method
+            default_handler=_default-list
+            break
+            }
+        test -e $p/.\@$method && { # found .@method
+            property=$p/.@$method
+            default_handler=_default-list
+            break
+            }
+        test -e $p/\%$method && { # found %method
+            property=$p/%$method
+            default_handler=_default-dict
+            break
+            }
+        test -e $p/.\%$method && { # found .%method
+            property=$p/.%$method
+            default_handler=_default-dict
+            break
+            }
+        test -e $p/\%\@$method && { # found %@method
+            property=$p/%@$method
+            default_handler=_default-dict-list
+            break
+            }
+        test -e $p/.\%\@$method && { # found .%@method
+            property=$p/.%@$method
+            default_handler=_default-dict-list
+            break
+            }
     done
-
-    ## ASSERT: property was found, but no default handler, so handle inline:
-
-    test $default_handler == _default-list && { # called ob.foo, found @foo...
-        lines="$1"
-        test -z "$lines" &&
-            exec /bin/cat $property
-        exec /usr/bin/perl -e "\$[=1; @r=<>; print @r[$lines]" $property
-        # leaving unreachable stub as documentation...
-        exec STUB echo $property list accessor lines $lines
+    
+    test -n "$property" && {
+        # search for _default-list or _default-dict method:
+        for path in ${TOB_method_paths//:/ }; do
+            test -e $path/$default_handler &&
+                exec $path/$default_handler $property $@ # found & dispatched
+        done
+    
+        ## ASSERT: property was found, but no default handler, so handle inline:
+    
+        test $default_handler == _default-list && { # called ob.foo, found @foo...
+            lines="$1"
+            test -z "$lines" &&
+                exec /bin/cat $property
+            exec /usr/bin/perl -e "\$[=1; @r=<>; print @r[$lines]" $property
+            # leaving unreachable stub as documentation...
+            exec STUB echo $property list accessor lines $lines
+            }
+        
+        test $default_handler == _default-dict && { # called ob.foo, found %foo...
+            keys="$@"
+            test -z "$keys" &&
+                exec /bin/cat $property
+            keys=${keys// /|}
+            exec /usr/bin/awk -v IGNORECASE=1 "\$1~/$keys/" $property
+            exec STUB echo $property dict accessor with keys $keys ${keys// /|}
+            }
+    
+        test $default_handler == _default-dict-list && { # ... found %@foo...
+            keys="$@"
+            test -z "$keys" &&
+                exec /bin/cat $property
+            keys=${keys// /|}
+            exec /usr/bin/awk -v IGNORECASE=1 -v keys="$keys" '
+                NR==1{
+                    while(++i<=NF){
+                        sub($i,"^" i+1 "$",keys)
+                        k[i+1] = $i
+                        }
+                    }
+                NR ~ keys {print k[NR]" = "$0}' $property
+            exec STUB echo $property dict-list accessor with keys $keys ${keys// /|}
+            }
         }
     
-    test $default_handler == _default-dict && { # called ob.foo, found %foo...
-        keys="$@"
-        test -z "$keys" &&
-            exec /bin/cat $property
-        keys=${keys// /|}
-        exec /usr/bin/awk -v IGNORECASE=1 "\$1~/$keys/" $property
-        exec STUB echo $property dict accessor with keys $keys ${keys// /|}
-        }
+    default=${0#*lib/}
+    default=${default//\//.}
+    echo $default: method $method not found for object $TOB_object
+    exit 1
+}
 
-    test $default_handler == _default-dict-list && { # ... found %@foo...
-        keys="$@"
-        test -z "$keys" &&
-            exec /bin/cat $property
-        keys=${keys// /|}
-        exec /usr/bin/awk -v IGNORECASE=1 -v keys="$keys" '
-            NR==1{
-                while(++i<=NF){
-                    sub($i,"^" i+1 "$",keys)
-                    k[i+1] = $i
-                    }
-                }
-            NR ~ keys {print k[NR]" = "$0}' $property
-        exec STUB echo $property dict-list accessor with keys $keys ${keys// /|}
-        }
-    }
+main "$@"
 
-default=${0#*lib/}
-default=${default//\//.}
-echo $default: method $method not found for object $TOB_object
-exit 1
