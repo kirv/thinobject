@@ -1,6 +1,9 @@
 resolve_path () { # try to resolve path in query, starting at index o
     local -i p=0
 
+    warn "$FUNCNAME: q entries: ${#q[@]}"
+    printf >&2 "\t<%s>\n" "${q[@]}"
+
     while (( o+p < m )); do
         dir="${q[*]:o:p+1}"
         dir=${dir// /.}                 # change "a b" to "a.b"
