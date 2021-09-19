@@ -15,15 +15,12 @@ main () {
     local query="$1" && shift
     local -a q=()
     local -i o m  # index o points to object, m points to method
-    warn "DEBUG-0-a"
     parse_query "$query" || error -x $? parse... 
 
-    warn "DEBUG-0-b"
     resolve_query || error -x $?
 
     types=() mpaths=() apaths=()
 
-    warn "DEBUG-0-c"
     save=(${type[@]})
     [[ -n $anonymous ]] && {
         type=(.)
@@ -31,9 +28,7 @@ main () {
         type=(${save[@]})
     }
     resolve_search_paths
-    warn "DEBUG-0-d"
     cull_duplicate_paths
-    warn "DEBUG-0-e"
     type=(${save[@]})
 
     [[ -n $types ]] || {
@@ -56,13 +51,11 @@ main () {
     export TOB_types="${types[*]}"
     IFS="$save_IFS"
 
-    warn "DEBUG-1: look for executable method $method"
     ## look for executable method:
     resolve_method $method && {
         exec $TOB_method_path "$@"
     }
 
-    warn "DEBUG-2: look for symvar $method"
     ## look for symvar $method
     for path in "${apaths[@]}"; do
         [[ -L $path/$method && ! -e $path/$method ]] && {
@@ -71,7 +64,6 @@ main () {
         }
     done
 
-    warn "DEBUG-3: look for list attribute @$method"
     ## look for list attribute @$method:
     for path in "${apaths[@]}"; do
         [[ -e $path/@$method ]] && {
@@ -79,7 +71,6 @@ main () {
         }
     done
     
-    warn "DEBUG-4: look for dictionary attribute %$method"
     ## look for dictionary attribute %$method:
     for path in "${apaths[@]}"; do
         [[ -e $path/%$method ]] && {
@@ -87,7 +78,6 @@ main () {
         }
     done
     
-    warn "DEBUG-5: look for regular file $method"
     ## look for regular file $method:
     for path in "${apaths[@]}"; do
         [[ -e $path/$method ]] && {
@@ -95,6 +85,5 @@ main () {
         }
     done
     
-    warn "DEBUG-6 no method $method found"
     error -x 123 "no method $method found"
 }
