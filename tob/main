@@ -85,5 +85,12 @@ main () {
         }
     done
     
+    ## look for non-resolving symlink $method:
+    for path in "${apaths[@]}"; do
+        [[ -L $path/$method && ! -e $path/$method ]] && {
+            readlink $path/$method && return
+        }
+    done
+    
     error -x 123 "no method $method found"
 }
