@@ -2,4 +2,4 @@ warn () {
     # synopsis: warn "OUTPUT-ONE-LINE-PER-ARGUMENT"
     [[ -n $QUIET ]] && return
     printf "%s\n" "$@" >&2
-} && export -f warn
+}

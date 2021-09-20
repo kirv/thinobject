@@ -6,4 +6,4 @@ resolve-attribute () {
         [[ -e $pathname ]] && printf "%s" "$pathname" && return
     done
     return 1
-} && export -f resolve-attribute
+}

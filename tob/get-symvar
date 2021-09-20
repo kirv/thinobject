@@ -17,4 +17,4 @@ get-symvar () {
         [[ ${value:0:1} = = ]] && printf "%s" "${value:1}" && return
     fi
     return 1
-} && export -f get-symvar
+}

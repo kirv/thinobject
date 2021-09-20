@@ -9,4 +9,4 @@ find-symvars () {
             printf "%s\n" "$name"
         done
     done
-} && export -f find-symvars
+}

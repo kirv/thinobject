@@ -1,3 +1,3 @@
 set-symvar () {
     ln -sf "=$2" "$1"
-} && export -f set-symvar
+}

@@ -3,4 +3,4 @@ error () {
     [[ $1 == -x ]] && x=$2 && shift 2 || x=1
     warn "$@"
     exit $x
-} && export -f error
+}

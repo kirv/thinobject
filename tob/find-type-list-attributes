@@ -8,4 +8,4 @@ find-type-list-attributes () {
         done
     done
     return
-} && export -f find-type-list-attributes
+}

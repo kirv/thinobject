@@ -6,4 +6,4 @@ get-list () {
         [[ -e $path/$name ]] && printf "%s\n" "$(<$path/$name)" && return
     done
     return 1
-} && export -f get-list
+}

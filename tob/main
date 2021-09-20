@@ -51,6 +51,16 @@ main () {
     export TOB_types="${types[*]}"
     IFS="$save_IFS"
 
+    ## export functions
+    export -f warn
+    export -f error
+    export -f get-symvar
+    export -f set-symvar
+    export -f find-symvars
+    export -f resolve-attribute
+    export -f find-type-list-attributes
+    export -f get-list
+
     ## look for executable method:
     resolve_method $method && {
         exec $TOB_method_path "$@"

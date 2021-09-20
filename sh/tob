@@ -18,13 +18,13 @@ warn () {
     # synopsis: warn "OUTPUT-ONE-LINE-PER-ARGUMENT"
     [[ -n $QUIET ]] && return
     printf "%s\n" "$@" >&2
-} && export -f warn
+}
 error () {
     # synopsis: error [-x N] OUTPUT_LINE ...
     [[ $1 == -x ]] && x=$2 && shift 2 || x=1
     warn "$@"
     exit $x
-} && export -f error
+}
 init-libraries () {
     # set toblib array with possible library locations from TOBLIB or default
     # set or reset colon-delimited TOBLIB from toblib array
@@ -180,10 +180,10 @@ get-symvar () {
         [[ ${value:0:1} = = ]] && printf "%s" "${value:1}" && return
     fi
     return 1
-} && export -f get-symvar
+}
 set-symvar () {
     ln -sf "=$2" "$1"
-} && export -f set-symvar
+}
 find-symvars () {
     # resolve symvar names via 'TOB_search_paths' by wildcard/glob pattern
     # print fully qualified names to stdout
@@ -195,7 +195,7 @@ find-symvars () {
             printf "%s\n" "$name"
         done
     done
-} && export -f find-symvars
+}
 resolve-attribute () {
     # resolve attribute pathname via 'TOB_search_paths' and print to stdout, or fail
     local pathname
@@ -204,7 +204,7 @@ resolve-attribute () {
         [[ -e $pathname ]] && printf "%s" "$pathname" && return
     done
     return 1
-} && export -f resolve-attribute
+}
 find-type-list-attributes () {
     # resolve matching list attributes via tob method paths and print to stdout
     local path pathname
@@ -215,7 +215,7 @@ find-type-list-attributes () {
         done
     done
     return
-} && export -f find-type-list-attributes
+}
 get-list () {
     # given name, resolve @name and output list of values from it, or return false
     local name path
@@ -224,7 +224,7 @@ get-list () {
         [[ -e $path/$name ]] && printf "%s\n" "$(<$path/$name)" && return
     done
     return 1
-} && export -f get-list
+}
 main () {
     while [[ ${1:0:1} == - ]]; do
         case $1 in 
@@ -277,6 +277,16 @@ main () {
     export TOB_method_paths="${mpaths[*]}"
     export TOB_types="${types[*]}"
     IFS="$save_IFS"
+
+    ## export functions
+    export -f warn
+    export -f error
+    export -f get-symvar
+    export -f set-symvar
+    export -f find-symvars
+    export -f resolve-attribute
+    export -f find-type-list-attributes
+    export -f get-list
 
     ## look for executable method:
     resolve_method $method && {
