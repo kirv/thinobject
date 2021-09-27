@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+
+## json method: map thinobject to JSON
+
+classify () {
+    local p="$1"
+    if [[ -L $p ]]; then
+        ## symlink could be symvar, type, prototype...
+        value="$(readlink $p)"
+        if [[ ${p:0:1} == ^ ]]; then
+            ## type or prototype
+            if [[ ! -e $p ]]; then
+                types+=($p)
+                values+=[$p]="${value}"
+            elif [[ -d $p ]]; then
+                prototypes+=($p)
+                values+=[$p]="${value}"
+            else
+                ## not sure if this is needed...
+                othertypes+=($p)
+            fi
+        elif [[ ! -e $p ]]; then
+            ## symlink value does not resolve to a file or directory
+            if [[ ${value:0:1} == '=' ]]; then
+                symvars+=($p)
+                values+=[$p]="${value:1}"
+            else
+                declarations+=($p)
+                values+=[$p]="${value:1}"
+            fi
+        else
+            ## symlink points to file or directory that exists
+            if [[ -d $p ]]; then
+                directories+=($p)
+                values+=[$p]="${value}"
+            elif [[ -e $p ]]; then
+                files+=($p)
+                values+=[$p]="${value}"
+            else
+                ## not sure if this is needed...
+                otherlinks+=($p)
+                values+=[$p]="${value}"
+            fi
+        fi
+    elif [[ -f $p ]]; then
+        ## file could be a list, map, regular file, ...
+        if [[ ${p:0:1} == @ ]]; then
+            lists+=($p)
+            values+=[$p]="$(wc -l $p) lines"
+        elif [[ ${p:0:1} == % ]]; then
+            maps+=($p)
+            values+=[$p]="$(wc -l $p) lines"
+        else
+            files+=($p)
+            values+=[$p]="$(wc -l $p) lines"
+        fi
+    fi
+}
+
+output_array () {
+    printf "%s: [ %s ]\n" "$1" "$2"
+}
+
+main () {
+    local -A values
+
+    local -a types
+    local -a prototypes
+    local -a othertypes
+    local -a links
+    local -a symvars
+    local -a declarations
+    local -a directories
+    local -a files
+    local -a otherlinks
+    local -a lists
+    local -a maps
+
+    for p in *; do
+        classify "$p"
+    done
+
+    printf "{\n"
+    
+    output_array "type"         "${#types[@]}"
+    output_array "prototype"    "${#prototypes[@]}"
+    output_array "othertype"    "${#othertypes[@]}"
+    output_array "symlinks"     "${#symlinks[@]}"
+    output_array "declarations" "${#declarations[@]}"
+    output_array "directories"  "${#directories[@]}"
+    output_array "files"        "${#files[@]}"
+    output_array "otherlinks"   "${#otherlinks[@]}"
+    output_array "lists"        "${#lists[@]}"
+    output_array "maps"         "${#maps[@]}"
+    
+
+    printf "}\n"
+
+}
+
+main "$@"
+
