@@ -6,6 +6,7 @@ main () {
         *)      error -x 1 "unknown option $1";;
         esac && shift
     done
+    shopt +s nocasematch
     init-libraries || exit 37
     local path= object= method= 
     local -a types=() mpaths=() apaths=()
@@ -43,25 +44,24 @@ main () {
     export TOB_type=$type
     export TOB_caller_path
 
-    ## create pseudo-arrays for export, with colon as delimiter:
-    save_IFS="$IFS"
+    ## create pseudo-arrays for export, with colon as delimiter, then restore IFS:
     IFS=:
     export TOB_search_paths="${apaths[*]}"
     export TOB_method_paths="${mpaths[*]}"
     export TOB_types="${types[*]}"
-    IFS="$save_IFS"
+    IFS=$' \t\n'
 
-    ## export functions
-    export -f warn
-    export -f error
-    export -f get-symvar
-    export -f set-symvar
-    export -f find-symvars
-    export -f resolve-attribute
-    export -f find-type-list-attributes
-    export -f get-list
+    ## export utility functions
+    export -f warn                      # input: STRING,...     output: strings to stderr
+    export -f error                     # input: STRING,...     output: strings to stderr
+    export -f get-symvar                # input: NAME           output: symvar value
+    export -f set-symvar                # input: NAME VALUE     output: n/a
+    export -f find-symvars              # input: NAME_PATTERN   output: pathnames
+    export -f resolve-attribute         # input: NAME           output: filename
+    export -f find-type-list-attributes # input: NAME_PATTERN   output: pathnames
+    export -f get-list                  # input: NAME           output: file contents
 
-    ## look for executable method:
+    ## look for executable method $method:
     resolve_method $method && {
         exec $TOB_method_path "$@"
     }
