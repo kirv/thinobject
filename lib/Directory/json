@@ -1,102 +1,325 @@
 #!/usr/bin/env bash
 
-## json method: map thinobject to JSON
+## Directory.json method: map thinobject directoryto JSON output
 
 classify () {
     local p="$1"
+    local -i lines
+    local -a split
     if [[ -L $p ]]; then
         ## symlink could be symvar, type, prototype...
         value="$(readlink $p)"
         if [[ ${p:0:1} == ^ ]]; then
             ## type or prototype
             if [[ ! -e $p ]]; then
-                types+=($p)
-                values+=[$p]="${value}"
+                values[$p]="${value}"
+                types+=($p);
             elif [[ -d $p ]]; then
-                prototypes+=($p)
-                values+=[$p]="${value}"
+                values[$p]="${value}"
+                prototypes+=($p);
             else
                 ## not sure if this is needed...
-                othertypes+=($p)
+                values[$p]="${value}"
+                othertypes+=($p);
             fi
         elif [[ ! -e $p ]]; then
             ## symlink value does not resolve to a file or directory
             if [[ ${value:0:1} == '=' ]]; then
-                symvars+=($p)
-                values+=[$p]="${value:1}"
+                if [[ -L ${p%:}/^ ]]; then
+                    ## symvar FOO:, if FOO is a component, is a 'parameters' symvar
+                    values[$p]="${value:1}"
+                    parameters+=($p);
+                else
+                    ## symvars are non-resolving symlinks with '=' prefix on value
+                    values[$p]="${value:1}"
+                    symvars+=($p)
+                    split=(${p//:/ })
+                    ## if split on ':', symvars_map[name]="var1 var2 ..."
+                    ((${#split[@]} == 2)) && {
+                        symvars_map[${split[0]}]+="${split[1]} "
+                    }
+                fi
             else
-                declarations+=($p)
-                values+=[$p]="${value:1}"
+                values[$p]="${value}"
+                declarations+=($p);
             fi
         else
             ## symlink points to file or directory that exists
             if [[ -d $p ]]; then
-                directories+=($p)
-                values+=[$p]="${value}"
+                if [[ -L $p/^ ]]; then
+                    values[$p]="${value}/"
+                    components+=($p);
+                else
+                    values[$p]="${value}/"
+                    directories+=($p);
+                fi
             elif [[ -e $p ]]; then
-                files+=($p)
-                values+=[$p]="${value}"
+                values[$p]="${value}"
+                files+=($p);
             else
                 ## not sure if this is needed...
-                otherlinks+=($p)
-                values+=[$p]="${value}"
+                values[$p]="${value}"
+                otherlinks+=($p);
             fi
         fi
     elif [[ -f $p ]]; then
-        ## file could be a list, map, regular file, ...
+        ## file could be a list, map, regular file, directory, ...
+        lines=$(wc -l < $p)
+        lines=${lines## }
         if [[ ${p:0:1} == @ ]]; then
-            lists+=($p)
-            values+=[$p]="$(wc -l $p) lines"
+            values[$p]="($lines lines)"
+            lists+=($p);
         elif [[ ${p:0:1} == % ]]; then
-            maps+=($p)
-            values+=[$p]="$(wc -l $p) lines"
+            values[$p]="($lines lines)"
+            maps+=($p);
         else
-            files+=($p)
-            values+=[$p]="$(wc -l $p) lines"
+            values[$p]="($lines lines)"
+            files+=($p);
         fi
+
+    elif [[ -d $p ]]; then
+        if [[ -L $p/^ ]]; then
+            values[$p]="./$p/"
+            components+=($p);
+        else
+            values[$p]="./$p/"
+            directories+=($p);
+        fi
+
     fi
 }
 
-output_array () {
-    printf "%s: [ %s ]\n" "$1" "$2"
+output_object () {
+    ## call with: number name string1 string2 ...
+    (( $# < 3 )) && return
+    local -i number=$1
+    local name="$2"
+    local -i n=0
+    local p 
+    open_object  $number "$name" && shift 2
+    for p in "$@"; do
+        output_string_value $n "$p" "${values[$p]}"
+        n+=1
+    done
+    close_object
+}
+
+output_lists () {
+    ## call with: number name list1 list2 ...
+    (( $# < 3 )) && return
+    local -i number=$1 n m
+    local name="$2" p line
+    open_object $number "$name" && shift 2
+    n=0
+    for p in "$@"; do
+        open_array $n "${p#@}"
+        m=0
+        while IFS= read -r line; do
+            ## need to escape any embedded quotes!
+            line=${line//\"/\\\"}
+            output_array_value $m "${line%$'\r'}"
+            m+=1
+        done < "$p"
+        close_array
+        n+=1
+    done
+    close_object
+}
+
+output_symvars () {
+    ## call with: number name symvar1 symvar2 ...
+    (( $# < 3 )) && return
+    local p q x y
+    local -i number=$1 n m
+    local name=$2
+    local -A handled
+    open_object $number "$name" && shift 2
+    n=0
+    for p in "$@"; do
+        x="${p%:*}" # alias
+        y="${p#*:}" # csi109
+        if [[ $p == $x ]]; then
+            output_string_value $n "$p" "${values[$p]}"
+        else
+            if [[ -n ${symvars_map[$x]} ]] && [[ -z ${handled[$x]} ]]; then
+                handled[$x]=1
+                open_object $n "$x"
+                m=0
+                for q in ${symvars_map[$x]}; do
+                    output_string_value $m "$q" "${values[$x:$q]}"
+                    m+=1
+                done
+                close_object
+            fi
+        fi
+        n+=1
+    done
+    close_object
+}
+
+increase_indent() {
+    indent+="$INDENT"
+}
+
+decrease_indent() {
+    indent="${indent%$INDENT}"
+}
+
+open_object() {
+    ## call with: number name
+    local -i number=$1
+    local name="$2"
+    printf "$indent"
+    ((number>0)) && printf ','
+    [[ $name != '' ]] && printf "\"%s\": " "$name"
+    printf "{\n"
+    increase_indent
+}
+
+open_array() {
+    ## call with: number name
+    local -i number=$1
+    local name="$2"
+    printf "$indent"
+    ((number>0)) && printf ','
+    printf "\"%s\": " "$name"
+    printf "[\n"
+    increase_indent
+}
+
+close_object() {
+    decrease_indent
+    printf "%s}\n" "$indent"
+}
+
+close_array() {
+    decrease_indent
+    printf "%s]\n" "$indent"
+}
+
+output_string_value() {
+    ## call with: number string value
+    local -i number=$1
+    local string="$2" value="$3"
+    printf "$indent"
+    ((number>0)) && printf ','
+    printf "\"%s\": \"%s\"\n" "$string" "$value"
+}
+
+output_array_value() {
+        ## call with: number value
+        local -i number=$1
+        local value="$2"
+        printf "$indent"
+        ((number>0)) && printf ','
+        printf "\"%s\"\n" "$value"
 }
 
 main () {
+    local INDENT='  '
+    local p indent=''
+    local -i n
+
     local -A values
+    local -A symvars_map
 
     local -a types
     local -a prototypes
     local -a othertypes
-    local -a links
     local -a symvars
     local -a declarations
+    local -a components
+    local -a parameters
     local -a directories
     local -a files
     local -a otherlinks
     local -a lists
     local -a maps
 
+    while [[ ${1:0:1} == '-' ]]; do
+        case $1 in 
+        -h)             grep -A1 ^SYNOPSIS $0; exit;;
+        --help)         awk '/^NAME$/{ok=1}ok' $0; exit;;
+        -s | --save)    exec 1> JSON.json;;
+        -i | --indent)  INDENT=$2 && shift;;
+        *)              error -x 1 "unknown option $1";;
+        esac && shift
+    done
+
     for p in *; do
         classify "$p"
     done
 
-    printf "{\n"
+    open_object ''
     
-    output_array "type"         "${#types[@]}"
-    output_array "prototype"    "${#prototypes[@]}"
-    output_array "othertype"    "${#othertypes[@]}"
-    output_array "symlinks"     "${#symlinks[@]}"
-    output_array "declarations" "${#declarations[@]}"
-    output_array "directories"  "${#directories[@]}"
-    output_array "files"        "${#files[@]}"
-    output_array "otherlinks"   "${#otherlinks[@]}"
-    output_array "lists"        "${#lists[@]}"
-    output_array "maps"         "${#maps[@]}"
+    n=0
+    output_object   $((n++)) "types"          "${types[@]}"
+    output_object   $((n++)) "prototypes"     "${prototypes[@]}"
+    output_object   $((n++)) "othertypes"     "${othertypes[@]}"
+    output_object   $((n++)) "declarations"   "${declarations[@]}"
+    output_object   $((n++)) "components"     "${components[@]}"
+    output_object   $((n++)) "parameters"     "${parameters[@]}"
+    output_symvars  $((n++)) "symvars"        "${symvars[@]}"
+    output_object   $((n++)) "directories"    "${directories[@]}"
+    output_object   $((n++)) "files"          "${files[@]}"
+    output_object   $((n++)) "otherlinks"     "${otherlinks[@]}"
+    output_lists    $((n++)) "lists"          "${lists[@]}"
+    output_object   $((n++)) "maps"           "${maps[@]}"
     
-
-    printf "}\n"
-
+    close_object
 }
 
 main "$@"
+exit
+NAME
+    Directory.json -- classify directory contents, output JSON
+
+SYNOPSIS
+    json [-i|--indent STRING] [-s|--save] [-h] [--help]
+
+DESCRIPTION
+    Generate JSON output representing the thinobject directory.
+
+    The following object titles are included if present:
+      - types
+      - prototypes
+      - othertypes
+      - declarations
+      - components
+      - parameters
+      - symvars
+      - directories
+      - files
+      - otherlinks
+      - lists
+      - maps
+
+    If symvar names includes a colon, e.g., FOO:BAR, the prefix string (FOO) is
+    output as an object, including a line for each suffix string (BAR).
+
+    List (and map) files are shown in the JSON output with the sigal '@' (or
+    '%') removed.
+    
+OPTIONS
+    -i STRING
+    --indent STRING -- set string value for a single indentation unit
+
+    -s
+    --save          -- redirect output to file "JSON.json"
+
+    -h              -- print one-line synopsis
+
+    --help          -- print this manpage
+
+BUGS
+    - Commas are output before each object for ease of processing.
+
+    - No provision is made to save to other names than "JSON.json".
+
+    - Symvar names with multiple ':'s are not handled specially.
+
+    - Symvar names with trailing ':' are ignored.
+
+AUTHOR
+    Ken Irving ken.irving.ak@gmail.com 2021
 
