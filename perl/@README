@@ -1,0 +1,100 @@
+NAME
+
+ThinObject - Perl extension for the ThinObject system of persistent objects.
+
+SYNOPSIS
+
+  use ThinObject;
+  my $tob = ThinObject->new("path/object");
+  print $tob->ls;
+
+DESCRIPTION
+
+ThinObject is a scheme, a set of conventions, to realize object oriented 
+behaviors on the linux filesystem.  An object is an ordinary file or 
+directory with a so-named hidden dot-file (or directory) storing key 
+object data.
+
+This ThinObject module provides a base object for perl programs, including
+some simple methods.
+
+METHODS
+
+  * new(PATHNAME)
+    create a new object instance in memory, given the pathname of an existing 
+    object
+    
+  * print_debug()
+    print debug string showing base object properties
+    
+  * exists()
+    return true if object exists, or false
+    
+  * ob_type()
+    return object type, FILE or DIRECTORY
+    
+  * tob_type()
+    return dot-object type, FILE or DIRECTORY
+    
+  * name()
+    return object name
+    
+  * path()
+    return object path
+    
+  * list(PROPERTY)
+    return list of entries from property (file) 
+    
+    TODO: support list( PROPERTY, n), where n identifies the nth entry (1 being
+    the first entry), but also a range or list using n..m or n,m,p,q,...
+    
+  * hash(PROPERTY)
+    return hash reference of key=value entries from property (file) 
+    
+    TODO: support hash(PROPERTY, key ) and hash(PROPERTY, key=value)
+    
+  * method_option()
+  * method_option(KEY)
+  * method_option(KEY, VALUE)
+    Reads hash values from class and option properties with the method name
+    following the "%" character.  The first form returns all keys in the
+    hash; the second returns the value of the given key; the last sets the
+    key value and returns it.
+    
+  * auto-generated methods
+    If a property/file name begins with "%" or "@", the hash() or list() method
+    is called by using the name (with the leading "type" character) directly.
+    
+  * ls(OPTIONS)
+    wrap shell C<ls> with options
+    
+  * find(OPTIONS)
+    wrap shell C<find> with options.  Option -exec is not allowed.
+
+TODO
+
+  * has(), or hasa()
+    return list of contained objects, as TYPE NAME
+
+  * has(TYPE), or hasa(TYPE)
+    return list of contained objects of specified TYPE
+
+SEE ALSO
+
+    If you have a mailing list set up for your module, mention it here.
+    
+    http://www.thinobject.org MIGHT be set up as a place to store, discuss,
+    and maintain this system.
+
+AUTHOR
+
+    Ken Irving, E<lt>fnkci@uaf.eduE<gt>
+
+COPYRIGHT AND LICENSE
+
+    Copyright (C) 2006 by Ken Irving
+
+    This library is free software; you can redistribute it and/or modify
+    it under the same terms as Perl itself, either Perl version 5.8.7 or,
+    at your option, any later version of Perl 5 you may have available.
+
